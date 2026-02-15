@@ -1,0 +1,20 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build LP_Server (Debug)",
+            "type": "shell",
+            "command": "xcodebuild",
+            "args": [
+                "-project", "${workspaceFolder}/LP_Server/LP_Server.xcodeproj",
+                "-scheme", "LP_Server",
+                "-configuration", "Debug"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        }
+    ]
+}
