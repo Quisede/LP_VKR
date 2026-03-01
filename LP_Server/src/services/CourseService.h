@@ -11,13 +11,16 @@
 #include "../models/Course.h"
 #include "../models/User.h"
 #include "../repositories/CourseRepository.h"
+#include "../repositories/EnrollmentRepository.h"
 
 class CourseService {
 public:
-    CourseService(CourseRepository& repo);
+    CourseService(CourseRepository& repo, EnrollmentRepository& enrollRepo);
     
     std::vector<Course> getCoursesForUser(int userId, UserRole role);
+    bool enrollStudent(int userId, UserRole role, int courseId);
     
 private:
     CourseRepository& courseRepository;
+    EnrollmentRepository& enrollmentRepository;
 };

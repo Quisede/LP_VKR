@@ -30,3 +30,19 @@ std::vector<Course> InMemoryCourseRepository::getCoursesForTeacher(int teacherId
 std::vector<Course> InMemoryCourseRepository::getAllCourses() {
     return courses;
 }
+
+std::vector<Course> InMemoryCourseRepository::getCoursesByIds(
+    const std::vector<int>& ids) {
+
+    std::vector<Course> result;
+
+    for (const auto& course : courses) {
+        for (int id : ids) {
+            if (course.id == id) {
+                result.push_back(course);
+            }
+        }
+    }
+
+    return result;
+}

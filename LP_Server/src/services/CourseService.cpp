@@ -7,20 +7,45 @@
 
 #include "CourseService.h"
 
-CourseService::CourseService(CourseRepository& repo):
-    courseRepository(repo) {}
+CourseService::CourseService(CourseRepository& repo, EnrollmentRepository& enrollRepo):
+    courseRepository(repo),
+    enrollmentRepository(enrollRepo) {}
 
 std::vector<Course> CourseService::getCoursesForUser(int userId, UserRole role) {
-    switch (role) {
-        case UserRole::Student:
-            return courseRepository.getCoursesForStudent(userId);
+//    switch (role) {
+//        case UserRole::Student:
+//            return courseRepository.getCoursesForStudent(userId);
+//
+//        case UserRole::Teacher:
+//            return courseRepository.getCoursesForTeacher(userId);
+//
+//        case UserRole::Admin:
+//            return courseRepository.getAllCourses();
+//        }
+//
+//        return {};
+    if (role == UserRole::Student) {
+        auto courseIds = enrollmentRepository.getCoursesForStudent(userId);
+        return courseRepository.getCoursesByIds(courseIds); // добавим метод
+    }
 
-        case UserRole::Teacher:
-            return courseRepository.getCoursesForTeacher(userId);
+    if (role == UserRole::Teacher) {
+        return courseRepository.getCoursesForTeacher(userId);
+    }
 
-        case UserRole::Admin:
-            return courseRepository.getAllCourses();
-        }
+    return courseRepository.getAllCourses();
+}
 
-        return {};
+bool CourseService::enrollStudent(int userId,
+                                  UserRole role,
+                                  int courseId) {
+
+    if (role != UserRole::Student)
+        return false;
+
+    if (enrollmentRepository.isEnrolled(userId, courseId))
+        return false;
+
+    enrollmentRepository.enrollStudent(userId, courseId);
+    return true;
 }
