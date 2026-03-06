@@ -19,12 +19,35 @@
 #include "repositories/InMemoryCourseRepository.h"
 #include "controllers/CourseController.h"
 
+#include "repositories/InMemoryEnrollmentRepository.h"
+#include "repositories/InMemoryLessonRepository.h"
+#include "services/LessonService.h"
+#include "controllers/LessonController.h"
+
+#include "repositories/InMemoryMaterialRepository.h"
+#include "services/MaterialService.h"
+#include "controllers/MaterialController.h"
+
 int main() {
     InMemoryUserRepository userRepo; // хранилище пользователей в памяти
     SimplePasswordHasher hasher; // хэшер паролей
     AuthService authService(userRepo, hasher); // сервис аутентификации, принимает зависимости через конструктор
-    InMemoryCourseRepository courseRepo;; // хранилище курсов в памяти
-    CourseService courseService(courseRepo); // сервис аутентификации, принимает зависимости через конструктор
+
+    InMemoryCourseRepository courseRepo; // хранилище курсов в памяти
+    InMemoryEnrollmentRepository enrollRepo; // хранилище связей
+    CourseService courseService(courseRepo, enrollRepo); // сервис аутентификации, принимает зависимости через конструктор
+
+    InMemoryLessonRepository lessonRepo;
+
+    LessonService lessonService(lessonRepo);
+
+    LessonController lessonController(lessonService);
+
+    InMemoryMaterialRepository materialRepo;
+
+    MaterialService materialService(materialRepo);
+
+    MaterialController materialController(materialService);
     
     // тестовый юзер
     authService.registerUser("student1", "12345", UserRole::Student);
@@ -43,6 +66,10 @@ int main() {
     
     // регистрируем новый обработчик курсов в сервере
     courseController.registerRoutes(server);
+
+    lessonController.registerRoutes(server);
+
+    materialController.registerRoutes(server);
     
     std::cout << "Server running on the http://localhost:8080\n";
     

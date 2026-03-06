@@ -1,20 +1,32 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "Build LP_Server (Debug)",
-            "type": "shell",
-            "command": "xcodebuild",
-            "args": [
-                "-project", "${workspaceFolder}/LP_Server/LP_Server.xcodeproj",
-                "-scheme", "LP_Server",
-                "-configuration", "Debug"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "problemMatcher": []
-        }
-    ]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build server",
+      "type": "shell",
+      "command": "clang++",
+      "args": [
+        "-std=c++17",
+        "-I/usr/local/include",          // путь к заголовкам libpq-fe.h (если нужно)
+        "-L/usr/local/lib",              // путь к библиотеке libpq
+        "src/main.cpp",
+        "src/controllers/AuthController.cpp",
+        "src/controllers/CourseController.cpp",
+        "src/controllers/LessonController.cpp",
+        "src/controllers/MaterialController.cpp",
+        "src/services/AuthService.cpp",
+        "src/services/CourseService.cpp",
+        "src/services/LessonService.cpp",
+        "src/services/MaterialService.cpp",
+        "src/repositories/InMemoryCourseRepository.cpp",
+        "src/repositories/InMemoryEnrollmentRepository.cpp",
+        "src/repositories/InMemoryLessonRepository.cpp",
+        "src/repositories/InMemoryMaterialRepository.cpp",
+        "-lpq",                           // линковка с libpq
+        "-o",
+        "server"
+      ],
+      "group": "build"
+    }
+  ]
 }

@@ -31,7 +31,7 @@ std::vector<Course> InMemoryCourseRepository::getAllCourses() {
     return courses;
 }
 
-std::vector<Course> InMemoryCourseRepository::getCoursesByIds(
+std::vector<Course> InMemoryCourseRepository::getCoursesByIds (
     const std::vector<int>& ids) {
 
     std::vector<Course> result;

@@ -60,4 +60,35 @@ void CourseController::registerRoutes(httplib::Server &server) {
         
         res.set_content(response.dump(), "application/json");
     });
+
+    server.Post(R"(/api/courses/(\d+)/enroll)", [this](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_header("X-User-Id") || !req.has_header("X-User-Role")) {
+        // если заголовков нет, то возвращаем ошибку
+        res.status = 401;
+        res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
+        return;
+    }
+
+    int userId = std::stoi(req.get_header_value("X-User-Id"));
+    UserRole role = roleFromString(
+        req.get_header_value("X-User-Role")
+    );
+
+    int courseId = std::stoi(req.matches[1]);
+
+    bool success = courseService.enrollStudent(
+        userId, role, courseId
+    );
+
+    json response;
+
+    if (success) {
+        response["success"] = true;
+    } else {
+        response["success"] = false;
+        response["error"] = "Enrollment failed";
+    }
+
+    res.set_content(response.dump(), "application/json");
+    });
 }

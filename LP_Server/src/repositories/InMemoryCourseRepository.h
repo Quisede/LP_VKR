@@ -17,7 +17,7 @@ public:
     std::vector<Course> getCoursesForStudent(int studentId) override;
     std::vector<Course> getCoursesForTeacher(int teacherId) override;
     std::vector<Course> getAllCourses() override;
-
+    std::vector<Course> getCoursesByIds(const std::vector<int>& ids) override;
 private:
     std::vector<Course> courses;
 };
