@@ -48,4 +48,33 @@ void QuestionController::registerRoutes(httplib::Server& server) {
 
         res.set_content(response.dump(), "application/json");
     });
+
+    server.Post(R"(/api/tests/(\d+)/submit)",
+    [this](const httplib::Request& req, httplib::Response& res) {
+
+        int testId = std::stoi(req.matches[1]);
+
+        auto body = json::parse(req.body);
+
+        std::vector<SubmittedAnswer> answers;
+
+        for (const auto& item : body["answers"]) {
+            answers.push_back({
+                item["questionId"],
+                item["answerId"]
+            });
+        }
+
+        int userId = std::stoi(req.get_header_value("X-User-Id"));
+
+        auto result = questionService.submitTest(userId, testId, answers);
+
+        json response;
+        response["score"] = result.score;
+        response["total"] = result.total;
+        response["percentage"] = result.percentage;
+        response["passed"] = result.passed;
+
+        res.set_content(response.dump(), "application/json");
+    });
 }

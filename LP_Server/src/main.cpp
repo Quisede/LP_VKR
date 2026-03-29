@@ -36,6 +36,10 @@
 #include "services/QuestionService.h"
 #include "controllers/QuestionController.h"
 
+#include "repositories/InMemoryAttemptRepository.h"
+#include "services/AttemptService.h"
+#include "controllers/AttemptController.h"
+
 int main() {
     InMemoryUserRepository userRepo; // хранилище пользователей в памяти
     SimplePasswordHasher hasher; // хэшер паролей
@@ -51,11 +55,17 @@ int main() {
 
     InMemoryQuestionRepository questionRepo;
 
+    InMemoryAttemptRepository attemptRepo;
+
     LessonService lessonService(lessonRepo);
 
     TestService testService(testRepo, enrollRepo);
 
-    QuestionService questionService(questionRepo);
+    QuestionService questionService(questionRepo, attemptRepo);
+
+    AttemptService attemptService(attemptRepo);
+
+    AttemptController attemptController(attemptService);
 
     LessonController lessonController(lessonService);
 
@@ -94,6 +104,8 @@ int main() {
     testController.registerRoutes(server);
 
     questionController.registerRoutes(server);
+
+    attemptController.registerRoutes(server);  
     
     std::cout << "Server running on the http://localhost:8080\n";
     
