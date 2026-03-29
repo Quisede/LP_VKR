@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug server",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/server",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "preLaunchTask": "cmake build",
+      "externalConsole": false,
+      "linux": {
+        "MIMode": "gdb"
+      },
+      "osx": {
+        "MIMode": "lldb"
+      }
+    }
+  ]
+}

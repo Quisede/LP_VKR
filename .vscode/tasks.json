@@ -2,31 +2,64 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "build server",
+      "label": "cmake configure",
       "type": "shell",
-      "command": "clang++",
+      "command": "cmake",
       "args": [
-        "-std=c++17",
-        "-I/usr/local/include",          // путь к заголовкам libpq-fe.h (если нужно)
-        "-L/usr/local/lib",              // путь к библиотеке libpq
-        "src/main.cpp",
-        "src/controllers/AuthController.cpp",
-        "src/controllers/CourseController.cpp",
-        "src/controllers/LessonController.cpp",
-        "src/controllers/MaterialController.cpp",
-        "src/services/AuthService.cpp",
-        "src/services/CourseService.cpp",
-        "src/services/LessonService.cpp",
-        "src/services/MaterialService.cpp",
-        "src/repositories/InMemoryCourseRepository.cpp",
-        "src/repositories/InMemoryEnrollmentRepository.cpp",
-        "src/repositories/InMemoryLessonRepository.cpp",
-        "src/repositories/InMemoryMaterialRepository.cpp",
-        "-lpq",                           // линковка с libpq
-        "-o",
-        "server"
+        "-S",
+        "${workspaceFolder}/LP_Server",
+        "-B",
+        "${workspaceFolder}/build"
       ],
-      "group": "build"
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "cmake build",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build",
+        "${workspaceFolder}/build"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "cmake configure",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "run server",
+      "type": "shell",
+      "command": "${workspaceFolder}/build/server",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "cmake build",
+      "problemMatcher": []
+    },
+    {
+      "label": "clean build directory",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build",
+        "${workspaceFolder}/build",
+        "--target",
+        "clean"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
     }
   ]
 }

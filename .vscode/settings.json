@@ -1,0 +1,9 @@
+{
+  "cmake.sourceDirectory": "${workspaceFolder}/LP_Server",
+  "cmake.buildDirectory": "${workspaceFolder}/build",
+  "cmake.configureOnOpen": true,
+  "cmake.generator": "Unix Makefiles",
+  "cmake.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+  "editor.fontSize": 14
+}

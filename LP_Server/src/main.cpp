@@ -28,6 +28,14 @@
 #include "services/MaterialService.h"
 #include "controllers/MaterialController.h"
 
+#include "repositories/InMemoryTestRepository.h"
+#include "services/TestService.h"
+#include "controllers/TestController.h"
+
+#include "repositories/InMemoryQuestionRepository.h"
+#include "services/QuestionService.h"
+#include "controllers/QuestionController.h"
+
 int main() {
     InMemoryUserRepository userRepo; // хранилище пользователей в памяти
     SimplePasswordHasher hasher; // хэшер паролей
@@ -39,9 +47,21 @@ int main() {
 
     InMemoryLessonRepository lessonRepo;
 
+    InMemoryTestRepository testRepo;
+
+    InMemoryQuestionRepository questionRepo;
+
     LessonService lessonService(lessonRepo);
 
+    TestService testService(testRepo, enrollRepo);
+
+    QuestionService questionService(questionRepo);
+
     LessonController lessonController(lessonService);
+
+    TestController testController(testService);
+
+    QuestionController questionController(questionService);
 
     InMemoryMaterialRepository materialRepo;
 
@@ -70,6 +90,10 @@ int main() {
     lessonController.registerRoutes(server);
 
     materialController.registerRoutes(server);
+
+    testController.registerRoutes(server);
+
+    questionController.registerRoutes(server);
     
     std::cout << "Server running on the http://localhost:8080\n";
     

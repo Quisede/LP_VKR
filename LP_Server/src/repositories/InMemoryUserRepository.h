@@ -12,7 +12,7 @@ class InMemoryUserRepository : public UserRepository {
 public:
     InMemoryUserRepository() = default;
     /* поиск по логину */
-    std::optional<User> findByLogin(const std::string& login) {
+    std::optional<User> findByLogin(const std::string& login) override {
         for(const auto& user : users) {
             if(user.login == login) {
                 return user;
