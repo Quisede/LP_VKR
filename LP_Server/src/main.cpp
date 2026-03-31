@@ -6,6 +6,7 @@
 //
 
 #include <iostream>
+#include <cstdlib>
 #include <libpq-fe.h>
 #include "httplib.h"
 #include "json.hpp"
@@ -36,11 +37,13 @@
 #include "services/QuestionService.h"
 #include "controllers/QuestionController.h"
 
-#include "repositories/InMemoryAttemptRepository.h"
+// #include "repositories/InMemoryAttemptRepository.h"
+#include "repositories/PostgresAttemptRepository.h"
 #include "services/AttemptService.h"
 #include "controllers/AttemptController.h"
 
 int main() {
+    try {
     InMemoryUserRepository userRepo; // хранилище пользователей в памяти
     SimplePasswordHasher hasher; // хэшер паролей
     AuthService authService(userRepo, hasher); // сервис аутентификации, принимает зависимости через конструктор
@@ -55,7 +58,26 @@ int main() {
 
     InMemoryQuestionRepository questionRepo;
 
-    InMemoryAttemptRepository attemptRepo;
+    // InMemoryAttemptRepository attemptRepo;
+    const char* dbHost = std::getenv("PGHOST");
+    const char* dbPort = std::getenv("PGPORT");
+    const char* dbName = std::getenv("PGDATABASE");
+    const char* dbUser = std::getenv("PGUSER");
+    const char* dbPassword = std::getenv("PGPASSWORD");
+    const char* systemUser = std::getenv("USER");
+
+    std::string conninfo = "host=" + std::string(dbHost ? dbHost : "127.0.0.1");
+    conninfo += " port=" + std::string(dbPort ? dbPort : "5432");
+    conninfo += " dbname=" + std::string(dbName ? dbName : "lms");
+    conninfo += " user=" + std::string(dbUser ? dbUser : (systemUser ? systemUser : ""));
+
+    if(dbPassword && std::string(dbPassword).empty() == false) {
+        conninfo += " password=" + std::string(dbPassword);
+    }
+
+    PostgresConnection conn(conninfo);
+
+    PostgresAttemptRepository attemptRepo(conn);
 
     LessonService lessonService(lessonRepo);
 
@@ -111,4 +133,8 @@ int main() {
     
     //слушаем вме сетевые интерфейсы, порт 8080
     server.listen("0.0.0.0", 8080);
+    } catch(const std::exception& ex) {
+        std::cerr << ex.what() << '\n';
+        return 1;
+    }
 }
