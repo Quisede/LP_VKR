@@ -42,22 +42,12 @@
 #include "services/AttemptService.h"
 #include "controllers/AttemptController.h"
 
+#include "repositories/PostgresUserRepository.h"
+#include "repositories/PostgresCourseRepository.h"
+
 int main() {
     try {
-    InMemoryUserRepository userRepo; // хранилище пользователей в памяти
-    SimplePasswordHasher hasher; // хэшер паролей
-    AuthService authService(userRepo, hasher); // сервис аутентификации, принимает зависимости через конструктор
-
-    InMemoryCourseRepository courseRepo; // хранилище курсов в памяти
-    InMemoryEnrollmentRepository enrollRepo; // хранилище связей
-    CourseService courseService(courseRepo, enrollRepo); // сервис аутентификации, принимает зависимости через конструктор
-
-    InMemoryLessonRepository lessonRepo;
-
-    InMemoryTestRepository testRepo;
-
-    InMemoryQuestionRepository questionRepo;
-
+    // InMemoryUserRepository userRepo; // хранилище пользователей в памяти
     // InMemoryAttemptRepository attemptRepo;
     const char* dbHost = std::getenv("PGHOST");
     const char* dbPort = std::getenv("PGPORT");
@@ -76,6 +66,21 @@ int main() {
     }
 
     PostgresConnection conn(conninfo);
+
+    PostgresUserRepository userRepo(conn);
+    
+    SimplePasswordHasher hasher; // хэшер паролей
+    AuthService authService(userRepo, hasher); // сервис аутентификации, принимает зависимости через конструктор
+
+    PostgresCourseRepository courseRepo(conn); // хранилище курсов в памяти
+    InMemoryEnrollmentRepository enrollRepo; // хранилище связей
+    CourseService courseService(courseRepo, enrollRepo); // сервис аутентификации, принимает зависимости через конструктор
+
+    InMemoryLessonRepository lessonRepo;
+
+    InMemoryTestRepository testRepo;
+
+    InMemoryQuestionRepository questionRepo;
 
     PostgresAttemptRepository attemptRepo(conn);
 
