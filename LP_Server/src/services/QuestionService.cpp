@@ -58,7 +58,6 @@ TestResult QuestionService::submitTest(
 
     TestResult result {score, total, percentage, passed};
 
-    // 🔥 ВОТ ЗДЕСЬ вставляется твой код
     Attempt attempt {
         nextId++,
         userId,

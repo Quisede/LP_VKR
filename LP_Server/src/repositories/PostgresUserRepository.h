@@ -1,0 +1,18 @@
+#pragma once
+
+#include "UserRepository.h"
+#include "../database/PostgresConnection.h"
+
+class PostgresUserRepository : public UserRepository {
+    public:
+        PostgresUserRepository(PostgresConnection& conn);
+
+        std::optional<User> findByLogin(const std::string& login) override;
+        bool exists(const std::string& login) override;
+
+        User createUser(const std::string& login,
+                    const std::string& passwordHash,
+                    UserRole role) override;
+    private:
+        PostgresConnection& connection;
+};

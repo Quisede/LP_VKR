@@ -8,17 +8,34 @@
 #pragma once
 
 #include <vector>
+#include <string>
 #include "../models/Course.h"
 #include "../models/User.h"
 #include "../repositories/CourseRepository.h"
 #include "../repositories/EnrollmentRepository.h"
+
+enum class EnrollmentStatus {
+    Success,
+    ForbiddenRole,
+    CourseNotFound,
+    AlreadyEnrolled
+};
+
+struct EnrollmentResult {
+    EnrollmentStatus status;
+    std::string message;
+
+    bool success() const {
+        return status == EnrollmentStatus::Success;
+    }
+};
 
 class CourseService {
 public:
     CourseService(CourseRepository& repo, EnrollmentRepository& enrollRepo);
     
     std::vector<Course> getCoursesForUser(int userId, UserRole role);
-    bool enrollStudent(int userId, UserRole role, int courseId);
+    EnrollmentResult enrollStudent(int userId, UserRole role, int courseId);
     
 private:
     CourseRepository& courseRepository;

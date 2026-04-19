@@ -12,8 +12,13 @@
 
 class CourseRepository {
 public:
-    virtual std::vector<Course> getCoursesForStudent(int studentId) = 0;
+    virtual std::vector<Course> getCoursesForStudent(int userId) = 0;
+
     virtual std::vector<Course> getCoursesForTeacher(int teacherId) = 0;
+
+    virtual std::vector<Course> getCoursesByIds(const std::vector<int>& courseIds) = 0;
+
     virtual std::vector<Course> getAllCourses() = 0;
-    virtual std::vector<Course> getCoursesByIds(const std::vector<int>& ids) = 0;
+
+    virtual ~CourseRepository() = default;
 };

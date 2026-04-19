@@ -36,16 +36,34 @@ std::vector<Course> CourseService::getCoursesForUser(int userId, UserRole role) 
     return courseRepository.getAllCourses();
 }
 
-bool CourseService::enrollStudent(int userId,
-                                  UserRole role,
-                                  int courseId) {
+EnrollmentResult CourseService::enrollStudent(int userId,
+                                              UserRole role,
+                                              int courseId) {
 
-    if (role != UserRole::Student)
-        return false;
+    if (role != UserRole::Student) {
+        return {
+            EnrollmentStatus::ForbiddenRole,
+            "Only students can enroll in courses"
+        };
+    }
 
-    if (enrollmentRepository.isEnrolled(userId, courseId))
-        return false;
+    if (courseRepository.getCoursesByIds({courseId}).empty()) {
+        return {
+            EnrollmentStatus::CourseNotFound,
+            "Course not found"
+        };
+    }
+
+    if (enrollmentRepository.isEnrolled(userId, courseId)) {
+        return {
+            EnrollmentStatus::AlreadyEnrolled,
+            "Student is already enrolled in this course"
+        };
+    }
 
     enrollmentRepository.enrollStudent(userId, courseId);
-    return true;
+    return {
+        EnrollmentStatus::Success,
+        "Student enrolled successfully"
+    };
 }
