@@ -6,10 +6,16 @@
 
 class PostgresAttemptRepository : public AttemptRepository {
     public:
+        // конструктор, который принимает ссылку на объект PostgresConnection для взаимодействия с базой данных
         PostgresAttemptRepository(PostgresConnection& connection);
 
+        // реализация виртуальных методов из AttemptRepository для сохранения попытки и получения попыток для пользователя
         void saveAttempt(const Attempt& attempt) override;
+
+
+        // реализация метода для получения всех попыток, связанных с определенным пользователем, из базы данных
         std::vector<Attempt> getAttemptsForUser(int userId) override;
     private:
+        // ссылка на объект PostgresConnection для выполнения операций с базой данных
         PostgresConnection& connection;
 };

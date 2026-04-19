@@ -20,20 +20,25 @@
 #include "repositories/InMemoryCourseRepository.h"
 #include "controllers/CourseController.h"
 
-#include "repositories/InMemoryEnrollmentRepository.h"
-#include "repositories/InMemoryLessonRepository.h"
+// #include "repositories/InMemoryEnrollmentRepository.h"
+#include "repositories/PostgresEnrollmentRepository.h"
+// #include "repositories/InMemoryLessonRepository.h"
+#include "repositories/PostgresLessonRepository.h"
 #include "services/LessonService.h"
 #include "controllers/LessonController.h"
 
-#include "repositories/InMemoryMaterialRepository.h"
+// #include "repositories/InMemoryMaterialRepository.h"
+#include "repositories/PostgresMaterialRepository.h"
 #include "services/MaterialService.h"
 #include "controllers/MaterialController.h"
 
-#include "repositories/InMemoryTestRepository.h"
+// #include "repositories/InMemoryTestRepository.h"
+#include "repositories/PostgresTestRepository.h"
 #include "services/TestService.h"
 #include "controllers/TestController.h"
 
-#include "repositories/InMemoryQuestionRepository.h"
+// #include "repositories/InMemoryQuestionRepository.h"
+#include "repositories/PostgresQuestionRepository.h"
 #include "services/QuestionService.h"
 #include "controllers/QuestionController.h"
 
@@ -73,14 +78,18 @@ int main() {
     AuthService authService(userRepo, hasher); // сервис аутентификации, принимает зависимости через конструктор
 
     PostgresCourseRepository courseRepo(conn); // хранилище курсов в памяти
-    InMemoryEnrollmentRepository enrollRepo; // хранилище связей
+    // InMemoryEnrollmentRepository enrollRepo; // хранилище связей
+    PostgresEnrollmentRepository enrollRepo(conn);
     CourseService courseService(courseRepo, enrollRepo); // сервис аутентификации, принимает зависимости через конструктор
 
-    InMemoryLessonRepository lessonRepo;
+    // InMemoryLessonRepository lessonRepo;
+    PostgresLessonRepository lessonRepo(conn);
 
-    InMemoryTestRepository testRepo;
+    // InMemoryTestRepository testRepo;
+    PostgresTestRepository testRepo(conn);
 
-    InMemoryQuestionRepository questionRepo;
+    // InMemoryQuestionRepository questionRepo;
+    PostgresQuestionRepository questionRepo((conn));
 
     PostgresAttemptRepository attemptRepo(conn);
 
@@ -100,7 +109,8 @@ int main() {
 
     QuestionController questionController(questionService);
 
-    InMemoryMaterialRepository materialRepo;
+    // InMemoryMaterialRepository materialRepo;
+    PostgresMaterialRepository materialRepo(conn);
 
     MaterialService materialService(materialRepo);
 
