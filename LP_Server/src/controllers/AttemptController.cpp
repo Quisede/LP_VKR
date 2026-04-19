@@ -1,5 +1,5 @@
 #include "AttemptController.h"
-#include "CourseController.h"
+#include "ControllerUtils.h"
 #include "json.hpp"
 
 using json = nlohmann::json;
@@ -7,46 +7,38 @@ using json = nlohmann::json;
 AttemptController::AttemptController(AttemptService& service)
     : attemptService(service) {}
 
-static UserRole roleFromString(const std::string& role) {
-    if(role == "Student") return UserRole::Student;
-    if(role == "Teacher") return UserRole::Teacher;
-    
-    return UserRole::Admin;
-}
-
 void AttemptController::registerRoutes(httplib::Server& server) {
 
     server.Get(R"(/api/users/(\d+)/attempts)",
     [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            int requestedUserId = controller_utils::pathParamInt(req, 1, "userId");
+            int currentUserId = controller_utils::requiredIntHeader(req, "X-User-Id");
+            UserRole role = controller_utils::requiredUserRole(req);
 
-        int requestedUserId = std::stoi(req.matches[1]);
+            auto attempts = attemptService.getAttemptsForUser(
+                currentUserId,
+                role,
+                requestedUserId
+            );
 
-        int currentUserId =
-            std::stoi(req.get_header_value("X-User-Id"));
+            json response;
+            response["attempts"] = json::array();
 
-        UserRole role = roleFromString(
-            req.get_header_value("X-User-Role"));
+            for (const auto& a : attempts) {
 
-        auto attempts = attemptService.getAttemptsForUser(
-            currentUserId,
-            role,
-            requestedUserId
-        );
+                response["attempts"].push_back({
+                    {"testId", a.testId},
+                    {"score", a.score},
+                    {"total", a.total},
+                    {"percentage", a.percentage},
+                    {"passed", a.passed}
+                });
+            }
 
-        json response;
-        response["attempts"] = json::array();
-
-        for (const auto& a : attempts) {
-
-            response["attempts"].push_back({
-                {"testId", a.testId},
-                {"score", a.score},
-                {"total", a.total},
-                {"percentage", a.percentage},
-                {"passed", a.passed}
-            });
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
         }
-
-        res.set_content(response.dump(), "application/json");
     });
 }

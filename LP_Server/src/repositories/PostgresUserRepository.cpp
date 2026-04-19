@@ -1,5 +1,6 @@
 #include "PostgresUserRepository.h"
 #include <libpq-fe.h>
+#include <stdexcept>
 
 PostgresUserRepository::PostgresUserRepository(PostgresConnection& conn) : connection(conn) {}
 
@@ -21,8 +22,9 @@ std::optional<User> PostgresUserRepository::findByLogin(
     );
 
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::string error = PQerrorMessage(connection.get());
         PQclear(res);
-        return std::nullopt;
+        throw std::runtime_error("User select failed: " + error);
     }
 
     if (PQntuples(res) == 0) {

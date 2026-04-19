@@ -6,6 +6,7 @@
 //
 
 #include "AuthController.h"
+#include "ControllerUtils.h"
 #include "json.hpp"
 
 using json = nlohmann::json;
@@ -25,8 +26,8 @@ void AuthController::registerRoutes(httplib::Server &server) {
             /* парсим json-тело запроса */
             auto body = json::parse(req.body);
             
-            std::string login = body["login"];
-            std::string password = body["password"];
+            std::string login = controller_utils::requiredJsonString(body, "login");
+            std::string password = controller_utils::requiredJsonString(body, "password");
             
             /* возвращаем структуру с результатом аутентификации */
             AuthResult result = authService.login(login, password);
@@ -46,11 +47,8 @@ void AuthController::registerRoutes(httplib::Server &server) {
             
             /* ответ клиенту */
             res.set_content(responce.dump(), "application/json");
-        } catch(...) {
-            /* устанавливаем HTTP статус "Bad Request" (400) */
-            res.status = 400;
-            /* Отправляем JSON с сообщением об ошибке */
-            res.set_content("{\"error\":\"Invalid JSON\"}", "application/json");
+        } catch(const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
         }
     });
     
@@ -61,8 +59,8 @@ void AuthController::registerRoutes(httplib::Server &server) {
             /* парсим json-тело запроса */
             auto body = json::parse(req.body);
             
-            std::string login = body["login"];
-            std::string password = body["password"];
+            std::string login = controller_utils::requiredJsonString(body, "login");
+            std::string password = controller_utils::requiredJsonString(body, "password");
             
             /* возвращаем структуру с результатом аутентификации */
             AuthResult result = authService.registerUser(login, password, UserRole::Student);
@@ -82,11 +80,8 @@ void AuthController::registerRoutes(httplib::Server &server) {
             
             /* ответ клиенту */
             res.set_content(responce.dump(), "application/json");
-        } catch(...) {
-            /* устанавливаем HTTP статус "Bad Request" (400) */
-            res.status = 400;
-            /* Отправляем JSON с сообщением об ошибке */
-            res.set_content("{\"error\":\"Invalid JSON\"}", "application/json");
+        } catch(const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
         }
     });
 }

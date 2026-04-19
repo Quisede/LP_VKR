@@ -6,19 +6,13 @@
 //
 
 #include "CourseController.h"
+#include "ControllerUtils.h"
 #include "json.hpp"
 
 using json = nlohmann::json;
 
 CourseController::CourseController(CourseService& service):
     courseService(service) {}
-
-static UserRole roleFromString(const std::string& role) {
-    if(role == "Student") return UserRole::Student;
-    if(role == "Teacher") return UserRole::Teacher;
-    
-    return UserRole::Admin;
-}
 
 void CourseController::registerRoutes(httplib::Server &server) {
     /*
@@ -29,66 +23,62 @@ void CourseController::registerRoutes(httplib::Server &server) {
     
     /* Регистрируем GET запрос на путь /api/courses */
     server.Get("/api/courses", [this](const httplib::Request& req, httplib::Response& res) {
-        
-        /* проверяем наличие кастомных заголовков */
-        if(!req.has_header("X-User-Id") || !req.has_header("X-User-Role")) {
-            /* если заголовков нет то возвращаем ошибку */
-            res.status = 401;
-            res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
-            return;
+        try {
+            int userId = controller_utils::requiredIntHeader(req, "X-User-Id");
+            UserRole role = controller_utils::requiredUserRole(req);
+            
+            auto courses = courseService.getCoursesForUser(userId, role);
+            
+            json response;
+            response["courses"] = json::array();
+            
+            for(const auto& c : courses) {
+                response["courses"].push_back({
+                    {"id", c.id},
+                    {"title", c.title},
+                    {"description", c.description},
+                    {"teacherId", c.teacherId},
+                });
+            }
+            
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
         }
-        
-        int userId = std::stoi(req.get_header_value("X-User-Id"));
-        UserRole role = roleFromString(req.get_header_value("X-User-Role"));
-        
-        auto courses = courseService.getCoursesForUser(userId, role);
-        
-        /* создаем объект JSON */
-        json response;
-        /* создает массив courses в этом объекте */
-        response["courses"] = json::array();
-        /* для каждого курса добавляем объект с полями */
-        
-        for(const auto& c : courses) {
-            response["courses"].push_back({
-                {"id", c.id},
-                {"title", c.title},
-                {"description", c.description},
-                {"teacherId", c.teacherId},
-            });
-        }
-        
-        res.set_content(response.dump(), "application/json");
     });
 
     server.Post(R"(/api/courses/(\d+)/enroll)", [this](const httplib::Request& req, httplib::Response& res) {
-        if (!req.has_header("X-User-Id") || !req.has_header("X-User-Role")) {
-        // если заголовков нет, то возвращаем ошибку
-        res.status = 401;
-        res.set_content("{\"error\":\"Unauthorized\"}", "application/json");
-        return;
-    }
+        try {
+            int userId = controller_utils::requiredIntHeader(req, "X-User-Id");
+            UserRole role = controller_utils::requiredUserRole(req);
+            int courseId = controller_utils::pathParamInt(req, 1, "courseId");
 
-    int userId = std::stoi(req.get_header_value("X-User-Id"));
-    UserRole role = roleFromString(
-        req.get_header_value("X-User-Role")
-    );
+            EnrollmentResult result = courseService.enrollStudent(
+                userId, role, courseId
+            );
 
-    int courseId = std::stoi(req.matches[1]);
+            json response;
+            response["success"] = result.success();
 
-    bool success = courseService.enrollStudent(
-        userId, role, courseId
-    );
+            if (result.success()) {
+                response["message"] = result.message;
+                res.set_content(response.dump(), "application/json");
+                return;
+            }
 
-    json response;
+            response["error"] = result.message;
 
-    if (success) {
-        response["success"] = true;
-    } else {
-        response["success"] = false;
-        response["error"] = "Enrollment failed";
-    }
+            if (result.status == EnrollmentStatus::ForbiddenRole) {
+                res.status = 403;
+            } else if (result.status == EnrollmentStatus::CourseNotFound) {
+                res.status = 404;
+            } else if (result.status == EnrollmentStatus::AlreadyEnrolled) {
+                res.status = 409;
+            }
 
-    res.set_content(response.dump(), "application/json");
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
+        }
     });
 }
