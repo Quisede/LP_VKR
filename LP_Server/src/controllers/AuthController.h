@@ -8,11 +8,12 @@
 #pragma once
 
 #include "../services/AuthService.h"
+#include "../services/JwtService.h"
 #include "httplib.h"
 
 class AuthController {
 public:
-    AuthController(AuthService& authService);
+    AuthController(AuthService& authService, JwtService& jwtService);
     
     void registerRoutes(httplib::Server& server);
     
@@ -20,4 +21,5 @@ public:
     
 private:
     AuthService& authService;
+    JwtService& jwtService;
 };

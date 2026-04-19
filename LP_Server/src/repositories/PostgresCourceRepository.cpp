@@ -1,5 +1,6 @@
 #include "PostgresCourseRepository.h"
 #include <libpq-fe.h>
+#include <stdexcept>
 
 PostgresCourseRepository::PostgresCourseRepository(
     PostgresConnection& conn)
@@ -131,6 +132,63 @@ std::vector<Course> PostgresCourseRepository::getAllCourses() {
         course.description = PQgetvalue(res, i, 2);
         course.teacherId = std::stoi(PQgetvalue(res, i, 3));
         courses.push_back(course);
+    }
+
+    PQclear(res);
+    return courses;
+}
+
+std::vector<Course> PostgresCourseRepository::getCoursesPaged(int userId, const std::string& role, int limit, int offset) {
+
+    std::vector<Course> courses;
+
+    std::string query;
+
+    if (role == "Student") {
+        query =
+            "SELECT c.id, c.title, c.description, c.teacher_id "
+            "FROM courses c "
+            "JOIN enrollments e ON c.id = e.course_id "
+            "WHERE e.student_id = " + std::to_string(userId) + " "
+            "ORDER BY c.id "
+            "LIMIT " + std::to_string(limit) +
+            " OFFSET " + std::to_string(offset);
+    } else if (role == "Teacher") {
+        query =
+            "SELECT id, title, description, teacher_id "
+            "FROM courses "
+            "WHERE teacher_id = " + std::to_string(userId) + " "
+            "ORDER BY id "
+            "LIMIT " + std::to_string(limit) +
+            " OFFSET " + std::to_string(offset);
+    } else {
+        query =
+            "SELECT id, title, description, teacher_id "
+            "FROM courses "
+            "ORDER BY id "
+            "LIMIT " + std::to_string(limit) +
+            " OFFSET " + std::to_string(offset);
+    }
+
+    PGresult* res = PQexec(connection.get(), query.c_str());
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::string error = PQerrorMessage(connection.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to get paged courses: " + error);
+    }
+
+    int rows = PQntuples(res);
+
+    for (int i = 0; i < rows; i++) {
+        Course c;
+
+        c.id = std::stoi(PQgetvalue(res, i, 0));
+        c.title = PQgetvalue(res, i, 1);
+        c.description = PQgetvalue(res, i, 2);
+        c.teacherId = std::stoi(PQgetvalue(res, i, 3));
+
+        courses.push_back(c);
     }
 
     PQclear(res);

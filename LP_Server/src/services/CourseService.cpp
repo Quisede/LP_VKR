@@ -7,6 +7,20 @@
 
 #include "CourseService.h"
 
+namespace {
+
+std::string roleToString(UserRole role) {
+    switch (role) {
+        case UserRole::Student: return "Student";
+        case UserRole::Teacher: return "Teacher";
+        case UserRole::Admin: return "Admin";
+    }
+
+    return "Student";
+}
+
+}
+
 CourseService::CourseService(CourseRepository& repo, EnrollmentRepository& enrollRepo):
     courseRepository(repo),
     enrollmentRepository(enrollRepo) {}
@@ -66,4 +80,11 @@ EnrollmentResult CourseService::enrollStudent(int userId,
         EnrollmentStatus::Success,
         "Student enrolled successfully"
     };
+}
+
+std::vector<Course> CourseService::getCoursesPaged(int userId, UserRole role, int page, int limit) {
+
+    int offset = (page - 1) * limit;
+
+    return courseRepository.getCoursesPaged(userId, roleToString(role), limit, offset);
 }

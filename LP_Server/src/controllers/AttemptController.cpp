@@ -4,8 +4,9 @@
 
 using json = nlohmann::json;
 
-AttemptController::AttemptController(AttemptService& service)
-    : attemptService(service) {}
+AttemptController::AttemptController(AttemptService& service, JwtService& jwtService)
+    : attemptService(service),
+      jwtService(jwtService) {}
 
 void AttemptController::registerRoutes(httplib::Server& server) {
 
@@ -13,12 +14,11 @@ void AttemptController::registerRoutes(httplib::Server& server) {
     [this](const httplib::Request& req, httplib::Response& res) {
         try {
             int requestedUserId = controller_utils::pathParamInt(req, 1, "userId");
-            int currentUserId = controller_utils::requiredIntHeader(req, "X-User-Id");
-            UserRole role = controller_utils::requiredUserRole(req);
+            auto auth = controller_utils::requireAuth(req, jwtService);
 
             auto attempts = attemptService.getAttemptsForUser(
-                currentUserId,
-                role,
+                auth.userId,
+                auth.role,
                 requestedUserId
             );
 

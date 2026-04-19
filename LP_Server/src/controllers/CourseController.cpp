@@ -11,8 +11,9 @@
 
 using json = nlohmann::json;
 
-CourseController::CourseController(CourseService& service):
-    courseService(service) {}
+CourseController::CourseController(CourseService& service, JwtService& jwtService):
+    courseService(service),
+    jwtService(jwtService) {}
 
 void CourseController::registerRoutes(httplib::Server &server) {
     /*
@@ -24,10 +25,15 @@ void CourseController::registerRoutes(httplib::Server &server) {
     /* Регистрируем GET запрос на путь /api/courses */
     server.Get("/api/courses", [this](const httplib::Request& req, httplib::Response& res) {
         try {
-            int userId = controller_utils::requiredIntHeader(req, "X-User-Id");
-            UserRole role = controller_utils::requiredUserRole(req);
+            auto auth = controller_utils::requireAuth(req, jwtService);
+            int page = controller_utils::optionalQueryInt(req, "page", 1, 1, 100000);
+            int limit = controller_utils::optionalQueryInt(req, "limit", 10, 1, 100);
             
-            auto courses = courseService.getCoursesForUser(userId, role);
+            auto allCourses = courseService.getCoursesForUser(auth.userId, auth.role);
+            auto courses = courseService.getCoursesPaged(auth.userId, auth.role, page, limit);
+
+            int total = static_cast<int>(allCourses.size());
+            int totalPages = total == 0 ? 0 : (total + limit - 1) / limit;
             
             json response;
             response["courses"] = json::array();
@@ -40,6 +46,13 @@ void CourseController::registerRoutes(httplib::Server &server) {
                     {"teacherId", c.teacherId},
                 });
             }
+
+            response["pagination"] = {
+                {"page", page},
+                {"limit", limit},
+                {"total", total},
+                {"totalPages", totalPages}
+            };
             
             res.set_content(response.dump(), "application/json");
         } catch (const std::exception& ex) {
@@ -49,12 +62,11 @@ void CourseController::registerRoutes(httplib::Server &server) {
 
     server.Post(R"(/api/courses/(\d+)/enroll)", [this](const httplib::Request& req, httplib::Response& res) {
         try {
-            int userId = controller_utils::requiredIntHeader(req, "X-User-Id");
-            UserRole role = controller_utils::requiredUserRole(req);
+            auto auth = controller_utils::requireAuth(req, jwtService);
             int courseId = controller_utils::pathParamInt(req, 1, "courseId");
 
             EnrollmentResult result = courseService.enrollStudent(
-                userId, role, courseId
+                auth.userId, auth.role, courseId
             );
 
             json response;

@@ -46,3 +46,26 @@ std::vector<Course> InMemoryCourseRepository::getCoursesByIds(
 
     return result;
 }
+
+std::vector<Course> InMemoryCourseRepository::getCoursesPaged(
+    int userId,
+    const std::string& role,
+    int limit,
+    int offset) {
+    std::vector<Course> availableCourses;
+
+    if (role == "Teacher") {
+        availableCourses = getCoursesForTeacher(userId);
+    } else {
+        availableCourses = getAllCourses();
+    }
+
+    std::vector<Course> page;
+    int total = static_cast<int>(availableCourses.size());
+
+    for (int i = offset; i < offset + limit && i < total; ++i) {
+        page.push_back(availableCourses[i]);
+    }
+
+    return page;
+}

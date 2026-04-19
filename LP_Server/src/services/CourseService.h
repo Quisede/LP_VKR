@@ -36,6 +36,7 @@ public:
     
     std::vector<Course> getCoursesForUser(int userId, UserRole role);
     EnrollmentResult enrollStudent(int userId, UserRole role, int courseId);
+    std::vector<Course> getCoursesPaged(int userId, UserRole role, int page, int limit);
     
 private:
     CourseRepository& courseRepository;

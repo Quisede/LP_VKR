@@ -11,6 +11,7 @@ public:
     std::vector<Course> getCoursesForTeacher(int teacherId) override;
     std::vector<Course> getCoursesByIds(const std::vector<int>& courseIds) override;
     std::vector<Course> getAllCourses() override;
+    std::vector<Course> getCoursesPaged(int userId, const std::string& role, int limit, int offset) override;
 
 private:
     PostgresConnection& connection;

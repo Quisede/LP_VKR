@@ -11,8 +11,9 @@
 
 using json = nlohmann::json;
 
-AuthController::AuthController(AuthService& authService):
-    authService(authService) {}
+AuthController::AuthController(AuthService& authService, JwtService& jwtService):
+    authService(authService),
+    jwtService(jwtService) {}
 
 void AuthController::registerRoutes(httplib::Server &server) {
     /*
@@ -37,9 +38,13 @@ void AuthController::registerRoutes(httplib::Server &server) {
             
             /* формирование json-ответа в зависимости от успешности аутентификации */
             if(result.success) {
+                std::string role = roleToString(result.role);
+                std::string token = jwtService.generateToken(result.userId, role);
+
                 responce["success"] = true;
                 responce["userId"] = result.userId;
-                responce["role"] = roleToString(result.role);
+                responce["role"] = role;
+                responce["token"] = token;
             } else {
                 responce["success"] = false;
                 responce["error"] = result.errorMessage;
@@ -70,9 +75,13 @@ void AuthController::registerRoutes(httplib::Server &server) {
             
             /* формирование json-ответа в зависимости от успешности аутентификации */
             if(result.success) {
+                std::string role = "Student";
+                std::string token = jwtService.generateToken(result.userId, role);
+
                 responce["success"] = true;
                 responce["userId"] = result.userId;
-                responce["role"] = "Student"; // ставим студента по дефолт, преподам аккаунты будет создавать админ
+                responce["role"] = role;
+                responce["token"] = token;
             } else {
                 responce["success"] = false;
                 responce["error"] = result.errorMessage;

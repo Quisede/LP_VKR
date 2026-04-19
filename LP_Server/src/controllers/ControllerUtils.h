@@ -3,6 +3,7 @@
 #include "httplib.h"
 #include "json.hpp"
 #include "../models/User.h"
+#include "../services/JwtService.h"
 #include <stdexcept>
 #include <string>
 
@@ -20,6 +21,11 @@ public:
 
 private:
     int statusCode;
+};
+
+struct AuthContext {
+    int userId;
+    UserRole role;
 };
 
 // Отправляет ошибки в едином JSON-формате: {"error":"..."}.
@@ -50,6 +56,28 @@ inline int pathParamInt(const httplib::Request& req, size_t index, const std::st
         throw std::invalid_argument("Missing path parameter: " + fieldName);
     }
     return parseInt(req.matches[index], fieldName);
+}
+
+// Читает необязательный query-параметр с числом, например ?page=2&limit=10.
+inline int optionalQueryInt(
+    const httplib::Request& req,
+    const std::string& name,
+    int defaultValue,
+    int minValue,
+    int maxValue) {
+    int value = defaultValue;
+
+    if (req.has_param(name)) {
+        value = parseInt(req.get_param_value(name), name);
+    }
+
+    if (value < minValue || value > maxValue) {
+        throw std::invalid_argument(
+            "Query parameter out of range: " + name
+        );
+    }
+
+    return value;
 }
 
 // Проверяет наличие поля в JSON и возвращает его значение.
@@ -138,6 +166,27 @@ inline void handleRouteException(httplib::Response& res, const std::exception& e
     }
 
     sendJsonError(res, 500, "Internal server error");
+}
+
+// Читает Authorization: Bearer <token>, проверяет токен и достаёт пользователя.
+inline AuthContext requireAuth(const httplib::Request& req, JwtService& jwtService) {
+    std::string authHeader = requiredHeader(req, "Authorization", 401);
+
+    const std::string prefix = "Bearer ";
+    if (authHeader.rfind(prefix, 0) != 0) {
+        throw HttpError(401, "Invalid Authorization header");
+    }
+
+    std::string token = authHeader.substr(prefix.size());
+
+    if (!jwtService.validateToken(token)) {
+        throw HttpError(401, "Invalid token");
+    }
+
+    return {
+        jwtService.extractUserId(token),
+        parseUserRole(jwtService.extractRole(token))
+    };
 }
 
 }

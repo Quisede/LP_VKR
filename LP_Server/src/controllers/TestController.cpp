@@ -4,8 +4,9 @@
 
 using json = nlohmann::json;
 
-TestController::TestController(TestService& service)
-    : testService(service) {}
+TestController::TestController(TestService& service, JwtService& jwtService)
+    : testService(service),
+      jwtService(jwtService) {}
 
 void TestController::registerRoutes(httplib::Server& server) {
 
@@ -13,10 +14,9 @@ void TestController::registerRoutes(httplib::Server& server) {
     [this](const httplib::Request& req, httplib::Response& res) {
         try {
             int courseId = controller_utils::pathParamInt(req, 1, "courseId");
-            int userId = controller_utils::requiredIntHeader(req, "X-User-Id");
-            UserRole role = controller_utils::requiredUserRole(req);
+            auto auth = controller_utils::requireAuth(req, jwtService);
 
-            auto tests = testService.getTestsForCourse(userId, role, courseId);
+            auto tests = testService.getTestsForCourse(auth.userId, auth.role, courseId);
 
             json response;
             response["tests"] = json::array();

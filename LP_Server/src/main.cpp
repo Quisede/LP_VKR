@@ -50,6 +50,8 @@
 #include "repositories/PostgresUserRepository.h"
 #include "repositories/PostgresCourseRepository.h"
 
+#include "services/JwtService.h"
+
 int main() {
     try {
     // InMemoryUserRepository userRepo; // хранилище пользователей в памяти
@@ -71,6 +73,8 @@ int main() {
     }
 
     PostgresConnection conn(conninfo);
+
+    JwtService jwtService;
 
     PostgresUserRepository userRepo(conn);
     
@@ -101,13 +105,13 @@ int main() {
 
     AttemptService attemptService(attemptRepo);
 
-    AttemptController attemptController(attemptService);
+    AttemptController attemptController(attemptService, jwtService);
 
     LessonController lessonController(lessonService);
 
-    TestController testController(testService);
+    TestController testController(testService, jwtService);
 
-    QuestionController questionController(questionService);
+    QuestionController questionController(questionService, jwtService);
 
     // InMemoryMaterialRepository materialRepo;
     PostgresMaterialRepository materialRepo(conn);
@@ -123,10 +127,10 @@ int main() {
     httplib::Server server;
     
     // создается контроллер аутентификации
-    AuthController authController(authService);
+    AuthController authController(authService, jwtService);
     
     // создается контроллер для курсов
-    CourseController courseController(courseService);
+    CourseController courseController(courseService, jwtService);
     
     // регистрируем новый обработчик аутентификации в сервере
     authController.registerRoutes(server);

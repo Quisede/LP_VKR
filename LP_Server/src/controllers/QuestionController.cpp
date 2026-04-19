@@ -4,8 +4,9 @@
 
 using json = nlohmann::json;
 
-QuestionController::QuestionController(QuestionService& service)
-    : questionService(service) {}
+QuestionController::QuestionController(QuestionService& service, JwtService& jwtService)
+    : questionService(service),
+      jwtService(jwtService) {}
 
 void QuestionController::registerRoutes(httplib::Server& server) {
 
@@ -47,6 +48,7 @@ void QuestionController::registerRoutes(httplib::Server& server) {
     [this](const httplib::Request& req, httplib::Response& res) {
         try {
             int testId = controller_utils::pathParamInt(req, 1, "testId");
+            auto auth = controller_utils::requireAuth(req, jwtService);
 
             auto body = json::parse(req.body);
 
@@ -59,9 +61,7 @@ void QuestionController::registerRoutes(httplib::Server& server) {
                 });
             }
 
-            int userId = controller_utils::requiredIntHeader(req, "X-User-Id");
-
-            auto result = questionService.submitTest(userId, testId, answers);
+            auto result = questionService.submitTest(auth.userId, testId, answers);
 
             json response;
             response["score"] = result.score;
