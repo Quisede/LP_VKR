@@ -1,0 +1,8 @@
+build/
+.git/
+.vscode/
+*.xcodeproj/
+*.xcworkspace/
+*.xcuserdata/
+*.xcuserstate
+.DS_Store

@@ -1,4 +1,5 @@
 #include "PostgresAttemptRepository.h"
+#include <stdexcept>
 
 PostgresAttemptRepository::PostgresAttemptRepository(PostgresConnection& connection) 
 : connection(connection) {}
