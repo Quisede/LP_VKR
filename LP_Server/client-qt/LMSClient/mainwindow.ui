@@ -6,76 +6,470 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
-    <height>600</height>
+    <width>1100</width>
+    <height>720</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>LMS Client</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true">QMainWindow {
+    background-color: #f8fafc;
+}
+
+QWidget#centralwidget {
+    background-color: #f8fafc;
+}
+
+QFrame#sidebarFrame {
+    background-color: #0f172a;
+    border-radius: 24px;
+}
+
+QLabel#brandLabel {
+    color: #ffffff;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+QLabel#brandCaptionLabel {
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+QPushButton#coursesButton,
+QPushButton#testButton {
+    min-height: 46px;
+    border: none;
+    border-radius: 14px;
+    padding: 0 16px;
+    text-align: left;
+    background-color: rgba(148, 163, 184, 0.14);
+    color: #e2e8f0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+QPushButton#coursesButton:hover,
+QPushButton#testButton:hover {
+    background-color: rgba(148, 163, 184, 0.24);
+}
+
+QFrame#contentFrame {
+    background-color: transparent;
+}
+
+QLabel#pageTitleLabel {
+    color: #0f172a;
+    font-size: 30px;
+    font-weight: 700;
+}
+
+QLabel#pageSubtitleLabel {
+    color: #475569;
+    font-size: 14px;
+}
+
+QLabel#statusLabel {
+    color: #0f172a;
+    background-color: #dbeafe;
+    border: 1px solid #bfdbfe;
+    border-radius: 14px;
+    padding: 12px 14px;
+    font-size: 13px;
+}
+
+QFrame#pageCard,
+QFrame#testCard {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 22px;
+}
+
+QLabel#sectionTitleLabel,
+QLabel#testSectionTitleLabel {
+    color: #0f172a;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+QLabel#sectionHintLabel,
+QLabel#testHintLabel,
+QLabel#questionLabel {
+    color: #475569;
+    font-size: 14px;
+}
+
+QPushButton#loadCoursesButton,
+QPushButton#enrollButton,
+QPushButton#loadTestButton,
+QPushButton#submitTestButton {
+    min-height: 44px;
+    border: none;
+    border-radius: 14px;
+    padding: 0 18px;
+    background-color: #0f172a;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+QPushButton#loadCoursesButton:hover,
+QPushButton#enrollButton:hover,
+QPushButton#loadTestButton:hover,
+QPushButton#submitTestButton:hover {
+    background-color: #1e293b;
+}
+
+QPushButton#enrollButton {
+    background-color: #2563eb;
+}
+
+QPushButton#enrollButton:hover {
+    background-color: #1d4ed8;
+}
+
+QListWidget,
+QComboBox {
+    border: 1px solid #cbd5e1;
+    border-radius: 16px;
+    background-color: #ffffff;
+    color: #0f172a;
+    padding: 10px;
+    font-size: 14px;
+}</string>
+  </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QLineEdit" name="loginEdit">
-    <property name="geometry">
-     <rect>
-      <x>190</x>
-      <y>30</y>
-      <width>180</width>
-      <height>24</height>
-     </rect>
+   <layout class="QHBoxLayout" name="rootLayout">
+    <property name="spacing">
+     <number>20</number>
     </property>
-    <property name="placeholderText">
-     <string>Login</string>
+    <property name="leftMargin">
+     <number>20</number>
     </property>
-   </widget>
-   <widget class="QLineEdit" name="passwordEdit">
-    <property name="geometry">
-     <rect>
-      <x>190</x>
-      <y>90</y>
-      <width>180</width>
-      <height>24</height>
-     </rect>
+    <property name="topMargin">
+     <number>20</number>
     </property>
-    <property name="echoMode">
-     <enum>QLineEdit::EchoMode::Password</enum>
+    <property name="rightMargin">
+     <number>20</number>
     </property>
-    <property name="placeholderText">
-     <string>Password</string>
+    <property name="bottomMargin">
+     <number>20</number>
     </property>
-   </widget>
-   <widget class="QPushButton" name="loginButton">
-    <property name="geometry">
-     <rect>
-      <x>190</x>
-      <y>150</y>
-      <width>100</width>
-      <height>32</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Login</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="statusLabel">
-    <property name="geometry">
-     <rect>
-      <x>190</x>
-      <y>210</y>
-      <width>240</width>
-      <height>20</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Not logged in</string>
-    </property>
-   </widget>
+    <item>
+     <widget class="QFrame" name="sidebarFrame">
+      <property name="minimumSize">
+       <size>
+        <width>240</width>
+        <height>0</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>260</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <property name="frameShape">
+       <enum>QFrame::Shape::StyledPanel</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Shadow::Raised</enum>
+      </property>
+      <layout class="QVBoxLayout" name="sidebarLayout">
+       <property name="leftMargin">
+        <number>22</number>
+       </property>
+       <property name="topMargin">
+        <number>24</number>
+       </property>
+       <property name="rightMargin">
+        <number>22</number>
+       </property>
+       <property name="bottomMargin">
+        <number>24</number>
+       </property>
+       <property name="spacing">
+        <number>14</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="brandLabel">
+         <property name="text">
+          <string>LMS Client</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="brandCaptionLabel">
+         <property name="text">
+          <string>Рабочее пространство студента</string>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="sidebarSpacerTop">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>24</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item>
+        <widget class="QPushButton" name="coursesButton">
+         <property name="text">
+          <string>Курсы</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="testButton">
+         <property name="text">
+          <string>Тесты</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="sidebarSpacerBottom">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QFrame" name="contentFrame">
+      <property name="frameShape">
+       <enum>QFrame::Shape::NoFrame</enum>
+      </property>
+      <layout class="QVBoxLayout" name="contentLayout">
+       <property name="spacing">
+        <number>18</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="pageTitleLabel">
+         <property name="text">
+          <string>Учебная панель</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="pageSubtitleLabel">
+         <property name="text">
+          <string>Здесь можно открыть курсы, записаться на них и пройти тесты.</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="statusLabel">
+         <property name="text">
+          <string>Готово к работе</string>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QStackedWidget" name="stackedWidget">
+         <property name="currentIndex">
+          <number>0</number>
+         </property>
+         <widget class="QWidget" name="coursesPage">
+          <layout class="QVBoxLayout" name="coursesPageLayout">
+           <property name="spacing">
+            <number>16</number>
+           </property>
+           <item>
+            <widget class="QFrame" name="pageCard">
+             <property name="frameShape">
+              <enum>QFrame::Shape::StyledPanel</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Shadow::Raised</enum>
+             </property>
+             <layout class="QVBoxLayout" name="coursesCardLayout">
+              <property name="leftMargin">
+               <number>24</number>
+              </property>
+              <property name="topMargin">
+               <number>24</number>
+              </property>
+              <property name="rightMargin">
+               <number>24</number>
+              </property>
+              <property name="bottomMargin">
+               <number>24</number>
+              </property>
+              <property name="spacing">
+               <number>14</number>
+              </property>
+              <item>
+               <widget class="QLabel" name="sectionTitleLabel">
+                <property name="text">
+                 <string>Каталог курсов</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="sectionHintLabel">
+                <property name="text">
+                 <string>Сначала загрузи список курсов, затем выбери нужный и при желании запишись на него.</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="coursesActionsLayout">
+                <property name="spacing">
+                 <number>12</number>
+                </property>
+                <item>
+                 <widget class="QPushButton" name="loadCoursesButton">
+                  <property name="text">
+                   <string>Загрузить курсы</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="enrollButton">
+                  <property name="text">
+                   <string>Записаться</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <spacer name="coursesActionsSpacer">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>40</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+               </layout>
+              </item>
+              <item>
+               <widget class="QListWidget" name="coursesList"/>
+              </item>
+             </layout>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="testPage">
+          <layout class="QVBoxLayout" name="testPageLayout">
+           <property name="spacing">
+            <number>16</number>
+           </property>
+           <item>
+            <widget class="QFrame" name="testCard">
+             <property name="frameShape">
+              <enum>QFrame::Shape::StyledPanel</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Shadow::Raised</enum>
+             </property>
+             <layout class="QVBoxLayout" name="testCardLayout">
+              <property name="leftMargin">
+               <number>24</number>
+              </property>
+              <property name="topMargin">
+               <number>24</number>
+              </property>
+              <property name="rightMargin">
+               <number>24</number>
+              </property>
+              <property name="bottomMargin">
+               <number>24</number>
+              </property>
+              <property name="spacing">
+               <number>14</number>
+              </property>
+              <item>
+               <widget class="QLabel" name="testSectionTitleLabel">
+                <property name="text">
+                 <string>Тестирование</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="testHintLabel">
+                <property name="text">
+                 <string>Выбери курс на странице курсов, затем открой тест и отправь свой ответ.</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="loadTestButton">
+                <property name="text">
+                 <string>Загрузить тест</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="questionLabel">
+                <property name="text">
+                 <string>Здесь появится вопрос после загрузки теста</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QComboBox" name="answersBox"/>
+              </item>
+              <item>
+               <widget class="QPushButton" name="submitTestButton">
+                <property name="text">
+                 <string>Отправить ответ</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+   </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>800</width>
+     <width>1100</width>
      <height>24</height>
     </rect>
    </property>

@@ -60,6 +60,30 @@ void CourseController::registerRoutes(httplib::Server &server) {
         }
     });
 
+    server.Get("/api/courses/all", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            controller_utils::requireAuth(req, jwtService);
+
+            auto courses = courseService.getAllCourses();
+
+            json response;
+            response["courses"] = json::array();
+
+            for (const auto& c : courses) {
+                response["courses"].push_back({
+                    {"id", c.id},
+                    {"title", c.title},
+                    {"description", c.description},
+                    {"teacherId", c.teacherId},
+                });
+            }
+
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
+        }
+    });
+
     server.Post(R"(/api/courses/(\d+)/enroll)", [this](const httplib::Request& req, httplib::Response& res) {
         try {
             auto auth = controller_utils::requireAuth(req, jwtService);

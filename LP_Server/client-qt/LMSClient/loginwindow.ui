@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>LoginWindow</class>
+ <widget class="QWidget" name="LoginWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>684</width>
+    <height>477</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>LMS Client</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">QWidget#LoginWindow {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                stop:0 #0f172a, stop:1 #1d4ed8);
+}
+
+QFrame#cardFrame {
+    background-color: rgba(255, 255, 255, 242);
+    border-radius: 24px;
+}
+
+QLabel#eyebrowLabel {
+    color: #2563eb;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+QLabel#titleLabel {
+    color: #0f172a;
+    font-size: 28px;
+    font-weight: 700;
+}
+
+QLabel#subtitleLabel {
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+QLineEdit {
+    min-height: 46px;
+    padding: 0 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 14px;
+    background-color: #ffffff;
+    color: #0f172a;
+    font-size: 15px;
+}
+
+QLineEdit:focus {
+    border: 2px solid #2563eb;
+}
+
+QPushButton#loginButton {
+    min-height: 48px;
+    border: none;
+    border-radius: 14px;
+    background-color: #0f172a;
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+QPushButton#loginButton:hover {
+    background-color: #1e293b;
+}
+
+QPushButton#loginButton:pressed {
+    background-color: #020617;
+}
+
+QPushButton#loginButton:disabled {
+    background-color: #64748b;
+}
+
+QLabel#statusLabel {
+    color: #334155;
+    font-size: 13px;
+}</string>
+  </property>
+  <layout class="QVBoxLayout" name="outerLayout">
+   <property name="leftMargin">
+    <number>28</number>
+   </property>
+   <property name="topMargin">
+    <number>28</number>
+   </property>
+   <property name="rightMargin">
+    <number>28</number>
+   </property>
+   <property name="bottomMargin">
+    <number>28</number>
+   </property>
+   <item>
+    <spacer name="verticalSpacerTop">
+     <property name="orientation">
+      <enum>Qt::Orientation::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>24</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item>
+    <widget class="QFrame" name="cardFrame">
+     <property name="frameShape">
+      <enum>QFrame::Shape::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Shadow::Raised</enum>
+     </property>
+     <layout class="QVBoxLayout" name="cardLayout">
+      <property name="spacing">
+       <number>16</number>
+      </property>
+      <property name="leftMargin">
+       <number>32</number>
+      </property>
+      <property name="topMargin">
+       <number>32</number>
+      </property>
+      <property name="rightMargin">
+       <number>32</number>
+      </property>
+      <property name="bottomMargin">
+       <number>32</number>
+      </property>
+      <item>
+       <widget class="QLabel" name="eyebrowLabel">
+        <property name="text">
+         <string>LMS PLATFORM</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="titleLabel">
+        <property name="text">
+         <string>Вход в систему</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="subtitleLabel">
+        <property name="text">
+         <string>Авторизуйся, чтобы открыть свои курсы, тесты и рабочую панель клиента.</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="verticalSpacerMiddle">
+        <property name="orientation">
+         <enum>Qt::Orientation::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>8</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="loginEdit">
+        <property name="placeholderText">
+         <string>Логин</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="passwordEdit">
+        <property name="echoMode">
+         <enum>QLineEdit::EchoMode::Password</enum>
+        </property>
+        <property name="placeholderText">
+         <string>Пароль</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="loginButton">
+        <property name="text">
+         <string>Войти</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="statusLabel">
+        <property name="text">
+         <string>Введите данные для входа</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacerBottom">
+     <property name="orientation">
+      <enum>Qt::Orientation::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>24</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

@@ -1,23 +1,43 @@
 cmake_minimum_required(VERSION 3.19)
 project(LMSClient LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-qt_standard_project_setup()
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Widgets Network)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Widgets Network)
 
-qt_add_executable(LMSClient
-    WIN32 MACOSX_BUNDLE
+if (QT_VERSION_MAJOR EQUAL 6)
+    qt_standard_project_setup()
+endif()
+
+set(LMSCLIENT_SOURCES
     main.cpp
     mainwindow.cpp
     mainwindow.h
     mainwindow.ui
+    loginwindow.h
+    loginwindow.cpp
+    loginwindow.ui
 )
+
+if (QT_VERSION_MAJOR EQUAL 6)
+    qt_add_executable(LMSClient
+        WIN32 MACOSX_BUNDLE
+        ${LMSCLIENT_SOURCES}
+    )
+else()
+    add_executable(LMSClient ${LMSCLIENT_SOURCES})
+endif()
 
 target_link_libraries(LMSClient
     PRIVATE
-        Qt::Core
-        Qt::Widgets
-        Qt::Network
+        Qt${QT_VERSION_MAJOR}::Core
+        Qt${QT_VERSION_MAJOR}::Widgets
+        Qt${QT_VERSION_MAJOR}::Network
 )
 
 install(TARGETS LMSClient
@@ -26,9 +46,11 @@ install(TARGETS LMSClient
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-qt_generate_deploy_app_script(
-    TARGET LMSClient
-    OUTPUT_SCRIPT deploy_script
-    NO_UNSUPPORTED_PLATFORM_ERROR
-)
-install(SCRIPT ${deploy_script})
+if (QT_VERSION_MAJOR EQUAL 6)
+    qt_generate_deploy_app_script(
+        TARGET LMSClient
+        OUTPUT_SCRIPT deploy_script
+        NO_UNSUPPORTED_PLATFORM_ERROR
+    )
+    install(SCRIPT ${deploy_script})
+endif()

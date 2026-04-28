@@ -25,6 +25,10 @@ CourseService::CourseService(CourseRepository& repo, EnrollmentRepository& enrol
     courseRepository(repo),
     enrollmentRepository(enrollRepo) {}
 
+std::vector<Course> CourseService::getAllCourses() {
+    return courseRepository.getAllCourses();
+}
+
 std::vector<Course> CourseService::getCoursesForUser(int userId, UserRole role) {
 //    switch (role) {
 //        case UserRole::Student:

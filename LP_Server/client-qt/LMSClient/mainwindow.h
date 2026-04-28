@@ -18,13 +18,24 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
+    void setToken(const QString& token);
 
 private slots:
-    void onLoginClicked();
+    void onLoadCoursesClicked();
+    void onEnrollClicked();
+    void onLoadTestClicked();
+    void onSubmitTestClicked();
+    void showCoursesPage();
+    void showTestPage();
 
 private:
+    int currentCourseId() const;
+
     Ui::MainWindow *ui;
     QNetworkAccessManager *networkManager;
     QString authToken;
+
+    int currentTestId = -1;
+    int currentQuestionId = -1;
 };
 #endif // MAINWINDOW_H
