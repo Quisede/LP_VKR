@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1100</width>
-    <height>720</height>
+    <width>1140</width>
+    <height>760</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -38,8 +38,11 @@ QLabel#brandCaptionLabel {
     font-size: 13px;
 }
 
+QPushButton#homeButton,
 QPushButton#coursesButton,
-QPushButton#testButton {
+QPushButton#testButton,
+QPushButton#resultsButton,
+QPushButton#profileButton {
     min-height: 46px;
     border: none;
     border-radius: 14px;
@@ -51,9 +54,37 @@ QPushButton#testButton {
     font-weight: 600;
 }
 
+QPushButton#homeButton:hover,
 QPushButton#coursesButton:hover,
-QPushButton#testButton:hover {
+QPushButton#testButton:hover,
+QPushButton#resultsButton:hover,
+QPushButton#profileButton:hover {
     background-color: rgba(148, 163, 184, 0.24);
+}
+
+QPushButton#homeButton:checked,
+QPushButton#coursesButton:checked,
+QPushButton#testButton:checked,
+QPushButton#resultsButton:checked,
+QPushButton#profileButton:checked {
+    background-color: #2563eb;
+    color: #ffffff;
+}
+
+QPushButton#logoutButton {
+    min-height: 46px;
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    border-radius: 14px;
+    padding: 0 16px;
+    text-align: left;
+    background-color: rgba(127, 29, 29, 0.28);
+    color: #fecaca;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+QPushButton#logoutButton:hover {
+    background-color: rgba(185, 28, 28, 0.4);
 }
 
 QFrame#contentFrame {
@@ -81,14 +112,25 @@ QLabel#statusLabel {
 }
 
 QFrame#pageCard,
-QFrame#testCard {
+QFrame#testCard,
+QFrame#profileCard,
+QFrame#courseDetailCard,
+QFrame#moduleCard,
+QFrame#moduleCard_2,
+QFrame#moduleCard_3,
+QFrame#moduleCard_4,
+QFrame#moduleCard_5,
+QFrame#moduleCard_6,
+QFrame#moduleCard_7 {
     background-color: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 22px;
 }
 
 QLabel#sectionTitleLabel,
-QLabel#testSectionTitleLabel {
+QLabel#testSectionTitleLabel,
+QLabel#profileSectionTitleLabel,
+QLabel#courseDetailTitleLabel {
     color: #0f172a;
     font-size: 20px;
     font-weight: 700;
@@ -96,15 +138,21 @@ QLabel#testSectionTitleLabel {
 
 QLabel#sectionHintLabel,
 QLabel#testHintLabel,
-QLabel#questionLabel {
+QLabel#profileHintLabel,
+QLabel#questionLabel,
+QLabel#courseDetailDescriptionLabel,
+QLabel#moduleTitleLabel,
+QLabel#moduleDescriptionLabel {
     color: #475569;
     font-size: 14px;
 }
 
-QPushButton#loadCoursesButton,
 QPushButton#enrollButton,
 QPushButton#loadTestButton,
-QPushButton#submitTestButton {
+QPushButton#submitTestButton,
+QPushButton#backToCoursesButton,
+QPushButton#cardActionButton,
+QPushButton#cardAccentButton {
     min-height: 44px;
     border: none;
     border-radius: 14px;
@@ -115,28 +163,95 @@ QPushButton#submitTestButton {
     font-weight: 600;
 }
 
-QPushButton#loadCoursesButton:hover,
 QPushButton#enrollButton:hover,
 QPushButton#loadTestButton:hover,
-QPushButton#submitTestButton:hover {
+QPushButton#submitTestButton:hover,
+QPushButton#backToCoursesButton:hover,
+QPushButton#cardActionButton:hover,
+QPushButton#cardAccentButton:hover {
     background-color: #1e293b;
 }
 
-QPushButton#enrollButton {
+QPushButton#enrollButton,
+QPushButton#cardAccentButton {
     background-color: #2563eb;
 }
 
-QPushButton#enrollButton:hover {
+QPushButton#enrollButton:hover,
+QPushButton#cardAccentButton:hover {
     background-color: #1d4ed8;
 }
 
 QListWidget,
 QComboBox {
-    border: 1px solid #cbd5e1;
+    border: none;
     border-radius: 16px;
-    background-color: #ffffff;
+    background-color: transparent;
     color: #0f172a;
-    padding: 10px;
+    padding: 0;
+    font-size: 14px;
+}
+
+QRadioButton {
+    color: #0f172a;
+    font-size: 15px;
+    spacing: 10px;
+    padding: 4px 0;
+}
+
+QRadioButton::indicator {
+    width: 18px;
+    height: 18px;
+}
+
+QListWidget::item {
+    border: none;
+}
+
+QFrame#courseCard {
+    background-color: #ffffff;
+    border: 1px solid #dbe4f0;
+    border-radius: 20px;
+}
+
+QFrame#courseCard:hover {
+    border: 1px solid #93c5fd;
+    background-color: #f8fbff;
+}
+
+QLabel#courseCardTitleLabel {
+    color: #0f172a;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+QLabel#courseCardDescriptionLabel {
+    color: #475569;
+    font-size: 13px;
+}
+
+QLabel#courseCardHintLabel {
+    color: #2563eb;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+QFrame#profileInfoCard {
+    background-color: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 18px;
+}
+
+QLabel#profileKeyLabel {
+    color: #1e3a8a;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+QLabel#profileNameValueLabel,
+QLabel#profileRoleValueLabel,
+QLabel#profileTokenValueLabel {
+    color: #0f172a;
     font-size: 14px;
 }</string>
   </property>
@@ -224,9 +339,22 @@ QComboBox {
         </spacer>
        </item>
        <item>
+        <widget class="QPushButton" name="homeButton">
+         <property name="text">
+          <string>Главная</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QPushButton" name="coursesButton">
          <property name="text">
           <string>Курсы</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -234,6 +362,29 @@ QComboBox {
         <widget class="QPushButton" name="testButton">
          <property name="text">
           <string>Тесты</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="resultsButton">
+         <property name="text">
+          <string>Результаты</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="profileButton">
+         <property name="text">
+          <string>Личный кабинет</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -249,6 +400,13 @@ QComboBox {
           </size>
          </property>
         </spacer>
+       </item>
+       <item>
+        <widget class="QPushButton" name="logoutButton">
+         <property name="text">
+          <string>Выйти из аккаунта</string>
+         </property>
+        </widget>
        </item>
       </layout>
      </widget>
@@ -272,7 +430,7 @@ QComboBox {
        <item>
         <widget class="QLabel" name="pageSubtitleLabel">
          <property name="text">
-          <string>Здесь можно открыть курсы, записаться на них и пройти тесты.</string>
+          <string>Здесь можно открыть курсы, зайти внутрь выбранного курса, пройти тесты и посмотреть данные профиля.</string>
          </property>
         </widget>
        </item>
@@ -291,6 +449,211 @@ QComboBox {
          <property name="currentIndex">
           <number>0</number>
          </property>
+         <widget class="QWidget" name="homePage">
+          <layout class="QVBoxLayout" name="homePageLayout">
+           <property name="spacing">
+            <number>16</number>
+           </property>
+           <item>
+            <widget class="QFrame" name="pageCard">
+             <property name="frameShape">
+              <enum>QFrame::Shape::StyledPanel</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Shadow::Raised</enum>
+             </property>
+             <layout class="QVBoxLayout" name="homeCardLayout">
+              <property name="leftMargin">
+               <number>24</number>
+              </property>
+              <property name="topMargin">
+               <number>24</number>
+              </property>
+              <property name="rightMargin">
+               <number>24</number>
+              </property>
+              <property name="bottomMargin">
+               <number>24</number>
+              </property>
+              <property name="spacing">
+               <number>14</number>
+              </property>
+              <item>
+               <widget class="QLabel" name="homeTitleLabel">
+                <property name="objectName">
+                 <string notr="true">sectionTitleLabel</string>
+                </property>
+                <property name="text">
+                 <string>Главная</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="homeHintLabel">
+                <property name="objectName">
+                 <string notr="true">sectionHintLabel</string>
+                </property>
+                <property name="text">
+                 <string>Это стартовый экран клиента. Отсюда удобно переходить в курсы, тесты, результаты и профиль.</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="homeModulesLayout">
+                <property name="spacing">
+                 <number>14</number>
+                </property>
+                <item>
+                 <widget class="QFrame" name="moduleCard_4">
+                  <property name="frameShape">
+                   <enum>QFrame::Shape::StyledPanel</enum>
+                  </property>
+                  <property name="frameShadow">
+                   <enum>QFrame::Shadow::Raised</enum>
+                  </property>
+                  <layout class="QVBoxLayout" name="homeCoursesCardLayout">
+                   <property name="leftMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>18</number>
+                   </property>
+                   <item>
+                    <widget class="QLabel" name="homeCoursesTitleLabel">
+                     <property name="objectName">
+                      <string notr="true">moduleTitleLabel</string>
+                     </property>
+                     <property name="text">
+                      <string>Курсы</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLabel" name="homeCoursesDescriptionLabel">
+                     <property name="objectName">
+                      <string notr="true">moduleDescriptionLabel</string>
+                     </property>
+                     <property name="text">
+                      <string>Открой каталог курсов и перейди внутрь нужного курса.</string>
+                     </property>
+                     <property name="wordWrap">
+                      <bool>true</bool>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QFrame" name="moduleCard_5">
+                  <property name="frameShape">
+                   <enum>QFrame::Shape::StyledPanel</enum>
+                  </property>
+                  <property name="frameShadow">
+                   <enum>QFrame::Shadow::Raised</enum>
+                  </property>
+                  <layout class="QVBoxLayout" name="homeTestsCardLayout">
+                   <property name="leftMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>18</number>
+                   </property>
+                   <item>
+                    <widget class="QLabel" name="homeTestsTitleLabel">
+                     <property name="objectName">
+                      <string notr="true">moduleTitleLabel</string>
+                     </property>
+                     <property name="text">
+                      <string>Тесты</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLabel" name="homeTestsDescriptionLabel">
+                     <property name="objectName">
+                      <string notr="true">moduleDescriptionLabel</string>
+                     </property>
+                     <property name="text">
+                      <string>Загружай тесты курса и отправляй ответы прямо из клиента.</string>
+                     </property>
+                     <property name="wordWrap">
+                      <bool>true</bool>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QFrame" name="moduleCard_6">
+                  <property name="frameShape">
+                   <enum>QFrame::Shape::StyledPanel</enum>
+                  </property>
+                  <property name="frameShadow">
+                   <enum>QFrame::Shadow::Raised</enum>
+                  </property>
+                  <layout class="QVBoxLayout" name="homeResultsCardLayout">
+                   <property name="leftMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>18</number>
+                   </property>
+                   <item>
+                    <widget class="QLabel" name="homeResultsTitleLabel">
+                     <property name="objectName">
+                      <string notr="true">moduleTitleLabel</string>
+                     </property>
+                     <property name="text">
+                      <string>Результаты</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLabel" name="homeResultsDescriptionLabel">
+                     <property name="objectName">
+                      <string notr="true">moduleDescriptionLabel</string>
+                     </property>
+                     <property name="text">
+                      <string>Здесь позже можно будет смотреть историю прохождения и баллы.</string>
+                     </property>
+                     <property name="wordWrap">
+                      <bool>true</bool>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </widget>
+           </item>
+          </layout>
+         </widget>
          <widget class="QWidget" name="coursesPage">
           <layout class="QVBoxLayout" name="coursesPageLayout">
            <property name="spacing">
@@ -330,7 +693,7 @@ QComboBox {
               <item>
                <widget class="QLabel" name="sectionHintLabel">
                 <property name="text">
-                 <string>Сначала загрузи список курсов, затем выбери нужный и при желании запишись на него.</string>
+                 <string>Курсы подгружаются автоматически. Нажми на карточку курса, чтобы открыть его внутреннюю страницу.</string>
                 </property>
                 <property name="wordWrap">
                  <bool>true</bool>
@@ -338,26 +701,53 @@ QComboBox {
                </widget>
               </item>
               <item>
-               <layout class="QHBoxLayout" name="coursesActionsLayout">
-                <property name="spacing">
-                 <number>12</number>
-                </property>
+               <widget class="QListWidget" name="coursesList"/>
+              </item>
+             </layout>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="courseDetailPage">
+          <layout class="QVBoxLayout" name="courseDetailPageLayout">
+           <property name="spacing">
+            <number>16</number>
+           </property>
+           <item>
+            <widget class="QFrame" name="courseDetailCard">
+             <property name="frameShape">
+              <enum>QFrame::Shape::StyledPanel</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Shadow::Raised</enum>
+             </property>
+             <layout class="QVBoxLayout" name="courseDetailLayout">
+              <property name="leftMargin">
+               <number>24</number>
+              </property>
+              <property name="topMargin">
+               <number>24</number>
+              </property>
+              <property name="rightMargin">
+               <number>24</number>
+              </property>
+              <property name="bottomMargin">
+               <number>24</number>
+              </property>
+              <property name="spacing">
+               <number>14</number>
+              </property>
+              <item>
+               <layout class="QHBoxLayout" name="courseDetailTopLayout">
                 <item>
-                 <widget class="QPushButton" name="loadCoursesButton">
+                 <widget class="QPushButton" name="backToCoursesButton">
                   <property name="text">
-                   <string>Загрузить курсы</string>
+                   <string>Назад к курсам</string>
                   </property>
                  </widget>
                 </item>
                 <item>
-                 <widget class="QPushButton" name="enrollButton">
-                  <property name="text">
-                   <string>Записаться</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <spacer name="coursesActionsSpacer">
+                 <spacer name="courseDetailTopSpacer">
                   <property name="orientation">
                    <enum>Qt::Horizontal</enum>
                   </property>
@@ -369,10 +759,155 @@ QComboBox {
                   </property>
                  </spacer>
                 </item>
+                <item>
+                 <widget class="QPushButton" name="enrollButton">
+                  <property name="text">
+                   <string>Записаться на курс</string>
+                  </property>
+                 </widget>
+                </item>
                </layout>
               </item>
               <item>
-               <widget class="QListWidget" name="coursesList"/>
+               <widget class="QLabel" name="courseDetailTitleLabel">
+                <property name="text">
+                 <string>Курс не выбран</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="courseDetailDescriptionLabel">
+                <property name="text">
+                 <string>Открой раздел курсов и нажми на карточку нужного курса.</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="modulesLayout">
+                <property name="spacing">
+                 <number>14</number>
+                </property>
+                <item>
+                 <widget class="QFrame" name="moduleCard">
+                  <property name="frameShape">
+                   <enum>QFrame::Shape::StyledPanel</enum>
+                  </property>
+                  <property name="frameShadow">
+                   <enum>QFrame::Shadow::Raised</enum>
+                  </property>
+                  <layout class="QVBoxLayout" name="materialsCardLayout">
+                   <property name="leftMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>18</number>
+                   </property>
+                   <item>
+                    <widget class="QLabel" name="materialsModuleTitleLabel">
+                     <property name="objectName">
+                      <string notr="true">moduleTitleLabel</string>
+                     </property>
+                     <property name="text">
+                      <string>Материалы</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QListWidget" name="courseMaterialsList"/>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QFrame" name="moduleCard_2">
+                  <property name="frameShape">
+                   <enum>QFrame::Shape::StyledPanel</enum>
+                  </property>
+                  <property name="frameShadow">
+                   <enum>QFrame::Shadow::Raised</enum>
+                  </property>
+                  <property name="styleSheet">
+                   <string notr="true"/>
+                  </property>
+                  <layout class="QVBoxLayout" name="videoCardLayout">
+                   <property name="leftMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>18</number>
+                   </property>
+                   <item>
+                    <widget class="QLabel" name="videoModuleTitleLabel">
+                     <property name="objectName">
+                      <string notr="true">moduleTitleLabel</string>
+                     </property>
+                     <property name="text">
+                      <string>Видео</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QListWidget" name="courseVideosList"/>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QFrame" name="moduleCard_3">
+                  <property name="frameShape">
+                   <enum>QFrame::Shape::StyledPanel</enum>
+                  </property>
+                  <property name="frameShadow">
+                   <enum>QFrame::Shadow::Raised</enum>
+                  </property>
+                  <layout class="QVBoxLayout" name="testsCardLayout">
+                   <property name="leftMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>18</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>18</number>
+                   </property>
+                   <item>
+                    <widget class="QLabel" name="testsModuleTitleLabel">
+                     <property name="objectName">
+                      <string notr="true">moduleTitleLabel</string>
+                     </property>
+                     <property name="text">
+                      <string>Тесты</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QListWidget" name="courseTestsList"/>
+                   </item>
+                  </layout>
+                 </widget>
+                </item>
+               </layout>
               </item>
              </layout>
             </widget>
@@ -418,7 +953,7 @@ QComboBox {
               <item>
                <widget class="QLabel" name="testHintLabel">
                 <property name="text">
-                 <string>Выбери курс на странице курсов, затем открой тест и отправь свой ответ.</string>
+                 <string>Сначала открой нужный курс, затем здесь можно будет загрузить тест этого курса и отправить ответ.</string>
                 </property>
                 <property name="wordWrap">
                  <bool>true</bool>
@@ -455,6 +990,233 @@ QComboBox {
              </layout>
             </widget>
            </item>
+         </layout>
+         </widget>
+         <widget class="QWidget" name="resultsPage">
+          <layout class="QVBoxLayout" name="resultsPageLayout">
+           <property name="spacing">
+            <number>16</number>
+           </property>
+           <item>
+            <widget class="QFrame" name="pageCard">
+             <property name="frameShape">
+              <enum>QFrame::Shape::StyledPanel</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Shadow::Raised</enum>
+             </property>
+             <layout class="QVBoxLayout" name="resultsCardLayout">
+              <property name="leftMargin">
+               <number>24</number>
+              </property>
+              <property name="topMargin">
+               <number>24</number>
+              </property>
+              <property name="rightMargin">
+               <number>24</number>
+              </property>
+              <property name="bottomMargin">
+               <number>24</number>
+              </property>
+              <property name="spacing">
+               <number>14</number>
+              </property>
+              <item>
+               <widget class="QLabel" name="resultsTitleLabel">
+                <property name="objectName">
+                 <string notr="true">sectionTitleLabel</string>
+                </property>
+                <property name="text">
+                 <string>Результаты</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="resultsHintLabel">
+                <property name="objectName">
+                 <string notr="true">sectionHintLabel</string>
+                </property>
+                <property name="text">
+                 <string>Эта страница подготовлена под историю попыток, баллы и статистику прохождения тестов.</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QFrame" name="moduleCard_7">
+                <property name="frameShape">
+                 <enum>QFrame::Shape::StyledPanel</enum>
+                </property>
+                <property name="frameShadow">
+                 <enum>QFrame::Shadow::Raised</enum>
+                </property>
+                <layout class="QVBoxLayout" name="resultsPlaceholderLayout">
+                 <property name="leftMargin">
+                  <number>18</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>18</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>18</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>18</number>
+                 </property>
+                 <item>
+                  <widget class="QLabel" name="resultsPlaceholderTitleLabel">
+                   <property name="objectName">
+                    <string notr="true">moduleTitleLabel</string>
+                   </property>
+                   <property name="text">
+                    <string>История появится здесь</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="resultsPlaceholderDescriptionLabel">
+                   <property name="objectName">
+                    <string notr="true">moduleDescriptionLabel</string>
+                   </property>
+                   <property name="text">
+                    <string>Следующим шагом сюда можно подключить backend с попытками и отображать баллы по каждому тесту.</string>
+                   </property>
+                   <property name="wordWrap">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="profilePage">
+          <layout class="QVBoxLayout" name="profilePageLayout">
+           <property name="spacing">
+            <number>16</number>
+           </property>
+           <item>
+            <widget class="QFrame" name="profileCard">
+             <property name="frameShape">
+              <enum>QFrame::Shape::StyledPanel</enum>
+             </property>
+             <property name="frameShadow">
+              <enum>QFrame::Shadow::Raised</enum>
+             </property>
+             <layout class="QVBoxLayout" name="profileCardLayout">
+              <property name="leftMargin">
+               <number>24</number>
+              </property>
+              <property name="topMargin">
+               <number>24</number>
+              </property>
+              <property name="rightMargin">
+               <number>24</number>
+              </property>
+              <property name="bottomMargin">
+               <number>24</number>
+              </property>
+              <property name="spacing">
+               <number>14</number>
+              </property>
+              <item>
+               <widget class="QLabel" name="profileSectionTitleLabel">
+                <property name="text">
+                 <string>Личный кабинет</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="profileHintLabel">
+                <property name="text">
+                 <string>Пока это стартовая версия профиля. Сюда можно постепенно вынести реальные данные пользователя и настройки аккаунта.</string>
+                </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QFrame" name="profileInfoCard">
+                <property name="frameShape">
+                 <enum>QFrame::Shape::StyledPanel</enum>
+                </property>
+                <property name="frameShadow">
+                 <enum>QFrame::Shadow::Raised</enum>
+                </property>
+                <layout class="QFormLayout" name="profileFormLayout">
+                 <property name="horizontalSpacing">
+                  <number>18</number>
+                 </property>
+                 <property name="verticalSpacing">
+                  <number>14</number>
+                 </property>
+                 <item row="0" column="0">
+                  <widget class="QLabel" name="profileNameLabel">
+                   <property name="objectName">
+                    <string notr="true">profileKeyLabel</string>
+                   </property>
+                   <property name="text">
+                    <string>Пользователь</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="1">
+                  <widget class="QLabel" name="profileNameValueLabel">
+                   <property name="text">
+                    <string>Неизвестно</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="0">
+                  <widget class="QLabel" name="profileRoleLabel">
+                   <property name="objectName">
+                    <string notr="true">profileKeyLabel</string>
+                   </property>
+                   <property name="text">
+                    <string>Роль</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="1">
+                  <widget class="QLabel" name="profileRoleValueLabel">
+                   <property name="text">
+                    <string>Неизвестно</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="2" column="0">
+                  <widget class="QLabel" name="profileTokenLabel">
+                   <property name="objectName">
+                    <string notr="true">profileKeyLabel</string>
+                   </property>
+                   <property name="text">
+                    <string>Токен</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="2" column="1">
+                  <widget class="QLabel" name="profileTokenValueLabel">
+                   <property name="text">
+                    <string>Пусто</string>
+                   </property>
+                   <property name="wordWrap">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
           </layout>
          </widget>
         </widget>
@@ -469,7 +1231,7 @@ QComboBox {
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1100</width>
+     <width>1140</width>
      <height>24</height>
     </rect>
    </property>

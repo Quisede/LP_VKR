@@ -84,7 +84,7 @@ int main() {
     PostgresCourseRepository courseRepo(conn); // хранилище курсов в памяти
     // InMemoryEnrollmentRepository enrollRepo; // хранилище связей
     PostgresEnrollmentRepository enrollRepo(conn);
-    CourseService courseService(courseRepo, enrollRepo); // сервис аутентификации, принимает зависимости через конструктор
+    CourseService courseService(courseRepo, enrollRepo, userRepo); // сервис курсов
 
     // InMemoryLessonRepository lessonRepo;
     PostgresLessonRepository lessonRepo(conn);
@@ -107,9 +107,9 @@ int main() {
 
     AttemptController attemptController(attemptService, jwtService);
 
-    LessonController lessonController(lessonService);
+    LessonController lessonController(lessonService, courseService, jwtService);
 
-    TestController testController(testService, jwtService);
+    TestController testController(testService, courseService, jwtService);
 
     QuestionController questionController(questionService, jwtService);
 
@@ -118,7 +118,7 @@ int main() {
 
     MaterialService materialService(materialRepo);
 
-    MaterialController materialController(materialService);
+    MaterialController materialController(materialService, lessonService, courseService, jwtService);
     
     // тестовый юзер
     authService.registerUser("student1", "12345", UserRole::Student);

@@ -7,6 +7,7 @@ PostgresCourseRepository::PostgresCourseRepository(
     : connection(conn) {}
 
 std::vector<Course> PostgresCourseRepository::getCoursesForStudent(int userId) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
     std::vector<Course> courses;
 
     std::string query = 
@@ -36,6 +37,7 @@ std::vector<Course> PostgresCourseRepository::getCoursesForStudent(int userId) {
 }
 
 std::vector<Course> PostgresCourseRepository::getCoursesForTeacher(int teacherId) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
 
     std::vector<Course> courses;
 
@@ -72,6 +74,7 @@ std::vector<Course> PostgresCourseRepository::getCoursesForTeacher(int teacherId
 
 std::vector<Course> PostgresCourseRepository::getCoursesByIds(
     const std::vector<int>& courseIds) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
     std::vector<Course> courses;
 
     if (courseIds.empty()) {
@@ -111,7 +114,44 @@ std::vector<Course> PostgresCourseRepository::getCoursesByIds(
     return courses;
 }
 
+std::optional<Course> PostgresCourseRepository::getCourseById(int courseId) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
+
+    std::string courseIdValue = std::to_string(courseId);
+    const char* params[] = {courseIdValue.c_str()};
+
+    PGresult* res = PQexecParams(
+        connection.get(),
+        "SELECT id, title, description, teacher_id FROM courses WHERE id = $1",
+        1,
+        nullptr,
+        params,
+        nullptr,
+        nullptr,
+        0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::string error = PQerrorMessage(connection.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to get course by id: " + error);
+    }
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        return std::nullopt;
+    }
+
+    Course course;
+    course.id = std::stoi(PQgetvalue(res, 0, 0));
+    course.title = PQgetvalue(res, 0, 1);
+    course.description = PQgetvalue(res, 0, 2);
+    course.teacherId = std::stoi(PQgetvalue(res, 0, 3));
+    PQclear(res);
+    return course;
+}
+
 std::vector<Course> PostgresCourseRepository::getAllCourses() {
+    std::lock_guard<std::mutex> lock(connection.mutex());
     std::vector<Course> courses;
 
     std::string query =
@@ -138,7 +178,49 @@ std::vector<Course> PostgresCourseRepository::getAllCourses() {
     return courses;
 }
 
+Course PostgresCourseRepository::createCourse(
+    const std::string& title,
+    const std::string& description,
+    int teacherId) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
+
+    std::string teacherIdValue = std::to_string(teacherId);
+    const char* params[] = {
+        title.c_str(),
+        description.c_str(),
+        teacherIdValue.c_str()
+    };
+
+    PGresult* res = PQexecParams(
+        connection.get(),
+        "INSERT INTO courses (title, description, teacher_id) "
+        "VALUES ($1, $2, $3) "
+        "RETURNING id, title, description, teacher_id",
+        3,
+        nullptr,
+        params,
+        nullptr,
+        nullptr,
+        0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::string error = PQerrorMessage(connection.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to create course: " + error);
+    }
+
+    Course course;
+    course.id = std::stoi(PQgetvalue(res, 0, 0));
+    course.title = PQgetvalue(res, 0, 1);
+    course.description = PQgetvalue(res, 0, 2);
+    course.teacherId = std::stoi(PQgetvalue(res, 0, 3));
+
+    PQclear(res);
+    return course;
+}
+
 std::vector<Course> PostgresCourseRepository::getCoursesPaged(int userId, const std::string& role, int limit, int offset) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
 
     std::vector<Course> courses;
 

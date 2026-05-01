@@ -1,11 +1,13 @@
 #include "PostgresQuestionRepository.h"
 #include <libpq-fe.h>
 #include <map>
+#include <stdexcept>
 
 PostgresQuestionRepository::PostgresQuestionRepository(PostgresConnection& connection)
     : db(connection) {}
 
 std::vector<Question> PostgresQuestionRepository::getQuestionsForTest(int testId) {
+    std::lock_guard<std::mutex> lock(db.mutex());
     std::vector<Question> questions;
 
     std::string query =
@@ -16,6 +18,11 @@ std::vector<Question> PostgresQuestionRepository::getQuestionsForTest(int testId
         "WHERE q.test_id = " + std::to_string(testId) + ";";
 
     PGresult* res = PQexec(db.get(), query.c_str());
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::string error = PQerrorMessage(db.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to get questions for test: " + error);
+    }
 
     int rows = PQntuples(res);
 

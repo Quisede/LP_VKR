@@ -17,3 +17,23 @@ std::vector<Lesson> InMemoryLessonRepository::getLessonsForCourse(int courseId) 
 
     return result;
 }
+
+std::optional<Lesson> InMemoryLessonRepository::getLessonById(int lessonId) {
+    for (const auto& lesson : lessons) {
+        if (lesson.id == lessonId) {
+            return lesson;
+        }
+    }
+
+    return std::nullopt;
+}
+
+Lesson InMemoryLessonRepository::createLesson(
+    int courseId,
+    const std::string& title,
+    const std::string& content) {
+    int nextId = lessons.empty() ? 1 : lessons.back().id + 1;
+    Lesson lesson{nextId, courseId, title, content};
+    lessons.push_back(lesson);
+    return lesson;
+}

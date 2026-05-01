@@ -2,30 +2,32 @@
 #define LOGINWINDOW_H
 
 #include <QWidget>
-#include <QNetworkAccessManager>
+
+#include "../models/sessiondata.h"
 
 namespace Ui {
 class LoginWindow;
 }
 
+class ApiClient;
+
 class LoginWindow : public QWidget
 {
     Q_OBJECT
 public:
-    explicit LoginWindow(QWidget *parent = nullptr);
+    explicit LoginWindow(ApiClient *apiClient, QWidget *parent = nullptr);
     ~LoginWindow();
+    void resetState();
 
 signals:
-    // сигнал при успешном логине
-    void loginSuccess(QString token);
+    void loginSuccess(const SessionData &session);
 
 private slots:
     void onLoginClicked();
 
 private:
     Ui::LoginWindow *ui;
-    QNetworkAccessManager* networkManager;
-
+    ApiClient *m_apiClient;
 };
 
 #endif // LOGINWINDOW_H

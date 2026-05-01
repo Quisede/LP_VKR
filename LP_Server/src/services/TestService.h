@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <vector>
 #include "../models/Test.h"
 #include "../models/User.h"
@@ -12,6 +13,7 @@ public:
             EnrollmentRepository& enrollRepo);
 
     std::vector<Test> getTestsForCourse(int userId, UserRole role, int courseId);
+    Test createTest(int courseId, const std::string& title);
 
 private:
     TestRepository& testRepository;

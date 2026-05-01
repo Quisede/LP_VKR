@@ -36,6 +36,10 @@ public:
         users.push_back(user);
         return user;
     }
+
+    std::vector<CourseStudent> getStudentsForCourse(int) override {
+        return {};
+    }
     
 private:
     std::vector<User> users;

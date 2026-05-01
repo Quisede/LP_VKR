@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+#include <string>
 #include <vector>
 #include "../models/Lesson.h"
 #include "../repositories/LessonRepository.h"
@@ -9,6 +11,8 @@ public:
     LessonService(LessonRepository& repo);
 
     std::vector<Lesson> getLessonsForCourse(int courseId);
+    std::optional<Lesson> getLessonById(int lessonId);
+    Lesson createLesson(int courseId, const std::string& title, const std::string& content);
 
 private:
     LessonRepository& lessonRepository;

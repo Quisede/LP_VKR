@@ -6,6 +6,7 @@ PostgresUserRepository::PostgresUserRepository(PostgresConnection& conn) : conne
 
 std::optional<User> PostgresUserRepository::findByLogin(
     const std::string& login) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
 
     const char* paramValues[1];
     paramValues[0] = login.c_str();
@@ -50,6 +51,7 @@ std::optional<User> PostgresUserRepository::findByLogin(
 }
 
 bool PostgresUserRepository::exists(const std::string& login) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
     std::string query =
         "SELECT 1 FROM users WHERE login='" + login + "' LIMIT 1";
 
@@ -68,6 +70,7 @@ User PostgresUserRepository::createUser(
     const std::string& login,
     const std::string& passwordHash,
     UserRole role) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
 
     std::string roleStr;
 
@@ -98,4 +101,49 @@ User PostgresUserRepository::createUser(
     PQclear(res);
 
     return user;
+}
+
+std::vector<CourseStudent> PostgresUserRepository::getStudentsForCourse(int courseId) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
+
+    std::string courseIdValue = std::to_string(courseId);
+    const char* params[] = {courseIdValue.c_str()};
+
+    PGresult* res = PQexecParams(
+        connection.get(),
+        "SELECT u.id, u.login, "
+        "COALESCE(ROUND(AVG(a.percentage)), 0) AS progress "
+        "FROM users u "
+        "JOIN enrollments e ON e.student_id = u.id "
+        "LEFT JOIN tests t ON t.course_id = e.course_id "
+        "LEFT JOIN attempts a ON a.user_id = u.id AND a.test_id = t.id "
+        "WHERE e.course_id = $1 AND u.role = 'Student' "
+        "GROUP BY u.id, u.login "
+        "ORDER BY u.id",
+        1,
+        nullptr,
+        params,
+        nullptr,
+        nullptr,
+        0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::string error = PQerrorMessage(connection.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to get students for course: " + error);
+    }
+
+    std::vector<CourseStudent> students;
+    int rows = PQntuples(res);
+
+    for (int i = 0; i < rows; ++i) {
+        CourseStudent student;
+        student.id = std::stoi(PQgetvalue(res, i, 0));
+        student.login = PQgetvalue(res, i, 1);
+        student.progress = std::stoi(PQgetvalue(res, i, 2));
+        students.push_back(student);
+    }
+
+    PQclear(res);
+    return students;
 }

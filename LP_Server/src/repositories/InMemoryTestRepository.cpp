@@ -18,3 +18,10 @@ std::vector<Test> InMemoryTestRepository::getTestsForCourse(int courseId) {
 
     return result;
 }
+
+Test InMemoryTestRepository::createTest(int courseId, const std::string& title) {
+    int nextId = tests.empty() ? 1 : tests.back().id + 1;
+    Test test{nextId, courseId, title};
+    tests.push_back(test);
+    return test;
+}

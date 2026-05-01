@@ -117,4 +117,55 @@ void CourseController::registerRoutes(httplib::Server &server) {
             controller_utils::handleRouteException(res, ex);
         }
     });
+
+    server.Get(R"(/api/courses/(\d+)/students)", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto auth = controller_utils::requireAuth(req, jwtService);
+            int courseId = controller_utils::pathParamInt(req, 1, "courseId");
+
+            auto students = courseService.getStudentsForCourse(auth.userId, auth.role, courseId);
+
+            json response;
+            response["students"] = json::array();
+
+            for (const auto& student : students) {
+                response["students"].push_back({
+                    {"id", student.id},
+                    {"login", student.login},
+                    {"progress", student.progress}
+                });
+            }
+
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
+        }
+    });
+
+    server.Post("/api/courses", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto auth = controller_utils::requireAuth(req, jwtService);
+            if (auth.role != UserRole::Teacher && auth.role != UserRole::Admin) {
+                throw controller_utils::HttpError(403, "Only teachers can create courses");
+            }
+
+            json body = json::parse(req.body);
+            std::string title = controller_utils::requiredJsonString(body, "title");
+            std::string description = controller_utils::requiredJsonString(body, "description");
+
+            Course course = courseService.createCourse(auth.userId, title, description);
+
+            json response{
+                {"id", course.id},
+                {"title", course.title},
+                {"description", course.description},
+                {"teacherId", course.teacherId}
+            };
+
+            res.status = 201;
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
+        }
+    });
 }

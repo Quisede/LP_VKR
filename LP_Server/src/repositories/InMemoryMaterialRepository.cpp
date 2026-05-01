@@ -38,3 +38,14 @@ std::vector<Material> InMemoryMaterialRepository::getMaterialsForLesson(int less
 
     return result;
 }
+
+Material InMemoryMaterialRepository::createMaterial(
+    int lessonId,
+    const std::string& title,
+    const std::string& type,
+    const std::string& content) {
+    int nextId = materials.empty() ? 1 : materials.back().id + 1;
+    Material material{nextId, lessonId, title, type, content};
+    materials.push_back(material);
+    return material;
+}

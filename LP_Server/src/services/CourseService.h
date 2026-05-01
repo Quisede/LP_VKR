@@ -7,12 +7,15 @@
 
 #pragma once
 
+#include <optional>
 #include <vector>
 #include <string>
 #include "../models/Course.h"
+#include "../models/CourseStudent.h"
 #include "../models/User.h"
 #include "../repositories/CourseRepository.h"
 #include "../repositories/EnrollmentRepository.h"
+#include "../repositories/UserRepository.h"
 
 enum class EnrollmentStatus {
     Success,
@@ -32,14 +35,19 @@ struct EnrollmentResult {
 
 class CourseService {
 public:
-    CourseService(CourseRepository& repo, EnrollmentRepository& enrollRepo);
+    CourseService(CourseRepository& repo, EnrollmentRepository& enrollRepo, UserRepository& userRepo);
     
     std::vector<Course> getAllCourses();
     std::vector<Course> getCoursesForUser(int userId, UserRole role);
+    std::optional<Course> getCourseById(int courseId);
+    bool canManageCourse(int userId, UserRole role, int courseId);
+    Course createCourse(int teacherId, const std::string& title, const std::string& description);
+    std::vector<CourseStudent> getStudentsForCourse(int userId, UserRole role, int courseId);
     EnrollmentResult enrollStudent(int userId, UserRole role, int courseId);
     std::vector<Course> getCoursesPaged(int userId, UserRole role, int page, int limit);
     
 private:
     CourseRepository& courseRepository;
     EnrollmentRepository& enrollmentRepository;
+    UserRepository& userRepository;
 };

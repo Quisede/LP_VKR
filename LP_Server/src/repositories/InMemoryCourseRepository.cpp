@@ -31,6 +31,16 @@ std::vector<Course> InMemoryCourseRepository::getAllCourses() {
     return courses;
 }
 
+std::optional<Course> InMemoryCourseRepository::getCourseById(int courseId) {
+    for (const auto& course : courses) {
+        if (course.id == courseId) {
+            return course;
+        }
+    }
+
+    return std::nullopt;
+}
+
 std::vector<Course> InMemoryCourseRepository::getCoursesByIds(
     const std::vector<int>& ids) {
     std::vector<Course> result;
@@ -68,4 +78,14 @@ std::vector<Course> InMemoryCourseRepository::getCoursesPaged(
     }
 
     return page;
+}
+
+Course InMemoryCourseRepository::createCourse(
+    const std::string& title,
+    const std::string& description,
+    int teacherId) {
+    int nextId = courses.empty() ? 1 : courses.back().id + 1;
+    Course course{nextId, title, description, teacherId};
+    courses.push_back(course);
+    return course;
 }

@@ -8,7 +8,9 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 #include "../models/User.h"
+#include "../models/CourseStudent.h"
 
 class UserRepository {
 public:
@@ -17,4 +19,5 @@ public:
     virtual std::optional<User> findByLogin(const std::string& login) = 0; // поиск пользователя по логину
     virtual bool exists(const std::string& login) = 0; /* проверка наличия пользователя с таким логином */
     virtual User createUser(const std::string& login, const std::string& passwordHash, UserRole role) = 0; /* сохранение нового пользователя */
+    virtual std::vector<CourseStudent> getStudentsForCourse(int courseId) = 0;
 };

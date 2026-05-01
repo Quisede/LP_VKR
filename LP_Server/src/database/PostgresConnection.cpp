@@ -29,3 +29,7 @@ PGconn* PostgresConnection::get() {
     // возвращаем указатель на структуру PGconn, которая представляет собой соединение с базой данных PostgreSQL
     return connection;
 }
+
+std::mutex& PostgresConnection::mutex() {
+    return connectionMutex;
+}

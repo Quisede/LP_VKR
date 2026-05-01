@@ -1,0 +1,127 @@
+#pragma once
+
+#include <QObject>
+#include <QNetworkAccessManager>
+#include <QVector>
+#include <functional>
+
+#include "../models/attemptmodel.h"
+#include "../models/coursemodel.h"
+#include "../models/coursestudentmodel.h"
+#include "../models/lessonmodel.h"
+#include "../models/materialmodel.h"
+#include "../models/questionmodel.h"
+#include "../models/sessiondata.h"
+#include "../models/testmodel.h"
+
+class ApiClient : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit ApiClient(QObject *parent = nullptr);
+
+    void setBaseUrl(const QString &baseUrl);
+    void setToken(const QString &token);
+    QString token() const;
+
+    void login(
+        const QString &login,
+        const QString &password,
+        QObject *context,
+        std::function<void(const SessionData &session)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void getCourses(
+        QObject *context,
+        std::function<void(const QVector<CourseData> &courses)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void createCourse(
+        const QString &title,
+        const QString &description,
+        QObject *context,
+        std::function<void(const CourseData &course)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void enrollCourse(
+        int courseId,
+        QObject *context,
+        std::function<void(const QString &message)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void getLessons(
+        int courseId,
+        QObject *context,
+        std::function<void(const QVector<LessonData> &lessons)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void createLesson(
+        int courseId,
+        const QString &title,
+        const QString &content,
+        QObject *context,
+        std::function<void(const LessonData &lesson)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void getMaterials(
+        int lessonId,
+        QObject *context,
+        std::function<void(const QVector<MaterialData> &materials)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void createMaterial(
+        int lessonId,
+        const QString &title,
+        const QString &type,
+        const QString &content,
+        QObject *context,
+        std::function<void(const MaterialData &material)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void getTests(
+        int courseId,
+        QObject *context,
+        std::function<void(const QVector<TestData> &tests)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void createTest(
+        int courseId,
+        const QString &title,
+        QObject *context,
+        std::function<void(const TestData &test)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void getQuestions(
+        int testId,
+        QObject *context,
+        std::function<void(const QVector<QuestionData> &questions)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void submitTest(
+        int testId,
+        const QVector<QPair<int, int>> &answers,
+        QObject *context,
+        std::function<void(const AttemptData &result)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void getAttempts(
+        int userId,
+        QObject *context,
+        std::function<void(const QVector<AttemptData> &attempts)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void getCourseStudents(
+        int courseId,
+        QObject *context,
+        std::function<void(const QVector<CourseStudentData> &students)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+private:
+    QNetworkRequest createRequest(const QString &path, bool withAuth = true) const;
+    QString extractErrorMessage(const QByteArray &responseData, const QString &fallback) const;
+
+    QString m_baseUrl = "http://localhost:8080";
+    QString m_token;
+    QNetworkAccessManager m_networkManager;
+};

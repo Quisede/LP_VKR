@@ -8,6 +8,7 @@ class InMemoryTestRepository : public TestRepository {
         InMemoryTestRepository();
 
         std::vector<Test> getTestsForCourse(int courseId) override;
+        Test createTest(int courseId, const std::string& title) override;
     private:
         std::vector<Test> tests;
 };

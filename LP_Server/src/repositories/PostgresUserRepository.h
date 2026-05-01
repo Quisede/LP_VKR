@@ -13,6 +13,7 @@ class PostgresUserRepository : public UserRepository {
         User createUser(const std::string& login,
                     const std::string& passwordHash,
                     UserRole role) override;
+        std::vector<CourseStudent> getStudentsForCourse(int courseId) override;
     private:
         PostgresConnection& connection;
 };

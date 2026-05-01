@@ -8,6 +8,7 @@ PostgresEnrollmentRepository::PostgresEnrollmentRepository(PostgresConnection& c
     : connection(conn) {}
 
 void PostgresEnrollmentRepository::enrollStudent(int studentId, int courseId) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
     std::string studentIdStr = std::to_string(studentId);
     std::string courseIdStr = std::to_string(courseId);
 
@@ -37,6 +38,7 @@ void PostgresEnrollmentRepository::enrollStudent(int studentId, int courseId) {
 }
 
 std::vector<int> PostgresEnrollmentRepository::getCoursesForStudent(int studentId) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
     std::vector<int> courseIds;
 
     std::string studentIdStr = std::to_string(studentId);
@@ -73,6 +75,7 @@ std::vector<int> PostgresEnrollmentRepository::getCoursesForStudent(int studentI
 }
 
 bool PostgresEnrollmentRepository::isEnrolled(int studentId, int courseId) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
     std::string studentIdStr = std::to_string(studentId);
     std::string courseIdStr = std::to_string(courseId);
 

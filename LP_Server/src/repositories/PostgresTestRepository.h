@@ -10,6 +10,7 @@ class PostgresTestRepository : public TestRepository {
         PostgresTestRepository(PostgresConnection& connection);
 
         std::vector<Test> getTestsForCourse(int courseId) override;
+        Test createTest(int courseId, const std::string& title) override;
     private:
         PostgresConnection& db;
 };

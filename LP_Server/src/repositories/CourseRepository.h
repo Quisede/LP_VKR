@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <optional>
 #include <vector>
 #include <string>
 #include "../models/Course.h"
@@ -19,9 +20,16 @@ public:
 
     virtual std::vector<Course> getCoursesByIds(const std::vector<int>& courseIds) = 0;
 
+    virtual std::optional<Course> getCourseById(int courseId) = 0;
+
     virtual std::vector<Course> getCoursesPaged(int userId, const std::string& role, int limit, int offset) = 0;
     
     virtual std::vector<Course> getAllCourses() = 0;
+
+    virtual Course createCourse(
+        const std::string& title,
+        const std::string& description,
+        int teacherId) = 0;
 
     virtual ~CourseRepository() = default;
 };

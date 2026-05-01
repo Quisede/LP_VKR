@@ -70,10 +70,12 @@ CREATE TABLE IF NOT EXISTS attempts (
 );
 
 INSERT INTO users (id, login, password_hash, role) VALUES
-    (1, 'teacher1', 'demo', 'Teacher'),
-    (2, 'student_demo', 'demo', 'Student'),
-    (3, 'admin', 'demo', 'Admin')
-ON CONFLICT (login) DO NOTHING;
+    (1, 'teacher1', '3766126602758038891', 'Teacher'),
+    (2, 'student_demo', '2992457363794458960', 'Student'),
+    (3, 'admin', '17197393981645110028', 'Admin')
+ON CONFLICT (login) DO UPDATE SET
+    password_hash = EXCLUDED.password_hash,
+    role = EXCLUDED.role;
 
 INSERT INTO courses (id, title, description, teacher_id) VALUES
     (1, 'C++ Basics', 'Intro to C++ syntax, functions and memory basics', 1),

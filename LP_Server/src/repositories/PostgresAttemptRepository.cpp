@@ -5,6 +5,7 @@ PostgresAttemptRepository::PostgresAttemptRepository(PostgresConnection& connect
 : connection(connection) {}
 
 void PostgresAttemptRepository::saveAttempt(const Attempt& attempt) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
     std::string query =
         "INSERT INTO attempts(user_id,test_id,score,total,percentage,passed) "
         "VALUES(" +
@@ -26,6 +27,7 @@ void PostgresAttemptRepository::saveAttempt(const Attempt& attempt) {
 }
 
 std::vector<Attempt> PostgresAttemptRepository::getAttemptsForUser(int userId) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
     std::vector<Attempt> attempts;
     // формируем SQL-запрос для получения всех попыток, связанных с определенным пользователем, из базы данных
     std::string query = 

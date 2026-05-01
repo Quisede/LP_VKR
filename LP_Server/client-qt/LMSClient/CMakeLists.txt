@@ -19,9 +19,39 @@ set(LMSCLIENT_SOURCES
     mainwindow.cpp
     mainwindow.h
     mainwindow.ui
-    loginwindow.h
-    loginwindow.cpp
-    loginwindow.ui
+    windows/loginwindow.h
+    windows/loginwindow.cpp
+    windows/loginwindow.ui
+    api/apiclient.h
+    api/apiclient.cpp
+    widgets/coursecard.h
+    widgets/coursecard.cpp
+    pages/dashboardpage.h
+    pages/dashboardpage.cpp
+    pages/coursespage.h
+    pages/coursespage.cpp
+    pages/teachercreatecoursepage.h
+    pages/teachercreatecoursepage.cpp
+    pages/teachercoursebuilderpage.h
+    pages/teachercoursebuilderpage.cpp
+    pages/teacherstudentspage.h
+    pages/teacherstudentspage.cpp
+    pages/coursedetailspage.h
+    pages/coursedetailspage.cpp
+    pages/testrunnerpage.h
+    pages/testrunnerpage.cpp
+    pages/attemptspage.h
+    pages/attemptspage.cpp
+    pages/profilepage.h
+    pages/profilepage.cpp
+    models/sessiondata.h
+    models/coursemodel.h
+    models/coursestudentmodel.h
+    models/lessonmodel.h
+    models/materialmodel.h
+    models/testmodel.h
+    models/questionmodel.h
+    models/attemptmodel.h
 )
 
 if (QT_VERSION_MAJOR EQUAL 6)
