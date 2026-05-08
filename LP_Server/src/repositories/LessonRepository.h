@@ -14,4 +14,9 @@ public:
         int courseId,
         const std::string& title,
         const std::string& content) = 0;
+    virtual Lesson updateLesson(
+        int lessonId,
+        const std::string& title,
+        const std::string& content) = 0;
+    virtual void deleteLesson(int lessonId) = 0;
 };

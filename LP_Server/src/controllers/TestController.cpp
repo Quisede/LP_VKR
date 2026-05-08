@@ -71,4 +71,64 @@ void TestController::registerRoutes(httplib::Server& server) {
                 controller_utils::handleRouteException(res, ex);
             }
         });
+
+    server.Put(R"(/api/tests/(\d+))",
+        [this](const httplib::Request& req, httplib::Response& res) {
+            try {
+                auto auth = controller_utils::requireAuth(req, jwtService);
+                if (auth.role != UserRole::Teacher && auth.role != UserRole::Admin) {
+                    throw controller_utils::HttpError(403, "Only teachers can update tests");
+                }
+
+                int testId = controller_utils::pathParamInt(req, 1, "testId");
+                auto test = testService.getTestById(testId);
+                if (!test.has_value()) {
+                    throw controller_utils::HttpError(404, "Test not found");
+                }
+
+                if (!courseService.canManageCourse(auth.userId, auth.role, test->courseId)) {
+                    throw controller_utils::HttpError(403, "You can manage only your own courses");
+                }
+
+                json body = json::parse(req.body);
+                std::string title = controller_utils::requiredJsonString(body, "title");
+
+                Test updated = testService.updateTest(testId, title);
+
+                json response{
+                    {"id", updated.id},
+                    {"courseId", updated.courseId},
+                    {"title", updated.title}
+                };
+
+                res.set_content(response.dump(), "application/json");
+            } catch (const std::exception& ex) {
+                controller_utils::handleRouteException(res, ex);
+            }
+        });
+
+    server.Delete(R"(/api/tests/(\d+))",
+        [this](const httplib::Request& req, httplib::Response& res) {
+            try {
+                auto auth = controller_utils::requireAuth(req, jwtService);
+                if (auth.role != UserRole::Teacher && auth.role != UserRole::Admin) {
+                    throw controller_utils::HttpError(403, "Only teachers can delete tests");
+                }
+
+                int testId = controller_utils::pathParamInt(req, 1, "testId");
+                auto test = testService.getTestById(testId);
+                if (!test.has_value()) {
+                    throw controller_utils::HttpError(404, "Test not found");
+                }
+
+                if (!courseService.canManageCourse(auth.userId, auth.role, test->courseId)) {
+                    throw controller_utils::HttpError(403, "You can manage only your own courses");
+                }
+
+                testService.deleteTest(testId);
+                res.status = 204;
+            } catch (const std::exception& ex) {
+                controller_utils::handleRouteException(res, ex);
+            }
+        });
 }

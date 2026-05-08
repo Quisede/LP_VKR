@@ -16,6 +16,12 @@ public:
     void setSession(const SessionData &session);
 
 private:
+    QLabel *m_introTitleLabel;
+    QLabel *m_introTextLabel;
+    QLabel *m_summaryOneValueLabel;
+    QLabel *m_summaryTwoValueLabel;
+    QLabel *m_summaryOneTitleLabel;
+    QLabel *m_summaryTwoTitleLabel;
     QLabel *m_nameValueLabel;
     QLabel *m_roleValueLabel;
     QLabel *m_tokenValueLabel;

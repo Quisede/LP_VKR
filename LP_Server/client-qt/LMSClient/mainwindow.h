@@ -11,6 +11,7 @@
 #include "models/coursemodel.h"
 #include "models/lessonmodel.h"
 #include "models/materialmodel.h"
+#include "models/questionmodel.h"
 #include "models/sessiondata.h"
 #include "models/testmodel.h"
 
@@ -28,8 +29,8 @@ class DashboardPage;
 class ProfilePage;
 class TeacherCourseBuilderPage;
 class TeacherCreateCoursePage;
+class TeacherAnalyticsPage;
 class TeacherStudentsPage;
-class QWidget;
 class TestRunnerPage;
 
 class MainWindow : public QMainWindow
@@ -72,14 +73,15 @@ private:
     void showCourseDetailsPage();
     void showTeacherCourseBuilderPage();
     void showTestRunnerPage();
-    QWidget *createTeacherAnalyticsPage();
 
     void loadCourses();
     void loadAttempts();
     void loadCourseContent(int courseId);
     void loadCourseLessonsAndMaterials(int courseId);
     void loadCourseTests(int courseId);
+    void loadManagedQuestions(int testId);
     void loadTeacherCourseStudents(int courseId);
+    void loadTeacherAnalytics(int courseId);
     void refreshSelectedCourseFromCache();
     QVector<CourseData> visibleCoursesForCurrentRole(const QVector<CourseData> &courses) const;
 
@@ -94,7 +96,7 @@ private:
     TestRunnerPage *m_testRunnerPage;
     AttemptsPage *m_attemptsPage;
     TeacherStudentsPage *m_teacherStudentsPage;
-    QWidget *m_teacherAnalyticsPage;
+    TeacherAnalyticsPage *m_teacherAnalyticsPage;
     ProfilePage *m_profilePage;
 
     QPushButton *m_createCourseButton = nullptr;
@@ -106,6 +108,7 @@ private:
     QVector<LessonData> m_selectedLessons;
     QVector<MaterialData> m_selectedMaterials;
     QVector<TestData> m_selectedTests;
+    QVector<QuestionData> m_selectedQuestions;
     CourseData m_selectedCourse;
     TestData m_selectedTest;
 };

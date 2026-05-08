@@ -4,22 +4,23 @@
 #include <QVector>
 
 #include "../models/coursemodel.h"
-#include "../models/coursestudentmodel.h"
+#include "../models/teacheranalyticsmodel.h"
 
 class QComboBox;
 class QLabel;
 class QTableWidget;
+class QFrame;
 
-class TeacherStudentsPage : public QWidget
+class TeacherAnalyticsPage : public QWidget
 {
     Q_OBJECT
 
 public:
-    explicit TeacherStudentsPage(QWidget *parent = nullptr);
+    explicit TeacherAnalyticsPage(QWidget *parent = nullptr);
 
     void setCourses(const QVector<CourseData> &courses);
-    void setStudents(const QVector<CourseStudentData> &students);
-    void clearStudents();
+    void setAnalytics(const TeacherCourseAnalyticsData &analytics);
+    void clearAnalytics();
     void showMessage(const QString &message, bool error = false);
     int selectedCourseId() const;
 
@@ -30,9 +31,10 @@ private:
     QLabel *m_overviewTitleLabel;
     QComboBox *m_courseCombo;
     QLabel *m_messageLabel;
-    QLabel *m_studentsCountLabel;
-    QLabel *m_averageProgressLabel;
-    QLabel *m_focusLabel;
+    QLabel *m_studentsValueLabel;
+    QLabel *m_attemptsValueLabel;
+    QLabel *m_averageValueLabel;
+    QLabel *m_insightLabel;
     QLabel *m_emptyStateLabel;
-    QTableWidget *m_studentsTable;
+    QTableWidget *m_resultsTable;
 };

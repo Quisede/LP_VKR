@@ -26,3 +26,22 @@ Lesson LessonService::createLesson(
 
     return lessonRepository.createLesson(courseId, title, content);
 }
+
+Lesson LessonService::updateLesson(
+    int lessonId,
+    const std::string& title,
+    const std::string& content) {
+    if (title.empty()) {
+        throw std::invalid_argument("Lesson title must not be empty");
+    }
+
+    if (content.empty()) {
+        throw std::invalid_argument("Lesson content must not be empty");
+    }
+
+    return lessonRepository.updateLesson(lessonId, title, content);
+}
+
+void LessonService::deleteLesson(int lessonId) {
+    lessonRepository.deleteLesson(lessonId);
+}

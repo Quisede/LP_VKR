@@ -24,3 +24,19 @@ Test TestService::createTest(int courseId, const std::string& title) {
 
     return testRepository.createTest(courseId, title);
 }
+
+Test TestService::updateTest(int testId, const std::string& title) {
+    if (title.empty()) {
+        throw std::invalid_argument("Test title must not be empty");
+    }
+
+    return testRepository.updateTest(testId, title);
+}
+
+void TestService::deleteTest(int testId) {
+    testRepository.deleteTest(testId);
+}
+
+std::optional<Test> TestService::getTestById(int testId) {
+    return testRepository.getTestById(testId);
+}

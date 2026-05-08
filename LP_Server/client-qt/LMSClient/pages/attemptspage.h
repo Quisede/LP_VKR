@@ -24,5 +24,9 @@ private:
     QString m_role = "Student";
     QLabel *m_titleLabel;
     QLabel *m_summaryLabel;
+    QLabel *m_attemptsStatLabel;
+    QLabel *m_averageStatLabel;
+    QLabel *m_passedStatLabel;
+    QLabel *m_emptyStateLabel;
     QTableWidget *m_table;
 };

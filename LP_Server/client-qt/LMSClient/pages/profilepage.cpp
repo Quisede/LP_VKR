@@ -2,6 +2,7 @@
 
 #include <QFormLayout>
 #include <QFrame>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QVBoxLayout>
 
@@ -27,6 +28,39 @@ ProfilePage::ProfilePage(QWidget *parent)
         pageCard);
     hintLabel->setObjectName("profileHintLabel");
     hintLabel->setWordWrap(true);
+
+    auto createStatCard = [pageCard](QLabel **titleLabelOut, QLabel **valueLabelOut) {
+        auto *card = new QFrame(pageCard);
+        card->setObjectName("moduleCard");
+        card->setMinimumHeight(136);
+        card->setMaximumHeight(156);
+
+        auto *layout = new QVBoxLayout(card);
+        layout->setContentsMargins(18, 18, 18, 18);
+        layout->setSpacing(8);
+
+        *titleLabelOut = new QLabel(card);
+        (*titleLabelOut)->setObjectName("moduleTitleLabel");
+
+        *valueLabelOut = new QLabel(card);
+        (*valueLabelOut)->setObjectName("courseDetailTitleLabel");
+
+        layout->addWidget(*titleLabelOut);
+        layout->addWidget(*valueLabelOut);
+        layout->addStretch();
+        return card;
+    };
+
+    auto *summaryLayout = new QHBoxLayout();
+    summaryLayout->setSpacing(14);
+    summaryLayout->addWidget(createStatCard(&m_summaryOneTitleLabel, &m_summaryOneValueLabel));
+    summaryLayout->addWidget(createStatCard(&m_summaryTwoTitleLabel, &m_summaryTwoValueLabel));
+
+    m_introTitleLabel = new QLabel(pageCard);
+    m_introTitleLabel->setObjectName("moduleTitleLabel");
+    m_introTextLabel = new QLabel(pageCard);
+    m_introTextLabel->setObjectName("sectionHintLabel");
+    m_introTextLabel->setWordWrap(true);
 
     auto *infoCard = new QFrame(pageCard);
     infoCard->setObjectName("profileInfoCard");
@@ -63,9 +97,19 @@ ProfilePage::ProfilePage(QWidget *parent)
 
     pageLayout->addWidget(titleLabel);
     pageLayout->addWidget(hintLabel);
+    pageLayout->addLayout(summaryLayout);
+    pageLayout->addWidget(m_introTitleLabel);
+    pageLayout->addWidget(m_introTextLabel);
     pageLayout->addWidget(infoCard);
 
     rootLayout->addWidget(pageCard);
+
+    m_summaryOneTitleLabel->setText("Роль");
+    m_summaryOneValueLabel->setText("—");
+    m_summaryTwoTitleLabel->setText("Сессия");
+    m_summaryTwoValueLabel->setText("Активна");
+    m_introTitleLabel->setText("Текущий режим");
+    m_introTextLabel->setText("После входа здесь отображаются базовые сведения об активной сессии пользователя.");
 }
 
 void ProfilePage::setSession(const SessionData &session)
@@ -78,4 +122,30 @@ void ProfilePage::setSession(const SessionData &session)
     m_roleValueLabel->setText(session.role);
     m_userIdValueLabel->setText(QString::number(session.userId));
     m_tokenValueLabel->setText(session.token.left(24) + (session.token.size() > 24 ? "..." : ""));
+
+    if (session.role == "Teacher") {
+        m_summaryOneTitleLabel->setText("Роль");
+        m_summaryOneValueLabel->setText("Teacher");
+        m_summaryTwoTitleLabel->setText("Режим");
+        m_summaryTwoValueLabel->setText("Управление курсами");
+        m_introTitleLabel->setText("Кабинет преподавателя");
+        m_introTextLabel->setText(
+            "Здесь начинается teacher-flow: создание курсов, управление материалами, тестами, студентами и аналитикой.");
+    } else if (session.role == "Admin") {
+        m_summaryOneTitleLabel->setText("Роль");
+        m_summaryOneValueLabel->setText("Admin");
+        m_summaryTwoTitleLabel->setText("Режим");
+        m_summaryTwoValueLabel->setText("Системный доступ");
+        m_introTitleLabel->setText("Панель администратора");
+        m_introTextLabel->setText(
+            "Текущая сессия открыта в административном режиме. Здесь будут собраны системные инструменты и общая статистика.");
+    } else {
+        m_summaryOneTitleLabel->setText("Роль");
+        m_summaryOneValueLabel->setText("Student");
+        m_summaryTwoTitleLabel->setText("Режим");
+        m_summaryTwoValueLabel->setText("Обучение");
+        m_introTitleLabel->setText("Учебный профиль");
+        m_introTextLabel->setText(
+            "Используй этот кабинет как опорную точку: отсюда видно, под какой ролью открыт доступ и какой пользователь сейчас работает с платформой.");
+    }
 }

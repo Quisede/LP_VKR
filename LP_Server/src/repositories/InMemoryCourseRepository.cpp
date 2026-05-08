@@ -7,6 +7,9 @@
 
 #include "InMemoryCourseRepository.h"
 
+#include <algorithm>
+#include <stdexcept>
+
 InMemoryCourseRepository::InMemoryCourseRepository() {
     courses.push_back({1, "C++ Basics", "Intro to C++", 10});
     courses.push_back({2, "OOP Design", "Design principles", 10});
@@ -88,4 +91,31 @@ Course InMemoryCourseRepository::createCourse(
     Course course{nextId, title, description, teacherId};
     courses.push_back(course);
     return course;
+}
+
+Course InMemoryCourseRepository::updateCourse(
+    int courseId,
+    const std::string& title,
+    const std::string& description) {
+    for (auto& course : courses) {
+        if (course.id == courseId) {
+            course.title = title;
+            course.description = description;
+            return course;
+        }
+    }
+
+    throw std::runtime_error("Course not found");
+}
+
+void InMemoryCourseRepository::deleteCourse(int courseId) {
+    auto it = std::remove_if(courses.begin(), courses.end(), [courseId](const Course& course) {
+        return course.id == courseId;
+    });
+
+    if (it == courses.end()) {
+        throw std::runtime_error("Course not found");
+    }
+
+    courses.erase(it, courses.end());
 }

@@ -13,6 +13,7 @@ class QLabel;
 class QPushButton;
 class QVBoxLayout;
 class QButtonGroup;
+class QFrame;
 
 class TestRunnerPage : public QWidget
 {
@@ -45,6 +46,10 @@ private:
     QLabel *m_progressLabel;
     QLabel *m_questionLabel;
     QLabel *m_resultLabel;
+    QLabel *m_hintLabel;
+    QLabel *m_questionNumberValueLabel;
+    QLabel *m_totalQuestionsValueLabel;
+    QLabel *m_answersCountValueLabel;
     QWidget *m_answersContainer;
     QVBoxLayout *m_answersLayout;
     QPushButton *m_prevButton;

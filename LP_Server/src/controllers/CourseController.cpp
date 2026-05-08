@@ -168,4 +168,60 @@ void CourseController::registerRoutes(httplib::Server &server) {
             controller_utils::handleRouteException(res, ex);
         }
     });
+
+    server.Put(R"(/api/courses/(\d+))", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto auth = controller_utils::requireAuth(req, jwtService);
+            if (auth.role != UserRole::Teacher && auth.role != UserRole::Admin) {
+                throw controller_utils::HttpError(403, "Only teachers can update courses");
+            }
+
+            int courseId = controller_utils::pathParamInt(req, 1, "courseId");
+            if (!courseService.getCourseById(courseId).has_value()) {
+                throw controller_utils::HttpError(404, "Course not found");
+            }
+
+            if (!courseService.canManageCourse(auth.userId, auth.role, courseId)) {
+                throw controller_utils::HttpError(403, "You can manage only your own courses");
+            }
+
+            json body = json::parse(req.body);
+            std::string title = controller_utils::requiredJsonString(body, "title");
+            std::string description = controller_utils::requiredJsonString(body, "description");
+
+            Course course = courseService.updateCourse(courseId, title, description);
+
+            res.set_content(json{
+                {"id", course.id},
+                {"title", course.title},
+                {"description", course.description},
+                {"teacherId", course.teacherId}
+            }.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
+        }
+    });
+
+    server.Delete(R"(/api/courses/(\d+))", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto auth = controller_utils::requireAuth(req, jwtService);
+            if (auth.role != UserRole::Teacher && auth.role != UserRole::Admin) {
+                throw controller_utils::HttpError(403, "Only teachers can delete courses");
+            }
+
+            int courseId = controller_utils::pathParamInt(req, 1, "courseId");
+            if (!courseService.getCourseById(courseId).has_value()) {
+                throw controller_utils::HttpError(404, "Course not found");
+            }
+
+            if (!courseService.canManageCourse(auth.userId, auth.role, courseId)) {
+                throw controller_utils::HttpError(403, "You can manage only your own courses");
+            }
+
+            courseService.deleteCourse(courseId);
+            res.status = 204;
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
+        }
+    });
 }

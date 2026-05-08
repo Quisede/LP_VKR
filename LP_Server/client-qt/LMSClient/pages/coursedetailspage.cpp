@@ -1,11 +1,13 @@
 #include "coursedetailspage.h"
 
+#include <QAbstractItemView>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QPushButton>
+#include <QTabWidget>
 #include <QVBoxLayout>
 #include <functional>
 
@@ -115,67 +117,123 @@ CourseDetailsPage::CourseDetailsPage(QWidget *parent)
     m_descriptionLabel->setObjectName("courseDetailDescriptionLabel");
     m_descriptionLabel->setWordWrap(true);
 
-    auto *modulesLayout = new QHBoxLayout();
-    modulesLayout->setSpacing(14);
+    auto *summaryLayout = new QHBoxLayout();
+    summaryLayout->setSpacing(14);
 
-    auto *lessonsCard = new QFrame(pageCard);
-    lessonsCard->setObjectName("moduleCard");
-    auto *lessonsLayout = new QVBoxLayout(lessonsCard);
-    lessonsLayout->setContentsMargins(18, 18, 18, 18);
-    auto *lessonsTitle = new QLabel("Уроки", lessonsCard);
-    lessonsTitle->setObjectName("moduleTitleLabel");
-    m_lessonsList = new QListWidget(lessonsCard);
-    lessonsLayout->addWidget(lessonsTitle);
-    lessonsLayout->addWidget(m_lessonsList);
+    auto createSummaryCard = [pageCard](const QString &title, QLabel **valueLabel) {
+        auto *card = new QFrame(pageCard);
+        card->setObjectName("moduleCard");
+        card->setMinimumHeight(136);
+        card->setMaximumHeight(156);
+        auto *cardLayout = new QVBoxLayout(card);
+        cardLayout->setContentsMargins(18, 18, 18, 18);
+        cardLayout->setSpacing(8);
 
-    auto *materialsCard = new QFrame(pageCard);
-    materialsCard->setObjectName("moduleCard_2");
-    auto *materialsLayout = new QVBoxLayout(materialsCard);
-    materialsLayout->setContentsMargins(18, 18, 18, 18);
-    auto *materialsTitle = new QLabel("Материалы", materialsCard);
-    materialsTitle->setObjectName("moduleTitleLabel");
-    m_materialsList = new QListWidget(materialsCard);
-    materialsLayout->addWidget(materialsTitle);
-    materialsLayout->addWidget(m_materialsList);
+        auto *titleLabel = new QLabel(title, card);
+        titleLabel->setObjectName("moduleTitleLabel");
 
-    auto *videosCard = new QFrame(pageCard);
-    videosCard->setObjectName("moduleCard_3");
-    auto *videosLayout = new QVBoxLayout(videosCard);
-    videosLayout->setContentsMargins(18, 18, 18, 18);
-    auto *videosTitle = new QLabel("Видео", videosCard);
-    videosTitle->setObjectName("moduleTitleLabel");
-    m_videosList = new QListWidget(videosCard);
-    videosLayout->addWidget(videosTitle);
-    videosLayout->addWidget(m_videosList);
+        *valueLabel = new QLabel("0", card);
+        (*valueLabel)->setObjectName("courseDetailTitleLabel");
 
-    auto *testsCard = new QFrame(pageCard);
-    testsCard->setObjectName("moduleCard_4");
-    auto *testsLayout = new QVBoxLayout(testsCard);
-    testsLayout->setContentsMargins(18, 18, 18, 18);
-    auto *testsTitle = new QLabel("Тесты", testsCard);
-    testsTitle->setObjectName("moduleTitleLabel");
-    m_testsList = new QListWidget(testsCard);
-    testsLayout->addWidget(testsTitle);
-    testsLayout->addWidget(m_testsList);
+        cardLayout->addWidget(titleLabel);
+        cardLayout->addWidget(*valueLabel);
+        cardLayout->addStretch();
+        return card;
+    };
 
-    for (QListWidget *list : {m_lessonsList, m_materialsList, m_videosList, m_testsList}) {
-        list->setSpacing(10);
-    }
+    summaryLayout->addWidget(createSummaryCard("Уроки", &m_lessonsSummaryLabel));
+    summaryLayout->addWidget(createSummaryCard("Материалы", &m_materialsSummaryLabel));
+    summaryLayout->addWidget(createSummaryCard("Видео", &m_videosSummaryLabel));
+    summaryLayout->addWidget(createSummaryCard("Тесты", &m_testsSummaryLabel));
 
-    modulesLayout->addWidget(lessonsCard);
-    modulesLayout->addWidget(materialsCard);
-    modulesLayout->addWidget(videosCard);
-    modulesLayout->addWidget(testsCard);
+    m_overviewHintLabel = new QLabel(pageCard);
+    m_overviewHintLabel->setObjectName("sectionHintLabel");
+    m_overviewHintLabel->setWordWrap(true);
+
+    m_sectionsTabs = new QTabWidget(pageCard);
+    m_sectionsTabs->setDocumentMode(true);
+    m_sectionsTabs->tabBar()->setDrawBase(false);
+    m_sectionsTabs->tabBar()->setExpanding(false);
+    m_sectionsTabs->setStyleSheet(
+        "QTabWidget::pane {"
+        " border: 1px solid #dbe4f0;"
+        " border-radius: 18px;"
+        " margin-top: 12px;"
+        " background: #f8fbff;"
+        " padding: 18px;"
+        "}"
+        "QTabWidget::tab-bar { alignment: left; left: 10px; }"
+        "QTabBar::tab {"
+        " background: #e2e8f0;"
+        " color: #334155;"
+        " border: none;"
+        " border-top-left-radius: 12px;"
+        " border-top-right-radius: 12px;"
+        " padding: 10px 18px;"
+        " min-width: 96px;"
+        " font-weight: 600;"
+        " margin-right: 8px;"
+        "}"
+        "QTabBar::tab:selected {"
+        " background: #2563eb;"
+        " color: #ffffff;"
+        "}");
+
+    auto createListTab = [this](const QString &title, QListWidget **listRef) {
+        auto *tab = new QWidget(m_sectionsTabs);
+        auto *tabLayout = new QVBoxLayout(tab);
+        tabLayout->setContentsMargins(0, 0, 0, 0);
+        tabLayout->setSpacing(12);
+
+        auto *card = new QFrame(tab);
+        card->setObjectName("moduleCard");
+        auto *cardLayout = new QVBoxLayout(card);
+        cardLayout->setContentsMargins(18, 18, 18, 18);
+        cardLayout->setSpacing(12);
+
+        auto *titleLabel = new QLabel(title, card);
+        titleLabel->setObjectName("moduleTitleLabel");
+
+        *listRef = new QListWidget(card);
+        (*listRef)->setSpacing(10);
+        (*listRef)->setSelectionMode(QAbstractItemView::NoSelection);
+
+        cardLayout->addWidget(titleLabel);
+        cardLayout->addWidget(*listRef);
+        tabLayout->addWidget(card);
+        return tab;
+    };
+
+    auto *overviewTab = new QWidget(m_sectionsTabs);
+    auto *overviewLayout = new QVBoxLayout(overviewTab);
+    overviewLayout->setContentsMargins(0, 0, 0, 0);
+    overviewLayout->setSpacing(14);
+    overviewLayout->addLayout(summaryLayout);
+    overviewLayout->addWidget(m_overviewHintLabel);
+    overviewLayout->addStretch();
+
+    auto *lessonsTab = createListTab("Уроки курса", &m_lessonsList);
+    auto *materialsTab = createListTab("Материалы курса", &m_materialsList);
+    auto *videosTab = createListTab("Видео и ссылки", &m_videosList);
+    auto *testsTab = createListTab("Тесты курса", &m_testsList);
+
+    m_sectionsTabs->addTab(overviewTab, "Обзор");
+    m_sectionsTabs->addTab(lessonsTab, "Уроки");
+    m_sectionsTabs->addTab(materialsTab, "Материалы");
+    m_sectionsTabs->addTab(videosTab, "Видео");
+    m_sectionsTabs->addTab(testsTab, "Тесты");
 
     pageLayout->addLayout(topLayout);
     pageLayout->addWidget(m_titleLabel);
     pageLayout->addWidget(m_descriptionLabel);
-    pageLayout->addLayout(modulesLayout);
+    pageLayout->addWidget(m_sectionsTabs);
 
     rootLayout->addWidget(pageCard);
 
     connect(backButton, &QPushButton::clicked, this, &CourseDetailsPage::backRequested);
     connect(m_primaryActionButton, &QPushButton::clicked, this, &CourseDetailsPage::enrollRequested);
+
+    refreshOverview();
 }
 
 void CourseDetailsPage::setRoleMode(const QString &role)
@@ -199,6 +257,7 @@ void CourseDetailsPage::setCourse(const CourseData &course)
             m_role == "Teacher"
                 ? "Выбери курс во вкладке \"Мои курсы\", чтобы открыть конструктор курса."
                 : "Для этого курса пока нет подробного описания.");
+        refreshOverview();
         return;
     }
 
@@ -207,6 +266,7 @@ void CourseDetailsPage::setCourse(const CourseData &course)
         course.description.isEmpty()
             ? "Для этого курса пока нет подробного описания."
             : course.description);
+    refreshOverview();
 }
 
 void CourseDetailsPage::setLessons(const QVector<LessonData> &lessons)
@@ -216,6 +276,8 @@ void CourseDetailsPage::setLessons(const QVector<LessonData> &lessons)
         items.push_back({lesson.title, lesson.content});
     }
     setListItems(m_lessonsList, items, "Уроков пока нет", "Для курса ещё не добавлены уроки.");
+    m_lessonsSummaryLabel->setText(QString::number(lessons.size()));
+    refreshOverview();
 }
 
 void CourseDetailsPage::setMaterials(const QVector<MaterialData> &materials, const QVector<MaterialData> &videos)
@@ -231,6 +293,9 @@ void CourseDetailsPage::setMaterials(const QVector<MaterialData> &materials, con
         videoItems.push_back({video.title, video.content});
     }
     setListItems(m_videosList, videoItems, "Видео пока нет", "У этого курса нет видеоматериалов.");
+    m_materialsSummaryLabel->setText(QString::number(materials.size()));
+    m_videosSummaryLabel->setText(QString::number(videos.size()));
+    refreshOverview();
 }
 
 void CourseDetailsPage::setTests(const QVector<TestData> &tests)
@@ -238,6 +303,8 @@ void CourseDetailsPage::setTests(const QVector<TestData> &tests)
     m_testsList->clear();
     if (tests.isEmpty()) {
         appendCard(m_testsList, "Тестов пока нет", "Для этого курса ещё не добавили тесты.");
+        m_testsSummaryLabel->setText("0");
+        refreshOverview();
         return;
     }
 
@@ -256,6 +323,8 @@ void CourseDetailsPage::setTests(const QVector<TestData> &tests)
             button->setText(m_role == "Teacher" ? "Открыть тест" : "Начать тест");
         }
     }
+    m_testsSummaryLabel->setText(QString::number(tests.size()));
+    refreshOverview();
 }
 
 void CourseDetailsPage::showLoadingState()
@@ -269,6 +338,11 @@ void CourseDetailsPage::showLoadingState()
     appendCard(m_materialsList, "Загружаем материалы...", "Подбираем дополнительные ресурсы.");
     appendCard(m_videosList, "Загружаем видео...", "Проверяем, есть ли видеоматериалы.");
     appendCard(m_testsList, "Загружаем тесты...", "Получаем тесты курса.");
+    m_lessonsSummaryLabel->setText("—");
+    m_materialsSummaryLabel->setText("—");
+    m_videosSummaryLabel->setText("—");
+    m_testsSummaryLabel->setText("—");
+    refreshOverview();
 }
 
 void CourseDetailsPage::setListItems(
@@ -286,5 +360,22 @@ void CourseDetailsPage::setListItems(
 
     for (const auto &item : items) {
         appendCard(list, item.first, item.second);
+    }
+}
+
+void CourseDetailsPage::refreshOverview()
+{
+    const QString courseTitle = m_course.id >= 0 && !m_course.title.isEmpty()
+        ? m_course.title
+        : "выбранного курса";
+
+    if (m_role == "Teacher") {
+        m_overviewHintLabel->setText(
+            QString("Этот экран показывает учебную структуру %1 в student-view: уроки, материалы, видео и тесты.")
+                .arg(courseTitle));
+    } else {
+        m_overviewHintLabel->setText(
+            QString("Здесь собраны все элементы %1: сначала посмотри уроки и материалы, затем переходи к тестам.")
+                .arg(courseTitle));
     }
 }

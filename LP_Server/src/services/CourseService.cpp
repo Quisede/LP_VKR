@@ -80,6 +80,36 @@ Course CourseService::createCourse(
     return courseRepository.createCourse(normalizedTitle, normalizedDescription, teacherId);
 }
 
+Course CourseService::updateCourse(
+    int courseId,
+    const std::string& title,
+    const std::string& description) {
+    std::string normalizedTitle = trimCopy(title);
+    std::string normalizedDescription = trimCopy(description);
+
+    if (normalizedTitle.empty()) {
+        throw std::invalid_argument("Course title must not be empty");
+    }
+
+    if (normalizedDescription.empty()) {
+        throw std::invalid_argument("Course description must not be empty");
+    }
+
+    if (!courseRepository.getCourseById(courseId).has_value()) {
+        throw std::invalid_argument("Course not found");
+    }
+
+    return courseRepository.updateCourse(courseId, normalizedTitle, normalizedDescription);
+}
+
+void CourseService::deleteCourse(int courseId) {
+    if (!courseRepository.getCourseById(courseId).has_value()) {
+        throw std::invalid_argument("Course not found");
+    }
+
+    courseRepository.deleteCourse(courseId);
+}
+
 std::vector<CourseStudent> CourseService::getStudentsForCourse(
     int userId,
     UserRole role,

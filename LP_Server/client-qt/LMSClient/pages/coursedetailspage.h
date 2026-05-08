@@ -11,6 +11,7 @@
 class QLabel;
 class QListWidget;
 class QPushButton;
+class QTabWidget;
 
 class CourseDetailsPage : public QWidget
 {
@@ -34,11 +35,18 @@ signals:
 private:
     QString m_role = "Student";
     void setListItems(QListWidget *list, const QVector<QPair<QString, QString>> &items, const QString &emptyTitle, const QString &emptySubtitle);
+    void refreshOverview();
 
     CourseData m_course;
     QLabel *m_titleLabel;
     QLabel *m_descriptionLabel;
+    QLabel *m_lessonsSummaryLabel;
+    QLabel *m_materialsSummaryLabel;
+    QLabel *m_videosSummaryLabel;
+    QLabel *m_testsSummaryLabel;
+    QLabel *m_overviewHintLabel;
     QPushButton *m_primaryActionButton;
+    QTabWidget *m_sectionsTabs;
     QListWidget *m_lessonsList;
     QListWidget *m_materialsList;
     QListWidget *m_videosList;

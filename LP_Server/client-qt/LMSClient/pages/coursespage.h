@@ -25,14 +25,22 @@ signals:
     void courseOpened(const CourseData &course);
     void enrollRequested(int courseId);
     void courseBuilderRequested(const CourseData &course);
+    void courseEditRequested(const CourseData &course);
+    void courseDeleteRequested(const CourseData &course);
 
 private:
     void clearCards();
     void addCardWidget(QWidget *widget);
 
     QString m_role = "Student";
+    int m_coursesCount = 0;
     QWidget *m_cardsContainer;
     QVBoxLayout *m_cardsLayout;
     QLabel *m_titleLabel;
     QLabel *m_hintLabel;
+    QLabel *m_countValueLabel;
+    QLabel *m_countTitleLabel;
+    QLabel *m_focusValueLabel;
+    QLabel *m_focusTitleLabel;
+    QLabel *m_infoLabel;
 };

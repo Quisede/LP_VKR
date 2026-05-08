@@ -12,4 +12,5 @@ struct QuestionData {
     int id = -1;
     QString text;
     QVector<AnswerOptionData> options;
+    int correctAnswerId = -1;
 };

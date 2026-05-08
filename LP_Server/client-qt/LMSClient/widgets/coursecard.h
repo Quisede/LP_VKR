@@ -21,6 +21,8 @@ signals:
     void openRequested(int courseId);
     void enrollRequested(int courseId);
     void builderRequested(int courseId);
+    void editRequested(int courseId);
+    void deleteRequested(int courseId);
 
 private:
     int m_courseId = -1;

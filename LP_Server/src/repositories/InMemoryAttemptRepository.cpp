@@ -23,3 +23,30 @@ std::vector<Attempt> InMemoryAttemptRepository::getAttemptsForUser(int userId) {
 
     return result;
 }
+
+CourseAnalytics InMemoryAttemptRepository::getCourseAnalytics(int courseId) {
+    CourseAnalytics analytics;
+
+    for (const auto& attempt : attempts) {
+        if (attempt.testId != courseId) {
+            continue;
+        }
+
+        analytics.attemptsCount += 1;
+        analytics.averagePercentage += attempt.percentage;
+        analytics.rows.push_back({
+            "User #" + std::to_string(attempt.userId),
+            "Test #" + std::to_string(attempt.testId),
+            attempt.score,
+            attempt.total,
+            attempt.percentage,
+            attempt.passed
+        });
+    }
+
+    if (analytics.attemptsCount > 0) {
+        analytics.averagePercentage /= analytics.attemptsCount;
+    }
+
+    return analytics;
+}

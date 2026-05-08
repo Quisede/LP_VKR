@@ -8,6 +8,10 @@ std::vector<Material> MaterialService::getMaterialsForLesson(int lessonId) {
     return materialRepository.getMaterialsForLesson(lessonId);
 }
 
+std::optional<Material> MaterialService::getMaterialById(int materialId) {
+    return materialRepository.getMaterialById(materialId);
+}
+
 Material MaterialService::createMaterial(
     int lessonId,
     const std::string& title,
@@ -26,4 +30,28 @@ Material MaterialService::createMaterial(
     }
 
     return materialRepository.createMaterial(lessonId, title, type, content);
+}
+
+Material MaterialService::updateMaterial(
+    int materialId,
+    const std::string& title,
+    const std::string& type,
+    const std::string& content) {
+    if (title.empty()) {
+        throw std::invalid_argument("Material title must not be empty");
+    }
+
+    if (content.empty()) {
+        throw std::invalid_argument("Material content must not be empty");
+    }
+
+    if (type != "text" && type != "video" && type != "link") {
+        throw std::invalid_argument("Material type must be one of: text, video, link");
+    }
+
+    return materialRepository.updateMaterial(materialId, title, type, content);
+}
+
+void MaterialService::deleteMaterial(int materialId) {
+    materialRepository.deleteMaterial(materialId);
 }

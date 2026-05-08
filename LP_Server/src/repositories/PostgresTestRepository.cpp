@@ -36,6 +36,41 @@ std::vector<Test> PostgresTestRepository::getTestsForCourse(int courseId) {
     return tests;
 }
 
+std::optional<Test> PostgresTestRepository::getTestById(int testId) {
+    std::lock_guard<std::mutex> lock(db.mutex());
+
+    std::string testIdValue = std::to_string(testId);
+    const char* params[] = {testIdValue.c_str()};
+
+    PGresult* res = PQexecParams(
+        db.get(),
+        "SELECT id, course_id, title FROM tests WHERE id = $1",
+        1,
+        nullptr,
+        params,
+        nullptr,
+        nullptr,
+        0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::string error = PQerrorMessage(db.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to get test by id: " + error);
+    }
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        return std::nullopt;
+    }
+
+    Test test;
+    test.id = std::stoi(PQgetvalue(res, 0, 0));
+    test.courseId = std::stoi(PQgetvalue(res, 0, 1));
+    test.title = PQgetvalue(res, 0, 2);
+    PQclear(res);
+    return test;
+}
+
 Test PostgresTestRepository::createTest(int courseId, const std::string& title) {
     std::lock_guard<std::mutex> lock(db.mutex());
 
@@ -69,4 +104,68 @@ Test PostgresTestRepository::createTest(int courseId, const std::string& title) 
     test.title = PQgetvalue(res, 0, 2);
     PQclear(res);
     return test;
+}
+
+Test PostgresTestRepository::updateTest(int testId, const std::string& title) {
+    std::lock_guard<std::mutex> lock(db.mutex());
+
+    std::string testIdValue = std::to_string(testId);
+    const char* params[] = {
+        title.c_str(),
+        testIdValue.c_str()
+    };
+
+    PGresult* res = PQexecParams(
+        db.get(),
+        "UPDATE tests SET title = $1 WHERE id = $2 "
+        "RETURNING id, course_id, title",
+        2,
+        nullptr,
+        params,
+        nullptr,
+        nullptr,
+        0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::string error = PQerrorMessage(db.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to update test: " + error);
+    }
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        throw std::runtime_error("Test not found");
+    }
+
+    Test test;
+    test.id = std::stoi(PQgetvalue(res, 0, 0));
+    test.courseId = std::stoi(PQgetvalue(res, 0, 1));
+    test.title = PQgetvalue(res, 0, 2);
+    PQclear(res);
+    return test;
+}
+
+void PostgresTestRepository::deleteTest(int testId) {
+    std::lock_guard<std::mutex> lock(db.mutex());
+
+    std::string testIdValue = std::to_string(testId);
+    const char* params[] = {testIdValue.c_str()};
+
+    PGresult* res = PQexecParams(
+        db.get(),
+        "DELETE FROM tests WHERE id = $1",
+        1,
+        nullptr,
+        params,
+        nullptr,
+        nullptr,
+        0);
+
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::string error = PQerrorMessage(db.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to delete test: " + error);
+    }
+
+    PQclear(res);
 }

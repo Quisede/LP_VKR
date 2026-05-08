@@ -31,5 +31,12 @@ public:
         const std::string& description,
         int teacherId) = 0;
 
+    virtual Course updateCourse(
+        int courseId,
+        const std::string& title,
+        const std::string& description) = 0;
+
+    virtual void deleteCourse(int courseId) = 0;
+
     virtual ~CourseRepository() = default;
 };

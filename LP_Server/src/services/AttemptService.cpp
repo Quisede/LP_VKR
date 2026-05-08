@@ -1,7 +1,9 @@
 #include "AttemptService.h"
+#include <stdexcept>
 
-AttemptService::AttemptService(AttemptRepository& repo)
-    : attemptRepository(repo) {}
+AttemptService::AttemptService(AttemptRepository& repo, CourseService& courseService)
+    : attemptRepository(repo),
+      courseService(courseService) {}
 
 std::vector<Attempt> AttemptService::getAttemptsForUser(
     int currentUserId,
@@ -16,4 +18,20 @@ std::vector<Attempt> AttemptService::getAttemptsForUser(
     }
 
     return attemptRepository.getAttemptsForUser(requestedUserId);
+}
+
+CourseAnalytics AttemptService::getCourseAnalytics(int currentUserId, UserRole role, int courseId) {
+    if (role != UserRole::Teacher && role != UserRole::Admin) {
+        throw std::invalid_argument("Only teachers can view course analytics");
+    }
+
+    if (!courseService.getCourseById(courseId).has_value()) {
+        throw std::invalid_argument("Course not found");
+    }
+
+    if (!courseService.canManageCourse(currentUserId, role, courseId)) {
+        throw std::invalid_argument("You can view analytics only for your own courses");
+    }
+
+    return attemptRepository.getCourseAnalytics(courseId);
 }

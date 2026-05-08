@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QNetworkAccessManager>
+#include <QStringList>
 #include <QVector>
 #include <functional>
 
@@ -12,6 +13,7 @@
 #include "../models/materialmodel.h"
 #include "../models/questionmodel.h"
 #include "../models/sessiondata.h"
+#include "../models/teacheranalyticsmodel.h"
 #include "../models/testmodel.h"
 
 class ApiClient : public QObject
@@ -44,6 +46,20 @@ public:
         std::function<void(const CourseData &course)> onSuccess,
         std::function<void(const QString &error)> onError);
 
+    void updateCourse(
+        int courseId,
+        const QString &title,
+        const QString &description,
+        QObject *context,
+        std::function<void(const CourseData &course)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void deleteCourse(
+        int courseId,
+        QObject *context,
+        std::function<void()> onSuccess,
+        std::function<void(const QString &error)> onError);
+
     void enrollCourse(
         int courseId,
         QObject *context,
@@ -64,6 +80,20 @@ public:
         std::function<void(const LessonData &lesson)> onSuccess,
         std::function<void(const QString &error)> onError);
 
+    void updateLesson(
+        int lessonId,
+        const QString &title,
+        const QString &content,
+        QObject *context,
+        std::function<void(const LessonData &lesson)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void deleteLesson(
+        int lessonId,
+        QObject *context,
+        std::function<void()> onSuccess,
+        std::function<void(const QString &error)> onError);
+
     void getMaterials(
         int lessonId,
         QObject *context,
@@ -79,6 +109,21 @@ public:
         std::function<void(const MaterialData &material)> onSuccess,
         std::function<void(const QString &error)> onError);
 
+    void updateMaterial(
+        int materialId,
+        const QString &title,
+        const QString &type,
+        const QString &content,
+        QObject *context,
+        std::function<void(const MaterialData &material)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void deleteMaterial(
+        int materialId,
+        QObject *context,
+        std::function<void()> onSuccess,
+        std::function<void(const QString &error)> onError);
+
     void getTests(
         int courseId,
         QObject *context,
@@ -92,10 +137,53 @@ public:
         std::function<void(const TestData &test)> onSuccess,
         std::function<void(const QString &error)> onError);
 
+    void updateTest(
+        int testId,
+        const QString &title,
+        QObject *context,
+        std::function<void(const TestData &test)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void deleteTest(
+        int testId,
+        QObject *context,
+        std::function<void()> onSuccess,
+        std::function<void(const QString &error)> onError);
+
     void getQuestions(
         int testId,
         QObject *context,
         std::function<void(const QVector<QuestionData> &questions)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void getManageQuestions(
+        int testId,
+        QObject *context,
+        std::function<void(const QVector<QuestionData> &questions)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void createQuestion(
+        int testId,
+        const QString &text,
+        const QStringList &options,
+        int correctOptionIndex,
+        QObject *context,
+        std::function<void(const QuestionData &question)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void updateQuestion(
+        int questionId,
+        const QString &text,
+        const QStringList &options,
+        int correctOptionIndex,
+        QObject *context,
+        std::function<void(const QuestionData &question)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void deleteQuestion(
+        int questionId,
+        QObject *context,
+        std::function<void()> onSuccess,
         std::function<void(const QString &error)> onError);
 
     void submitTest(
@@ -115,6 +203,12 @@ public:
         int courseId,
         QObject *context,
         std::function<void(const QVector<CourseStudentData> &students)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void getCourseAnalytics(
+        int courseId,
+        QObject *context,
+        std::function<void(const TeacherCourseAnalyticsData &analytics)> onSuccess,
         std::function<void(const QString &error)> onError);
 
 private:

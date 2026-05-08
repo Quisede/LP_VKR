@@ -219,6 +219,78 @@ Course PostgresCourseRepository::createCourse(
     return course;
 }
 
+Course PostgresCourseRepository::updateCourse(
+    int courseId,
+    const std::string& title,
+    const std::string& description) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
+
+    std::string courseIdValue = std::to_string(courseId);
+    const char* params[] = {
+        title.c_str(),
+        description.c_str(),
+        courseIdValue.c_str()
+    };
+
+    PGresult* res = PQexecParams(
+        connection.get(),
+        "UPDATE courses "
+        "SET title = $1, description = $2 "
+        "WHERE id = $3 "
+        "RETURNING id, title, description, teacher_id",
+        3,
+        nullptr,
+        params,
+        nullptr,
+        nullptr,
+        0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::string error = PQerrorMessage(connection.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to update course: " + error);
+    }
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        throw std::runtime_error("Course not found");
+    }
+
+    Course course;
+    course.id = std::stoi(PQgetvalue(res, 0, 0));
+    course.title = PQgetvalue(res, 0, 1);
+    course.description = PQgetvalue(res, 0, 2);
+    course.teacherId = std::stoi(PQgetvalue(res, 0, 3));
+
+    PQclear(res);
+    return course;
+}
+
+void PostgresCourseRepository::deleteCourse(int courseId) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
+
+    std::string courseIdValue = std::to_string(courseId);
+    const char* params[] = {courseIdValue.c_str()};
+
+    PGresult* res = PQexecParams(
+        connection.get(),
+        "DELETE FROM courses WHERE id = $1",
+        1,
+        nullptr,
+        params,
+        nullptr,
+        nullptr,
+        0);
+
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::string error = PQerrorMessage(connection.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to delete course: " + error);
+    }
+
+    PQclear(res);
+}
+
 std::vector<Course> PostgresCourseRepository::getCoursesPaged(int userId, const std::string& role, int limit, int offset) {
     std::lock_guard<std::mutex> lock(connection.mutex());
 

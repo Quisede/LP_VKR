@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 #include "../models/Test.h"
@@ -14,6 +15,9 @@ public:
 
     std::vector<Test> getTestsForCourse(int userId, UserRole role, int courseId);
     Test createTest(int courseId, const std::string& title);
+    Test updateTest(int testId, const std::string& title);
+    void deleteTest(int testId);
+    std::optional<Test> getTestById(int testId);
 
 private:
     TestRepository& testRepository;

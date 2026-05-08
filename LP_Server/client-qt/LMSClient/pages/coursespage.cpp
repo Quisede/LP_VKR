@@ -3,6 +3,7 @@
 #include "../widgets/coursecard.h"
 
 #include <QFrame>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QScrollArea>
 #include <QVBoxLayout>
@@ -30,6 +31,37 @@ CoursesPage::CoursesPage(QWidget *parent)
     m_hintLabel->setObjectName("sectionHintLabel");
     m_hintLabel->setWordWrap(true);
 
+    auto createStatCard = [pageCard](const QString &title, QLabel **titleOut, QLabel **valueOut) {
+        auto *card = new QFrame(pageCard);
+        card->setObjectName("moduleCard");
+        card->setMinimumHeight(136);
+        card->setMaximumHeight(156);
+
+        auto *layout = new QVBoxLayout(card);
+        layout->setContentsMargins(18, 18, 18, 18);
+        layout->setSpacing(8);
+
+        *titleOut = new QLabel(title, card);
+        (*titleOut)->setObjectName("moduleTitleLabel");
+
+        *valueOut = new QLabel("0", card);
+        (*valueOut)->setObjectName("courseDetailTitleLabel");
+
+        layout->addWidget(*titleOut);
+        layout->addWidget(*valueOut);
+        layout->addStretch();
+        return card;
+    };
+
+    auto *statsLayout = new QHBoxLayout();
+    statsLayout->setSpacing(14);
+    statsLayout->addWidget(createStatCard("Курсы", &m_countTitleLabel, &m_countValueLabel));
+    statsLayout->addWidget(createStatCard("Фокус", &m_focusTitleLabel, &m_focusValueLabel));
+
+    m_infoLabel = new QLabel(pageCard);
+    m_infoLabel->setObjectName("sectionHintLabel");
+    m_infoLabel->setWordWrap(true);
+
     auto *scrollArea = new QScrollArea(pageCard);
     scrollArea->setWidgetResizable(true);
     scrollArea->setFrameShape(QFrame::NoFrame);
@@ -50,9 +82,13 @@ CoursesPage::CoursesPage(QWidget *parent)
 
     pageLayout->addWidget(m_titleLabel);
     pageLayout->addWidget(m_hintLabel);
+    pageLayout->addLayout(statsLayout);
+    pageLayout->addWidget(m_infoLabel);
     pageLayout->addWidget(scrollArea);
 
     rootLayout->addWidget(pageCard);
+
+    setRoleMode(m_role);
 }
 
 void CoursesPage::setRoleMode(const QString &role)
@@ -63,15 +99,33 @@ void CoursesPage::setRoleMode(const QString &role)
         m_titleLabel->setText("Мои курсы");
         m_hintLabel->setText(
             "Здесь отображаются курсы, где ты преподаватель. Открой курс, чтобы перейти к его внутренней структуре.");
+        m_countTitleLabel->setText("Мои курсы");
+        m_focusTitleLabel->setText("Режим");
+        m_focusValueLabel->setText(m_coursesCount == 0 ? "Старт" : "Builder");
+        m_infoLabel->setText(
+            m_coursesCount == 0
+                ? "Сначала создай первый курс, после этого он появится здесь и его можно будет открыть или развивать в конструкторе."
+                : "Открой курс для teacher-view или переходи в конструктор, чтобы редактировать уроки, материалы и тесты.");
     } else {
         m_titleLabel->setText("Каталог курсов");
         m_hintLabel->setText(
             "Курсы подгружаются автоматически. Нажми на карточку курса, чтобы открыть его внутреннюю страницу.");
+        m_countTitleLabel->setText("Доступно курсов");
+        m_focusTitleLabel->setText("Что дальше");
+        m_focusValueLabel->setText(m_coursesCount == 0 ? "Ожидание" : "Учиться");
+        m_infoLabel->setText(
+            m_coursesCount == 0
+                ? "Когда курсы станут доступны, они появятся здесь. После записи можно переходить к урокам, материалам и тестам."
+                : "Сначала открой курс и изучи материалы, затем переходи к тестам и отслеживай результат в отдельной вкладке.");
     }
+
+    m_countValueLabel->setText(QString::number(m_coursesCount));
 }
 
 void CoursesPage::setCourses(const QVector<CourseData> &courses)
 {
+    m_coursesCount = courses.size();
+    setRoleMode(m_role);
     clearCards();
 
     for (const auto &course : courses) {
@@ -90,6 +144,12 @@ void CoursesPage::setCourses(const QVector<CourseData> &courses)
         QObject::connect(card, &CourseCard::builderRequested, this, [this, course](int) {
             emit courseBuilderRequested(course);
         });
+        QObject::connect(card, &CourseCard::editRequested, this, [this, course](int) {
+            emit courseEditRequested(course);
+        });
+        QObject::connect(card, &CourseCard::deleteRequested, this, [this, course](int) {
+            emit courseDeleteRequested(course);
+        });
 
         addCardWidget(card);
     }
@@ -97,6 +157,8 @@ void CoursesPage::setCourses(const QVector<CourseData> &courses)
 
 void CoursesPage::showPlaceholder(const QString &title, const QString &message)
 {
+    m_coursesCount = 0;
+    setRoleMode(m_role);
     clearCards();
 
     auto *card = new QFrame(m_cardsContainer);

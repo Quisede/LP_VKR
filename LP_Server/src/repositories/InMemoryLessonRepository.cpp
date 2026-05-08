@@ -1,4 +1,6 @@
 #include "InMemoryLessonRepository.h"
+#include <algorithm>
+#include <stdexcept>
 
 InMemoryLessonRepository::InMemoryLessonRepository() {
     lessons.push_back({1, 1, "Introduction", "Welcome to the course"});
@@ -36,4 +38,28 @@ Lesson InMemoryLessonRepository::createLesson(
     Lesson lesson{nextId, courseId, title, content};
     lessons.push_back(lesson);
     return lesson;
+}
+
+Lesson InMemoryLessonRepository::updateLesson(
+    int lessonId,
+    const std::string& title,
+    const std::string& content) {
+    for (auto &lesson : lessons) {
+        if (lesson.id == lessonId) {
+            lesson.title = title;
+            lesson.content = content;
+            return lesson;
+        }
+    }
+
+    throw std::runtime_error("Lesson not found");
+}
+
+void InMemoryLessonRepository::deleteLesson(int lessonId) {
+    lessons.erase(
+        std::remove_if(
+            lessons.begin(),
+            lessons.end(),
+            [lessonId](const Lesson &lesson) { return lesson.id == lessonId; }),
+        lessons.end());
 }

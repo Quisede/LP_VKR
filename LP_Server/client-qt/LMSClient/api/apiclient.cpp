@@ -165,6 +165,75 @@ void ApiClient::createCourse(
     });
 }
 
+void ApiClient::updateCourse(
+    int courseId,
+    const QString &title,
+    const QString &description,
+    QObject *context,
+    std::function<void(const CourseData &course)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QJsonObject body;
+    body["title"] = title;
+    body["description"] = description;
+
+    QNetworkRequest request = createRequest(QString("/api/courses/%1").arg(courseId));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply *reply = m_networkManager.put(
+        request,
+        QJsonDocument(body).toJson(QJsonDocument::Compact));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) {
+            onError("Некорректный ответ после обновления курса");
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonObject obj = doc.object();
+        CourseData course;
+        course.id = obj.value("id").toInt(-1);
+        course.title = obj.value("title").toString();
+        course.description = obj.value("description").toString();
+        course.teacherId = obj.value("teacherId").toInt(-1);
+        onSuccess(course);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::deleteCourse(
+    int courseId,
+    QObject *context,
+    std::function<void()> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QNetworkReply *reply = m_networkManager.deleteResource(
+        createRequest(QString("/api/courses/%1").arg(courseId)));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        onSuccess();
+        reply->deleteLater();
+    });
+}
+
 void ApiClient::enrollCourse(
     int courseId,
     QObject *context,
@@ -281,6 +350,75 @@ void ApiClient::createLesson(
     });
 }
 
+void ApiClient::updateLesson(
+    int lessonId,
+    const QString &title,
+    const QString &content,
+    QObject *context,
+    std::function<void(const LessonData &lesson)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QJsonObject body;
+    body["title"] = title;
+    body["content"] = content;
+
+    QNetworkRequest request = createRequest(QString("/api/lessons/%1").arg(lessonId));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply *reply = m_networkManager.put(
+        request,
+        QJsonDocument(body).toJson(QJsonDocument::Compact));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) {
+            onError("Некорректный ответ после обновления урока");
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonObject obj = doc.object();
+        LessonData lesson;
+        lesson.id = obj.value("id").toInt(-1);
+        lesson.courseId = obj.value("courseId").toInt(-1);
+        lesson.title = obj.value("title").toString();
+        lesson.content = obj.value("content").toString();
+        onSuccess(lesson);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::deleteLesson(
+    int lessonId,
+    QObject *context,
+    std::function<void()> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QNetworkReply *reply = m_networkManager.deleteResource(
+        createRequest(QString("/api/lessons/%1").arg(lessonId)));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        onSuccess();
+        reply->deleteLater();
+    });
+}
+
 void ApiClient::getMaterials(
     int lessonId,
     QObject *context,
@@ -372,6 +510,78 @@ void ApiClient::createMaterial(
     });
 }
 
+void ApiClient::updateMaterial(
+    int materialId,
+    const QString &title,
+    const QString &type,
+    const QString &content,
+    QObject *context,
+    std::function<void(const MaterialData &material)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QJsonObject body;
+    body["title"] = title;
+    body["type"] = type;
+    body["content"] = content;
+
+    QNetworkRequest request = createRequest(QString("/api/materials/%1").arg(materialId));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply *reply = m_networkManager.put(
+        request,
+        QJsonDocument(body).toJson(QJsonDocument::Compact));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) {
+            onError("Некорректный ответ после обновления материала");
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonObject obj = doc.object();
+        MaterialData material;
+        material.id = obj.value("id").toInt(-1);
+        material.lessonId = obj.value("lessonId").toInt(-1);
+        material.title = obj.value("title").toString();
+        material.type = obj.value("type").toString();
+        material.content = obj.value("content").toString();
+        onSuccess(material);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::deleteMaterial(
+    int materialId,
+    QObject *context,
+    std::function<void()> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QNetworkReply *reply = m_networkManager.deleteResource(
+        createRequest(QString("/api/materials/%1").arg(materialId)));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        onSuccess();
+        reply->deleteLater();
+    });
+}
+
 void ApiClient::getTests(
     int courseId,
     QObject *context,
@@ -455,6 +665,72 @@ void ApiClient::createTest(
     });
 }
 
+void ApiClient::updateTest(
+    int testId,
+    const QString &title,
+    QObject *context,
+    std::function<void(const TestData &test)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QJsonObject body;
+    body["title"] = title;
+
+    QNetworkRequest request = createRequest(QString("/api/tests/%1").arg(testId));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply *reply = m_networkManager.put(
+        request,
+        QJsonDocument(body).toJson(QJsonDocument::Compact));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) {
+            onError("Некорректный ответ после обновления теста");
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonObject obj = doc.object();
+        TestData test;
+        test.id = obj.value("id").toInt(-1);
+        test.courseId = obj.value("courseId").toInt(-1);
+        test.title = obj.value("title").toString();
+        onSuccess(test);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::deleteTest(
+    int testId,
+    QObject *context,
+    std::function<void()> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QNetworkReply *reply = m_networkManager.deleteResource(
+        createRequest(QString("/api/tests/%1").arg(testId)));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        onSuccess();
+        reply->deleteLater();
+    });
+}
+
 void ApiClient::getQuestions(
     int testId,
     QObject *context,
@@ -486,6 +762,7 @@ void ApiClient::getQuestions(
             QuestionData question;
             question.id = obj.value("id").toInt(-1);
             question.text = obj.value("text").toString();
+            question.correctAnswerId = obj.value("correctAnswerId").toInt(-1);
 
             for (const auto &optionValue : obj.value("options").toArray()) {
                 const QJsonObject optionObject = optionValue.toObject();
@@ -499,6 +776,200 @@ void ApiClient::getQuestions(
         }
 
         onSuccess(questions);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::getManageQuestions(
+    int testId,
+    QObject *context,
+    std::function<void(const QVector<QuestionData> &questions)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QNetworkReply *reply = m_networkManager.get(
+        createRequest(QString("/api/tests/%1/questions/manage").arg(testId)));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) {
+            onError("Некорректный ответ по вопросам теста");
+            reply->deleteLater();
+            return;
+        }
+
+        QVector<QuestionData> questions;
+        for (const auto &value : doc.object().value("questions").toArray()) {
+            const QJsonObject obj = value.toObject();
+            QuestionData question;
+            question.id = obj.value("id").toInt(-1);
+            question.text = obj.value("text").toString();
+            question.correctAnswerId = obj.value("correctAnswerId").toInt(-1);
+
+            for (const auto &optionValue : obj.value("options").toArray()) {
+                const QJsonObject optionObject = optionValue.toObject();
+                AnswerOptionData option;
+                option.id = optionObject.value("id").toInt(-1);
+                option.text = optionObject.value("text").toString();
+                question.options.push_back(option);
+            }
+
+            questions.push_back(question);
+        }
+
+        onSuccess(questions);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::createQuestion(
+    int testId,
+    const QString &text,
+    const QStringList &options,
+    int correctOptionIndex,
+    QObject *context,
+    std::function<void(const QuestionData &question)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QJsonArray optionsArray;
+    for (const QString &option : options) {
+        optionsArray.push_back(option);
+    }
+
+    QJsonObject body;
+    body["text"] = text;
+    body["options"] = optionsArray;
+    body["correctOptionIndex"] = correctOptionIndex;
+
+    QNetworkRequest request = createRequest(QString("/api/tests/%1/questions").arg(testId));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply *reply = m_networkManager.post(
+        request,
+        QJsonDocument(body).toJson(QJsonDocument::Compact));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) {
+            onError("Некорректный ответ после создания вопроса");
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonObject obj = doc.object();
+        QuestionData question;
+        question.id = obj.value("id").toInt(-1);
+        question.text = obj.value("text").toString();
+        question.correctAnswerId = obj.value("correctAnswerId").toInt(-1);
+
+        for (const auto &optionValue : obj.value("options").toArray()) {
+            const QJsonObject optionObject = optionValue.toObject();
+            AnswerOptionData option;
+            option.id = optionObject.value("id").toInt(-1);
+            option.text = optionObject.value("text").toString();
+            question.options.push_back(option);
+        }
+
+        onSuccess(question);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::updateQuestion(
+    int questionId,
+    const QString &text,
+    const QStringList &options,
+    int correctOptionIndex,
+    QObject *context,
+    std::function<void(const QuestionData &question)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QJsonArray optionsArray;
+    for (const QString &option : options) {
+        optionsArray.push_back(option);
+    }
+
+    QJsonObject body;
+    body["text"] = text;
+    body["options"] = optionsArray;
+    body["correctOptionIndex"] = correctOptionIndex;
+
+    QNetworkRequest request = createRequest(QString("/api/questions/%1").arg(questionId));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply *reply = m_networkManager.put(
+        request,
+        QJsonDocument(body).toJson(QJsonDocument::Compact));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) {
+            onError("Некорректный ответ после обновления вопроса");
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonObject obj = doc.object();
+        QuestionData question;
+        question.id = obj.value("id").toInt(-1);
+        question.text = obj.value("text").toString();
+        question.correctAnswerId = obj.value("correctAnswerId").toInt(-1);
+
+        for (const auto &optionValue : obj.value("options").toArray()) {
+            const QJsonObject optionObject = optionValue.toObject();
+            AnswerOptionData option;
+            option.id = optionObject.value("id").toInt(-1);
+            option.text = optionObject.value("text").toString();
+            question.options.push_back(option);
+        }
+
+        onSuccess(question);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::deleteQuestion(
+    int questionId,
+    QObject *context,
+    std::function<void()> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QNetworkReply *reply = m_networkManager.deleteResource(
+        createRequest(QString("/api/questions/%1").arg(questionId)));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        onSuccess();
         reply->deleteLater();
     });
 }
@@ -635,6 +1106,54 @@ void ApiClient::getCourseStudents(
         }
 
         onSuccess(students);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::getCourseAnalytics(
+    int courseId,
+    QObject *context,
+    std::function<void(const TeacherCourseAnalyticsData &analytics)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QNetworkReply *reply = m_networkManager.get(
+        createRequest(QString("/api/courses/%1/analytics").arg(courseId)));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) {
+            onError("Некорректный ответ по аналитике курса");
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonObject obj = doc.object();
+        TeacherCourseAnalyticsData analytics;
+        analytics.studentsCount = obj.value("studentsCount").toInt(0);
+        analytics.attemptsCount = obj.value("attemptsCount").toInt(0);
+        analytics.averagePercentage = obj.value("averagePercentage").toDouble(0.0);
+
+        for (const auto &value : obj.value("results").toArray()) {
+            const QJsonObject rowObj = value.toObject();
+            TeacherAnalyticsRowData row;
+            row.studentLogin = rowObj.value("studentLogin").toString();
+            row.testTitle = rowObj.value("testTitle").toString();
+            row.score = rowObj.value("score").toInt(0);
+            row.total = rowObj.value("total").toInt(0);
+            row.percentage = rowObj.value("percentage").toDouble(0.0);
+            row.passed = rowObj.value("passed").toBool(false);
+            analytics.rows.push_back(row);
+        }
+
+        onSuccess(analytics);
         reply->deleteLater();
     });
 }

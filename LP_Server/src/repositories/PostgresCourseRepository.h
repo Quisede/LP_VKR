@@ -16,6 +16,8 @@ public:
     std::vector<Course> getAllCourses() override;
     std::vector<Course> getCoursesPaged(int userId, const std::string& role, int limit, int offset) override;
     Course createCourse(const std::string& title, const std::string& description, int teacherId) override;
+    Course updateCourse(int courseId, const std::string& title, const std::string& description) override;
+    void deleteCourse(int courseId) override;
 
 private:
     PostgresConnection& connection;

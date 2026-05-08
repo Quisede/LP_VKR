@@ -7,11 +7,13 @@
 #include "pages/coursespage.h"
 #include "pages/dashboardpage.h"
 #include "pages/profilepage.h"
+#include "pages/teacheranalyticspage.h"
 #include "pages/teachercoursebuilderpage.h"
 #include "pages/teachercreatecoursepage.h"
 #include "pages/teacherstudentspage.h"
 #include "pages/testrunnerpage.h"
 
+#include <algorithm>
 #include <QFrame>
 #include <QFormLayout>
 #include <QDebug>
@@ -68,7 +70,7 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
     , m_testRunnerPage(new TestRunnerPage(this))
     , m_attemptsPage(new AttemptsPage(this))
     , m_teacherStudentsPage(new TeacherStudentsPage(this))
-    , m_teacherAnalyticsPage(createTeacherAnalyticsPage())
+    , m_teacherAnalyticsPage(new TeacherAnalyticsPage(this))
     , m_profilePage(new ProfilePage(this))
 {
     ui->setupUi(this);
@@ -106,6 +108,51 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
 
     connect(m_coursesPage, &CoursesPage::courseOpened, this, &MainWindow::onCourseOpened);
     connect(m_coursesPage, &CoursesPage::courseBuilderRequested, this, &MainWindow::onCourseBuilderRequested);
+    connect(m_coursesPage, &CoursesPage::courseEditRequested, this, [this](const CourseData &course) {
+        if (!isTeacherMode()) {
+            return;
+        }
+
+        m_selectedCourse = course;
+        m_teacherCreateCoursePage->setEditMode(course);
+        ui->stackedWidget->setCurrentWidget(m_teacherCreateCoursePage);
+        setActiveSection(m_createCourseButton);
+        setHeader("Редактировать курс", "Обновляй описание курса или удаляй его, если он больше не нужен.");
+        showStatus(QString("Редактируем курс \"%1\"").arg(course.title));
+    });
+    connect(m_coursesPage, &CoursesPage::courseDeleteRequested, this, [this](const CourseData &course) {
+        if (!isTeacherMode()) {
+            return;
+        }
+
+        m_teacherCreateCoursePage->setBusy(true);
+        m_teacherCreateCoursePage->showMessage("Удаляем курс и связанную структуру...", false);
+        showStatus("Удаляем курс...");
+
+        m_apiClient->deleteCourse(
+            course.id,
+            this,
+            [this, course]() {
+                m_teacherCreateCoursePage->setBusy(false);
+                m_teacherCreateCoursePage->setCreateMode();
+                if (m_selectedCourse.id == course.id) {
+                    m_selectedCourse = CourseData{};
+                    m_selectedLessons.clear();
+                    m_selectedMaterials.clear();
+                    m_selectedTests.clear();
+                    m_selectedQuestions.clear();
+                    m_teacherCourseBuilderPage->clearBuilder();
+                }
+                showStatus(QString("Курс \"%1\" удалён").arg(course.title));
+                loadCourses();
+                showCoursesPage();
+            },
+            [this](const QString &error) {
+                m_teacherCreateCoursePage->setBusy(false);
+                m_teacherCreateCoursePage->showMessage(error, true);
+                showStatus(error);
+            });
+    });
     connect(m_coursesPage, &CoursesPage::enrollRequested, this, &MainWindow::onEnrollRequested);
     connect(m_courseDetailsPage, &CourseDetailsPage::backRequested, this, &MainWindow::onBackToCoursesRequested);
     connect(m_courseDetailsPage, &CourseDetailsPage::enrollRequested, this, [this]() {
@@ -139,6 +186,59 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
                     showStatus(error);
                 });
         });
+    connect(m_teacherCreateCoursePage, &TeacherCreateCoursePage::updateCourseRequested, this,
+        [this](int courseId, const QString &title, const QString &description) {
+            m_teacherCreateCoursePage->setBusy(true);
+            m_teacherCreateCoursePage->showMessage("Сохраняем изменения курса...", false);
+            showStatus("Обновляем курс...");
+
+            m_apiClient->updateCourse(
+                courseId,
+                title,
+                description,
+                this,
+                [this](const CourseData &course) {
+                    m_teacherCreateCoursePage->setBusy(false);
+                    m_teacherCreateCoursePage->setEditMode(course);
+                    m_teacherCreateCoursePage->showMessage("Курс обновлён. Изменения сохранены.", false);
+                    showStatus(QString("Курс \"%1\" обновлён").arg(course.title));
+                    m_selectedCourse = course;
+                    loadCourses();
+                },
+                [this](const QString &error) {
+                    m_teacherCreateCoursePage->setBusy(false);
+                    m_teacherCreateCoursePage->showMessage(error, true);
+                    showStatus(error);
+                });
+        });
+    connect(m_teacherCreateCoursePage, &TeacherCreateCoursePage::deleteCourseRequested, this,
+        [this](int courseId) {
+            m_teacherCreateCoursePage->setBusy(true);
+            m_teacherCreateCoursePage->showMessage("Удаляем курс и связанную структуру...", false);
+            showStatus("Удаляем курс...");
+
+            m_apiClient->deleteCourse(
+                courseId,
+                this,
+                [this]() {
+                    m_teacherCreateCoursePage->setBusy(false);
+                    m_teacherCreateCoursePage->setCreateMode();
+                    m_selectedCourse = CourseData{};
+                    m_selectedLessons.clear();
+                    m_selectedMaterials.clear();
+                    m_selectedTests.clear();
+                    m_selectedQuestions.clear();
+                    m_teacherCourseBuilderPage->clearBuilder();
+                    showStatus("Курс удалён");
+                    loadCourses();
+                    showCoursesPage();
+                },
+                [this](const QString &error) {
+                    m_teacherCreateCoursePage->setBusy(false);
+                    m_teacherCreateCoursePage->showMessage(error, true);
+                    showStatus(error);
+                });
+        });
     connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::createLessonRequested, this,
         [this](int courseId, const QString &title, const QString &content) {
             showStatus("Создаём урок...");
@@ -152,6 +252,45 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
                     m_teacherCourseBuilderPage->clearLessonDraft();
                     m_teacherCourseBuilderPage->showMessage("Урок добавлен в курс.", false);
                     showStatus("Урок создан");
+                    loadCourseLessonsAndMaterials(m_selectedCourse.id);
+                },
+                [this](const QString &error) {
+                    m_teacherCourseBuilderPage->showMessage(error, true);
+                    showStatus(error);
+                });
+        });
+    connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::updateLessonRequested, this,
+        [this](int lessonId, const QString &title, const QString &content) {
+            showStatus("Обновляем урок...");
+            m_teacherCourseBuilderPage->showMessage("Сохраняем изменения урока...", false);
+            m_apiClient->updateLesson(
+                lessonId,
+                title,
+                content,
+                this,
+                [this](const LessonData &) {
+                    m_teacherCourseBuilderPage->clearLessonDraft();
+                    m_teacherCourseBuilderPage->showMessage("Урок обновлён.", false);
+                    showStatus("Урок обновлён");
+                    loadCourseLessonsAndMaterials(m_selectedCourse.id);
+                },
+                [this](const QString &error) {
+                    m_teacherCourseBuilderPage->showMessage(error, true);
+                    showStatus(error);
+                });
+        });
+    connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::deleteLessonRequested, this,
+        [this](int lessonId) {
+            showStatus("Удаляем урок...");
+            m_teacherCourseBuilderPage->showMessage("Удаляем урок и связанные материалы...", false);
+            m_apiClient->deleteLesson(
+                lessonId,
+                this,
+                [this]() {
+                    m_teacherCourseBuilderPage->clearLessonDraft();
+                    m_teacherCourseBuilderPage->clearMaterialDraft();
+                    m_teacherCourseBuilderPage->showMessage("Урок удалён.", false);
+                    showStatus("Урок удалён");
                     loadCourseLessonsAndMaterials(m_selectedCourse.id);
                 },
                 [this](const QString &error) {
@@ -180,6 +319,45 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
                     showStatus(error);
                 });
         });
+    connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::updateMaterialRequested, this,
+        [this](int materialId, const QString &title, const QString &type, const QString &content) {
+            showStatus("Обновляем материал...");
+            m_teacherCourseBuilderPage->showMessage("Сохраняем изменения материала...", false);
+            m_apiClient->updateMaterial(
+                materialId,
+                title,
+                type,
+                content,
+                this,
+                [this](const MaterialData &) {
+                    m_teacherCourseBuilderPage->clearMaterialDraft();
+                    m_teacherCourseBuilderPage->showMessage("Материал обновлён.", false);
+                    showStatus("Материал обновлён");
+                    loadCourseLessonsAndMaterials(m_selectedCourse.id);
+                },
+                [this](const QString &error) {
+                    m_teacherCourseBuilderPage->showMessage(error, true);
+                    showStatus(error);
+                });
+        });
+    connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::deleteMaterialRequested, this,
+        [this](int materialId) {
+            showStatus("Удаляем материал...");
+            m_teacherCourseBuilderPage->showMessage("Удаляем материал...", false);
+            m_apiClient->deleteMaterial(
+                materialId,
+                this,
+                [this]() {
+                    m_teacherCourseBuilderPage->clearMaterialDraft();
+                    m_teacherCourseBuilderPage->showMessage("Материал удалён.", false);
+                    showStatus("Материал удалён");
+                    loadCourseLessonsAndMaterials(m_selectedCourse.id);
+                },
+                [this](const QString &error) {
+                    m_teacherCourseBuilderPage->showMessage(error, true);
+                    showStatus(error);
+                });
+        });
     connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::createTestRequested, this,
         [this](int courseId, const QString &title) {
             showStatus("Создаём тест...");
@@ -188,11 +366,118 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
                 courseId,
                 title,
                 this,
-                [this](const TestData &) {
+                [this](const TestData &test) {
                     m_teacherCourseBuilderPage->clearTestDraft();
-                    m_teacherCourseBuilderPage->showMessage("Тест создан. Следующим шагом добавим редактор вопросов.", false);
+                    m_teacherCourseBuilderPage->showMessage("Тест создан. Теперь можно добавлять вопросы и варианты ответов.", false);
                     showStatus("Тест создан");
                     loadCourseTests(m_selectedCourse.id);
+                    loadManagedQuestions(test.id);
+                },
+                [this](const QString &error) {
+                    m_teacherCourseBuilderPage->showMessage(error, true);
+                    showStatus(error);
+                });
+        });
+    connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::updateTestRequested, this,
+        [this](int testId, const QString &title) {
+            showStatus("Обновляем тест...");
+            m_teacherCourseBuilderPage->showMessage("Сохраняем изменения теста...", false);
+            m_apiClient->updateTest(
+                testId,
+                title,
+                this,
+                [this, testId](const TestData &) {
+                    m_teacherCourseBuilderPage->clearTestDraft();
+                    m_teacherCourseBuilderPage->showMessage("Тест обновлён.", false);
+                    showStatus("Тест обновлён");
+                    loadCourseTests(m_selectedCourse.id);
+                    loadManagedQuestions(testId);
+                },
+                [this](const QString &error) {
+                    m_teacherCourseBuilderPage->showMessage(error, true);
+                    showStatus(error);
+                });
+        });
+    connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::deleteTestRequested, this,
+        [this](int testId) {
+            showStatus("Удаляем тест...");
+            m_teacherCourseBuilderPage->showMessage("Удаляем тест и связанные вопросы...", false);
+            m_apiClient->deleteTest(
+                testId,
+                this,
+                [this]() {
+                    m_teacherCourseBuilderPage->clearTestDraft();
+                    m_teacherCourseBuilderPage->clearQuestionDraft();
+                    m_teacherCourseBuilderPage->setQuestions({});
+                    m_teacherCourseBuilderPage->showMessage("Тест удалён.", false);
+                    showStatus("Тест удалён");
+                    loadCourseTests(m_selectedCourse.id);
+                },
+                [this](const QString &error) {
+                    m_teacherCourseBuilderPage->showMessage(error, true);
+                    showStatus(error);
+                });
+        });
+    connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::testSelectedForQuestions, this,
+        [this](int testId) {
+            if (testId >= 0) {
+                loadManagedQuestions(testId);
+            }
+        });
+    connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::createQuestionRequested, this,
+        [this](int testId, const QString &text, const QStringList &options, int correctOptionIndex) {
+            showStatus("Сохраняем вопрос...");
+            m_teacherCourseBuilderPage->showMessage("Сохраняем вопрос и варианты ответов...", false);
+            m_apiClient->createQuestion(
+                testId,
+                text,
+                options,
+                correctOptionIndex,
+                this,
+                [this, testId](const QuestionData &) {
+                    m_teacherCourseBuilderPage->clearQuestionDraft();
+                    m_teacherCourseBuilderPage->showMessage("Вопрос добавлен в тест.", false);
+                    showStatus("Вопрос сохранён");
+                    loadManagedQuestions(testId);
+                },
+                [this](const QString &error) {
+                    m_teacherCourseBuilderPage->showMessage(error, true);
+                    showStatus(error);
+                });
+        });
+    connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::updateQuestionRequested, this,
+        [this](int questionId, const QString &text, const QStringList &options, int correctOptionIndex) {
+            showStatus("Обновляем вопрос...");
+            m_teacherCourseBuilderPage->showMessage("Сохраняем изменения вопроса...", false);
+            m_apiClient->updateQuestion(
+                questionId,
+                text,
+                options,
+                correctOptionIndex,
+                this,
+                [this](const QuestionData &) {
+                    m_teacherCourseBuilderPage->clearQuestionDraft();
+                    m_teacherCourseBuilderPage->showMessage("Вопрос обновлён.", false);
+                    showStatus("Вопрос обновлён");
+                    loadManagedQuestions(m_teacherCourseBuilderPage->currentManagedTestId());
+                },
+                [this](const QString &error) {
+                    m_teacherCourseBuilderPage->showMessage(error, true);
+                    showStatus(error);
+                });
+        });
+    connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::deleteQuestionRequested, this,
+        [this](int questionId) {
+            showStatus("Удаляем вопрос...");
+            m_teacherCourseBuilderPage->showMessage("Удаляем вопрос...", false);
+            m_apiClient->deleteQuestion(
+                questionId,
+                this,
+                [this]() {
+                    m_teacherCourseBuilderPage->clearQuestionDraft();
+                    m_teacherCourseBuilderPage->showMessage("Вопрос удалён.", false);
+                    showStatus("Вопрос удалён");
+                    loadManagedQuestions(m_teacherCourseBuilderPage->currentManagedTestId());
                 },
                 [this](const QString &error) {
                     m_teacherCourseBuilderPage->showMessage(error, true);
@@ -202,6 +487,11 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
     connect(m_teacherStudentsPage, &TeacherStudentsPage::courseSelected, this, [this](int courseId) {
         if (courseId >= 0) {
             loadTeacherCourseStudents(courseId);
+        }
+    });
+    connect(m_teacherAnalyticsPage, &TeacherAnalyticsPage::courseSelected, this, [this](int courseId) {
+        if (courseId >= 0) {
+            loadTeacherAnalytics(courseId);
         }
     });
 
@@ -272,6 +562,7 @@ void MainWindow::showCreateCoursePage()
         return;
     }
 
+    m_teacherCreateCoursePage->setCreateMode();
     ui->stackedWidget->setCurrentWidget(m_teacherCreateCoursePage);
     setActiveSection(m_createCourseButton);
     setHeader("Создать курс", "Оформи новый курс и сразу переходи в конструктор, чтобы наполнить его уроками, материалами и тестами.");
@@ -316,7 +607,12 @@ void MainWindow::showResultsPage()
     if (isTeacherMode()) {
         ui->stackedWidget->setCurrentWidget(m_teacherAnalyticsPage);
         setActiveSection(ui->resultsButton);
-        setHeader("Аналитика", "Здесь позже появятся студенты, результаты тестов и показатели по курсам преподавателя.");
+        setHeader("Аналитика", "Выбирай курс преподавателя и смотри студентов, попытки и средний результат по тестам.");
+        if (m_courses.isEmpty()) {
+            m_teacherAnalyticsPage->showMessage("Сначала нужен хотя бы один курс преподавателя.", false);
+        } else if (m_teacherAnalyticsPage->selectedCourseId() >= 0) {
+            loadTeacherAnalytics(m_teacherAnalyticsPage->selectedCourseId());
+        }
         showStatus("Открыта teacher-страница аналитики");
         return;
     }
@@ -363,6 +659,7 @@ void MainWindow::onLogoutClicked()
     m_selectedLessons.clear();
     m_selectedMaterials.clear();
     m_selectedTests.clear();
+    m_selectedQuestions.clear();
     m_selectedCourse = CourseData{};
     m_selectedTest = TestData{};
     emit logoutRequested();
@@ -375,6 +672,7 @@ void MainWindow::onCourseOpened(const CourseData &course)
     m_selectedLessons.clear();
     m_selectedMaterials.clear();
     m_selectedTests.clear();
+    m_selectedQuestions.clear();
     refreshSelectedCourseFromCache();
     if (isTeacherMode()) {
         m_courseDetailsPage->setCourse(m_selectedCourse);
@@ -401,11 +699,13 @@ void MainWindow::onCourseBuilderRequested(const CourseData &course)
     m_selectedLessons.clear();
     m_selectedMaterials.clear();
     m_selectedTests.clear();
+    m_selectedQuestions.clear();
     refreshSelectedCourseFromCache();
     m_teacherCourseBuilderPage->setCourse(m_selectedCourse);
     m_teacherCourseBuilderPage->setLessons({});
     m_teacherCourseBuilderPage->setMaterials({});
     m_teacherCourseBuilderPage->setTests({});
+    m_teacherCourseBuilderPage->setQuestions({});
     m_teacherCourseBuilderPage->showMessage("Загружаем структуру курса...", false);
     showTeacherCourseBuilderPage();
     showStatus(QString("Открываем конструктор курса \"%1\"").arg(m_selectedCourse.title));
@@ -601,78 +901,6 @@ void MainWindow::showTestRunnerPage()
     }
 }
 
-QWidget *MainWindow::createTeacherAnalyticsPage()
-{
-    auto *page = new QWidget(this);
-    auto *rootLayout = new QVBoxLayout(page);
-    rootLayout->setContentsMargins(0, 0, 0, 0);
-    rootLayout->setSpacing(16);
-
-    auto *pageCard = new QFrame(page);
-    pageCard->setObjectName("pageCard");
-
-    auto *layout = new QVBoxLayout(pageCard);
-    layout->setContentsMargins(24, 24, 24, 24);
-    layout->setSpacing(16);
-
-    auto *titleLabel = new QLabel("Аналитика преподавателя", pageCard);
-    titleLabel->setObjectName("sectionTitleLabel");
-
-    auto *hintLabel = new QLabel(
-        "Здесь позже появится средний результат тестов, количество попыток и общая активность студентов по курсам преподавателя.",
-        pageCard);
-    hintLabel->setObjectName("sectionHintLabel");
-    hintLabel->setWordWrap(true);
-
-    auto *statsLayout = new QHBoxLayout();
-    statsLayout->setSpacing(14);
-
-    for (const QString &title : {"Курсы", "Студенты", "Попытки"}) {
-        auto *card = new QFrame(pageCard);
-        card->setObjectName("moduleCard");
-        auto *cardLayout = new QVBoxLayout(card);
-        cardLayout->setContentsMargins(18, 18, 18, 18);
-        cardLayout->setSpacing(8);
-
-        auto *cardTitle = new QLabel(title, card);
-        cardTitle->setObjectName("moduleTitleLabel");
-
-        auto *valueLabel = new QLabel("—", card);
-        valueLabel->setObjectName("courseDetailTitleLabel");
-
-        cardLayout->addWidget(cardTitle);
-        cardLayout->addWidget(valueLabel);
-        cardLayout->addStretch();
-        statsLayout->addWidget(card);
-    }
-
-    auto *noteCard = new QFrame(pageCard);
-    noteCard->setObjectName("profileInfoCard");
-    auto *noteLayout = new QVBoxLayout(noteCard);
-    noteLayout->setContentsMargins(18, 18, 18, 18);
-    noteLayout->setSpacing(10);
-
-    auto *noteTitle = new QLabel("Следующий backend-шаг", noteCard);
-    noteTitle->setObjectName("moduleTitleLabel");
-
-    auto *noteText = new QLabel(
-        "Добавим endpoint аналитики курса и затем привяжем сюда реальные данные по студентам, тестам и попыткам.",
-        noteCard);
-    noteText->setObjectName("sectionHintLabel");
-    noteText->setWordWrap(true);
-
-    noteLayout->addWidget(noteTitle);
-    noteLayout->addWidget(noteText);
-
-    layout->addWidget(titleLabel);
-    layout->addWidget(hintLabel);
-    layout->addLayout(statsLayout);
-    layout->addWidget(noteCard);
-    rootLayout->addWidget(pageCard);
-
-    return page;
-}
-
 void MainWindow::loadCourses()
 {
     m_coursesPage->showPlaceholder(
@@ -689,6 +917,7 @@ void MainWindow::loadCourses()
             if (m_courses.isEmpty()) {
                 if (isTeacherMode()) {
                     m_teacherStudentsPage->setCourses({});
+                    m_teacherAnalyticsPage->setCourses({});
                 }
                 m_coursesPage->showPlaceholder(
                     isTeacherMode() ? "У преподавателя пока нет курсов" : "Курсов пока нет",
@@ -702,6 +931,7 @@ void MainWindow::loadCourses()
             m_coursesPage->setCourses(m_courses);
             if (isTeacherMode()) {
                 m_teacherStudentsPage->setCourses(m_courses);
+                m_teacherAnalyticsPage->setCourses(m_courses);
             }
             refreshSelectedCourseFromCache();
 
@@ -719,6 +949,8 @@ void MainWindow::loadCourses()
             if (isTeacherMode()) {
                 m_teacherStudentsPage->clearStudents();
                 m_teacherStudentsPage->showMessage("Не удалось загрузить курсы преподавателя.", true);
+                m_teacherAnalyticsPage->clearAnalytics();
+                m_teacherAnalyticsPage->showMessage("Не удалось загрузить курсы преподавателя.", true);
             }
             m_coursesPage->showPlaceholder(
                 "Не удалось загрузить курсы",
@@ -765,6 +997,45 @@ void MainWindow::loadCourseContent(int courseId)
 
     loadCourseLessonsAndMaterials(courseId);
     loadCourseTests(courseId);
+}
+
+void MainWindow::loadManagedQuestions(int testId)
+{
+    if (!isTeacherMode() || testId < 0) {
+        return;
+    }
+
+    m_teacherCourseBuilderPage->showMessage("Загружаем вопросы выбранного теста...", false);
+
+    m_apiClient->getManageQuestions(
+        testId,
+        this,
+        [this, testId](const QVector<QuestionData> &questions) {
+            const bool testStillVisible = std::any_of(
+                m_selectedTests.begin(),
+                m_selectedTests.end(),
+                [testId](const TestData &test) { return test.id == testId; });
+
+            if (!testStillVisible) {
+                return;
+            }
+
+            m_selectedQuestions = questions;
+            m_teacherCourseBuilderPage->setQuestions(questions);
+
+            if (questions.isEmpty()) {
+                showStatus("У выбранного теста пока нет вопросов");
+            } else {
+                showStatus("Вопросы теста загружены");
+            }
+        },
+        [this](const QString &error) {
+            m_selectedQuestions.clear();
+            m_teacherCourseBuilderPage->setQuestions({});
+            m_teacherCourseBuilderPage->showMessage(error, true);
+            showStatus(error);
+            qDebug() << "Load managed questions error:" << error;
+        });
 }
 
 void MainWindow::loadCourseLessonsAndMaterials(int courseId)
@@ -898,12 +1169,18 @@ void MainWindow::loadCourseTests(int courseId)
             m_selectedTests = tests;
             if (isTeacherMode()) {
                 m_teacherCourseBuilderPage->setTests(tests);
+                m_selectedQuestions.clear();
+                m_teacherCourseBuilderPage->setQuestions({});
             } else {
                 m_courseDetailsPage->setTests(tests);
             }
             if (tests.isEmpty()) {
                 showStatus("Для этого курса тестов пока нет");
                 return;
+            }
+
+            if (isTeacherMode()) {
+                loadManagedQuestions(tests.first().id);
             }
 
             showStatus("Тесты курса загружены");
@@ -916,6 +1193,7 @@ void MainWindow::loadCourseTests(int courseId)
             m_selectedTests.clear();
             if (isTeacherMode()) {
                 m_teacherCourseBuilderPage->setTests({});
+                m_teacherCourseBuilderPage->setQuestions({});
             } else {
                 m_courseDetailsPage->setTests({});
             }
@@ -945,6 +1223,30 @@ void MainWindow::loadTeacherCourseStudents(int courseId)
             m_teacherStudentsPage->showMessage(error, true);
             showStatus(error);
             qDebug() << "Load course students error:" << error;
+        });
+}
+
+void MainWindow::loadTeacherAnalytics(int courseId)
+{
+    if (!isTeacherMode()) {
+        return;
+    }
+
+    m_teacherAnalyticsPage->showMessage("Загружаем аналитику курса...", false);
+    showStatus("Загружаем аналитику...");
+
+    m_apiClient->getCourseAnalytics(
+        courseId,
+        this,
+        [this](const TeacherCourseAnalyticsData &analytics) {
+            m_teacherAnalyticsPage->setAnalytics(analytics);
+            showStatus("Аналитика курса обновлена");
+        },
+        [this](const QString &error) {
+            m_teacherAnalyticsPage->clearAnalytics();
+            m_teacherAnalyticsPage->showMessage(error, true);
+            showStatus(error);
+            qDebug() << "Load teacher analytics error:" << error;
         });
 }
 

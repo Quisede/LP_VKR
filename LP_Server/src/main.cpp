@@ -101,9 +101,9 @@ int main() {
 
     TestService testService(testRepo, enrollRepo);
 
-    QuestionService questionService(questionRepo, attemptRepo);
+    QuestionService questionService(questionRepo, attemptRepo, testRepo, courseService);
 
-    AttemptService attemptService(attemptRepo);
+    AttemptService attemptService(attemptRepo, courseService);
 
     AttemptController attemptController(attemptService, jwtService);
 

@@ -1,4 +1,6 @@
 #include "InMemoryMaterialRepository.h"
+#include <algorithm>
+#include <stdexcept>
 
 InMemoryMaterialRepository::InMemoryMaterialRepository() {
     materials.push_back({
@@ -39,6 +41,16 @@ std::vector<Material> InMemoryMaterialRepository::getMaterialsForLesson(int less
     return result;
 }
 
+std::optional<Material> InMemoryMaterialRepository::getMaterialById(int materialId) {
+    for (const auto &material : materials) {
+        if (material.id == materialId) {
+            return material;
+        }
+    }
+
+    return std::nullopt;
+}
+
 Material InMemoryMaterialRepository::createMaterial(
     int lessonId,
     const std::string& title,
@@ -48,4 +60,30 @@ Material InMemoryMaterialRepository::createMaterial(
     Material material{nextId, lessonId, title, type, content};
     materials.push_back(material);
     return material;
+}
+
+Material InMemoryMaterialRepository::updateMaterial(
+    int materialId,
+    const std::string& title,
+    const std::string& type,
+    const std::string& content) {
+    for (auto &material : materials) {
+        if (material.id == materialId) {
+            material.title = title;
+            material.type = type;
+            material.content = content;
+            return material;
+        }
+    }
+
+    throw std::runtime_error("Material not found");
+}
+
+void InMemoryMaterialRepository::deleteMaterial(int materialId) {
+    materials.erase(
+        std::remove_if(
+            materials.begin(),
+            materials.end(),
+            [materialId](const Material &material) { return material.id == materialId; }),
+        materials.end());
 }

@@ -42,6 +42,8 @@ public:
     std::optional<Course> getCourseById(int courseId);
     bool canManageCourse(int userId, UserRole role, int courseId);
     Course createCourse(int teacherId, const std::string& title, const std::string& description);
+    Course updateCourse(int courseId, const std::string& title, const std::string& description);
+    void deleteCourse(int courseId);
     std::vector<CourseStudent> getStudentsForCourse(int userId, UserRole role, int courseId);
     EnrollmentResult enrollStudent(int userId, UserRole role, int courseId);
     std::vector<Course> getCoursesPaged(int userId, UserRole role, int page, int limit);

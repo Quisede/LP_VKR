@@ -36,6 +36,8 @@ set(LMSCLIENT_SOURCES
     pages/teachercoursebuilderpage.cpp
     pages/teacherstudentspage.h
     pages/teacherstudentspage.cpp
+    pages/teacheranalyticspage.h
+    pages/teacheranalyticspage.cpp
     pages/coursedetailspage.h
     pages/coursedetailspage.cpp
     pages/testrunnerpage.h
@@ -52,6 +54,7 @@ set(LMSCLIENT_SOURCES
     models/testmodel.h
     models/questionmodel.h
     models/attemptmodel.h
+    models/teacheranalyticsmodel.h
 )
 
 if (QT_VERSION_MAJOR EQUAL 6)

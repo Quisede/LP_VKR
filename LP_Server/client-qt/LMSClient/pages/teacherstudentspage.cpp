@@ -1,12 +1,40 @@
 #include "teacherstudentspage.h"
 
+#include <QAbstractItemView>
 #include <QComboBox>
+#include <QColor>
 #include <QFrame>
 #include <QHeaderView>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QVBoxLayout>
+
+namespace {
+QFrame *createStatCard(const QString &title, QLabel **valueLabel, QWidget *parent)
+{
+    auto *card = new QFrame(parent);
+    card->setObjectName("moduleCard");
+    card->setMinimumHeight(136);
+    card->setMaximumHeight(156);
+
+    auto *layout = new QVBoxLayout(card);
+    layout->setContentsMargins(18, 18, 18, 18);
+    layout->setSpacing(8);
+
+    auto *titleLabel = new QLabel(title, card);
+    titleLabel->setObjectName("moduleTitleLabel");
+
+    *valueLabel = new QLabel("0", card);
+    (*valueLabel)->setObjectName("courseDetailTitleLabel");
+
+    layout->addWidget(titleLabel);
+    layout->addWidget(*valueLabel);
+    layout->addStretch();
+    return card;
+}
+}
 
 TeacherStudentsPage::TeacherStudentsPage(QWidget *parent)
     : QWidget(parent)
@@ -44,9 +72,25 @@ TeacherStudentsPage::TeacherStudentsPage(QWidget *parent)
     m_courseCombo = new QComboBox(pageCard);
     m_courseCombo->setStyleSheet(inputStyle);
 
+    m_overviewTitleLabel = new QLabel("Сводка по студентам курса", pageCard);
+    m_overviewTitleLabel->setObjectName("moduleTitleLabel");
+
     m_messageLabel = new QLabel("Список студентов появится после выбора курса.", pageCard);
     m_messageLabel->setObjectName("sectionHintLabel");
     m_messageLabel->setWordWrap(true);
+
+    auto *statsLayout = new QHBoxLayout();
+    statsLayout->setSpacing(14);
+    statsLayout->addWidget(createStatCard("Студенты", &m_studentsCountLabel, pageCard));
+    statsLayout->addWidget(createStatCard("Средний прогресс", &m_averageProgressLabel, pageCard));
+
+    m_focusLabel = new QLabel(pageCard);
+    m_focusLabel->setObjectName("sectionHintLabel");
+    m_focusLabel->setWordWrap(true);
+
+    m_emptyStateLabel = new QLabel(pageCard);
+    m_emptyStateLabel->setObjectName("sectionHintLabel");
+    m_emptyStateLabel->setWordWrap(true);
 
     m_studentsTable = new QTableWidget(pageCard);
     m_studentsTable->setColumnCount(3);
@@ -59,6 +103,7 @@ TeacherStudentsPage::TeacherStudentsPage(QWidget *parent)
     m_studentsTable->setSelectionMode(QAbstractItemView::NoSelection);
     m_studentsTable->setFocusPolicy(Qt::NoFocus);
     m_studentsTable->setAlternatingRowColors(true);
+    m_studentsTable->setMinimumHeight(300);
     m_studentsTable->setStyleSheet(
         "QTableWidget {"
         " background-color: #ffffff;"
@@ -80,7 +125,11 @@ TeacherStudentsPage::TeacherStudentsPage(QWidget *parent)
     layout->addWidget(titleLabel);
     layout->addWidget(hintLabel);
     layout->addWidget(m_courseCombo);
+    layout->addWidget(m_overviewTitleLabel);
     layout->addWidget(m_messageLabel);
+    layout->addLayout(statsLayout);
+    layout->addWidget(m_focusLabel);
+    layout->addWidget(m_emptyStateLabel);
     layout->addWidget(m_studentsTable);
     rootLayout->addWidget(pageCard);
 
@@ -90,6 +139,8 @@ TeacherStudentsPage::TeacherStudentsPage(QWidget *parent)
         }
         emit courseSelected(m_courseCombo->currentData().toInt());
     });
+
+    clearStudents();
 }
 
 void TeacherStudentsPage::setCourses(const QVector<CourseData> &courses)
@@ -126,10 +177,12 @@ void TeacherStudentsPage::setCourses(const QVector<CourseData> &courses)
 
 void TeacherStudentsPage::setStudents(const QVector<CourseStudentData> &students)
 {
+    int totalProgress = 0;
     m_studentsTable->setRowCount(students.size());
 
     for (int row = 0; row < students.size(); ++row) {
         const CourseStudentData &student = students[row];
+        totalProgress += student.progress;
 
         auto *idItem = new QTableWidgetItem(QString::number(student.id));
         auto *loginItem = new QTableWidgetItem(student.login);
@@ -137,21 +190,43 @@ void TeacherStudentsPage::setStudents(const QVector<CourseStudentData> &students
 
         idItem->setTextAlignment(Qt::AlignCenter);
         progressItem->setTextAlignment(Qt::AlignCenter);
+        progressItem->setForeground(student.progress >= 70 ? QColor("#15803d") : QColor("#334155"));
 
         m_studentsTable->setItem(row, 0, idItem);
         m_studentsTable->setItem(row, 1, loginItem);
         m_studentsTable->setItem(row, 2, progressItem);
     }
 
+    m_studentsCountLabel->setText(QString::number(students.size()));
+    const double averageProgress = students.isEmpty()
+        ? 0.0
+        : static_cast<double>(totalProgress) / static_cast<double>(students.size());
+    m_averageProgressLabel->setText(QString("%1%").arg(QString::number(averageProgress, 'f', 1)));
+
     if (students.isEmpty()) {
         showMessage("На этот курс пока никто не записан.", false);
+        m_focusLabel->setText("Когда появятся первые записи на курс, здесь сразу будет видно, сколько студентов уже начали обучение.");
+        m_emptyStateLabel->setText("Пока таблица пустая: у выбранного курса нет записанных студентов.");
+        m_emptyStateLabel->show();
+        m_studentsTable->hide();
     } else {
         showMessage(QString("Найдено студентов: %1").arg(students.size()), false);
+        m_focusLabel->setText(
+            QString("Средний прогресс группы сейчас %1%. Используй эту страницу вместе с аналитикой, чтобы отслеживать активность по курсу.")
+                .arg(QString::number(averageProgress, 'f', 1)));
+        m_emptyStateLabel->hide();
+        m_studentsTable->show();
     }
 }
 
 void TeacherStudentsPage::clearStudents()
 {
+    m_studentsCountLabel->setText("0");
+    m_averageProgressLabel->setText("0.0%");
+    m_focusLabel->setText("Выбери курс преподавателя, чтобы увидеть, кто уже записан и как продвигается группа.");
+    m_emptyStateLabel->setText("После выбора курса здесь появится таблица записанных студентов.");
+    m_emptyStateLabel->show();
+    m_studentsTable->hide();
     m_studentsTable->setRowCount(0);
 }
 
