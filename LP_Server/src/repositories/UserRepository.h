@@ -19,5 +19,8 @@ public:
     virtual std::optional<User> findByLogin(const std::string& login) = 0; // поиск пользователя по логину
     virtual bool exists(const std::string& login) = 0; /* проверка наличия пользователя с таким логином */
     virtual User createUser(const std::string& login, const std::string& passwordHash, UserRole role) = 0; /* сохранение нового пользователя */
+    virtual std::vector<User> getAllUsers() = 0;
+    virtual User updateUserRole(int userId, UserRole role) = 0;
+    virtual void deleteUser(int userId) = 0;
     virtual std::vector<CourseStudent> getStudentsForCourse(int courseId) = 0;
 };

@@ -1070,6 +1070,157 @@ void ApiClient::getAttempts(
     });
 }
 
+void ApiClient::getAdminUsers(
+    QObject *context,
+    std::function<void(const QVector<AdminUserData> &users)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QNetworkReply *reply = m_networkManager.get(createRequest("/api/admin/users"));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) {
+            onError("Некорректный ответ по пользователям системы");
+            reply->deleteLater();
+            return;
+        }
+
+        QVector<AdminUserData> users;
+        for (const auto &value : doc.object().value("users").toArray()) {
+            const QJsonObject obj = value.toObject();
+            AdminUserData user;
+            user.id = obj.value("id").toInt(-1);
+            user.login = obj.value("login").toString();
+            user.role = obj.value("role").toString();
+            users.push_back(user);
+        }
+
+        onSuccess(users);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::createAdminUser(
+    const QString &login,
+    const QString &password,
+    const QString &role,
+    QObject *context,
+    std::function<void(const AdminUserData &user)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QJsonObject body;
+    body["login"] = login;
+    body["password"] = password;
+    body["role"] = role;
+
+    QNetworkRequest request = createRequest("/api/admin/users");
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply *reply = m_networkManager.post(
+        request,
+        QJsonDocument(body).toJson(QJsonDocument::Compact));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) {
+            onError("Некорректный ответ после создания пользователя");
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonObject obj = doc.object();
+        AdminUserData user;
+        user.id = obj.value("userId").toInt(-1);
+        user.login = obj.value("login").toString();
+        user.role = obj.value("role").toString();
+        onSuccess(user);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::updateAdminUserRole(
+    int userId,
+    const QString &role,
+    QObject *context,
+    std::function<void(const AdminUserData &user)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QJsonObject body;
+    body["role"] = role;
+
+    QNetworkRequest request = createRequest(QString("/api/admin/users/%1").arg(userId));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply *reply = m_networkManager.put(
+        request,
+        QJsonDocument(body).toJson(QJsonDocument::Compact));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) {
+            onError("Некорректный ответ после обновления роли");
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonObject obj = doc.object();
+        AdminUserData user;
+        user.id = obj.value("id").toInt(-1);
+        user.login = obj.value("login").toString();
+        user.role = obj.value("role").toString();
+        user.editable = true;
+        onSuccess(user);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::deleteAdminUser(
+    int userId,
+    QObject *context,
+    std::function<void()> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QNetworkReply *reply = m_networkManager.deleteResource(
+        createRequest(QString("/api/admin/users/%1").arg(userId)));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        onSuccess();
+        reply->deleteLater();
+    });
+}
+
 void ApiClient::getCourseStudents(
     int courseId,
     QObject *context,
@@ -1106,6 +1257,49 @@ void ApiClient::getCourseStudents(
         }
 
         onSuccess(students);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::getTeacherStudentAttempts(
+    int courseId,
+    int studentId,
+    QObject *context,
+    std::function<void(const QVector<TeacherStudentAttemptData> &attempts)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QNetworkReply *reply = m_networkManager.get(
+        createRequest(QString("/api/courses/%1/students/%2/attempts").arg(courseId).arg(studentId)));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) {
+            onError("Некорректный ответ по попыткам студента");
+            reply->deleteLater();
+            return;
+        }
+
+        QVector<TeacherStudentAttemptData> attempts;
+        for (const auto &value : doc.object().value("attempts").toArray()) {
+            const QJsonObject obj = value.toObject();
+            TeacherStudentAttemptData attempt;
+            attempt.testTitle = obj.value("testTitle").toString();
+            attempt.score = obj.value("score").toInt(0);
+            attempt.total = obj.value("total").toInt(0);
+            attempt.percentage = obj.value("percentage").toDouble(0.0);
+            attempt.passed = obj.value("passed").toBool(false);
+            attempts.push_back(attempt);
+        }
+
+        onSuccess(attempts);
         reply->deleteLater();
     });
 }

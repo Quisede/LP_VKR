@@ -76,4 +76,37 @@ void AttemptController::registerRoutes(httplib::Server& server) {
             controller_utils::handleRouteException(res, ex);
         }
     });
+
+    server.Get(R"(/api/courses/(\d+)/students/(\d+)/attempts)",
+    [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            int courseId = controller_utils::pathParamInt(req, 1, "courseId");
+            int studentId = controller_utils::pathParamInt(req, 2, "studentId");
+            auto auth = controller_utils::requireAuth(req, jwtService);
+
+            auto attempts = attemptService.getStudentCourseAttempts(
+                auth.userId,
+                auth.role,
+                courseId,
+                studentId
+            );
+
+            json response;
+            response["attempts"] = json::array();
+
+            for (const auto& row : attempts) {
+                response["attempts"].push_back({
+                    {"testTitle", row.testTitle},
+                    {"score", row.score},
+                    {"total", row.total},
+                    {"percentage", row.percentage},
+                    {"passed", row.passed}
+                });
+            }
+
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
+        }
+    });
 }

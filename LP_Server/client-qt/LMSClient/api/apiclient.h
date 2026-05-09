@@ -7,6 +7,7 @@
 #include <functional>
 
 #include "../models/attemptmodel.h"
+#include "../models/adminusermodel.h"
 #include "../models/coursemodel.h"
 #include "../models/coursestudentmodel.h"
 #include "../models/lessonmodel.h"
@@ -14,6 +15,7 @@
 #include "../models/questionmodel.h"
 #include "../models/sessiondata.h"
 #include "../models/teacheranalyticsmodel.h"
+#include "../models/teacherstudentattemptmodel.h"
 #include "../models/testmodel.h"
 
 class ApiClient : public QObject
@@ -199,10 +201,43 @@ public:
         std::function<void(const QVector<AttemptData> &attempts)> onSuccess,
         std::function<void(const QString &error)> onError);
 
+    void getAdminUsers(
+        QObject *context,
+        std::function<void(const QVector<AdminUserData> &users)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void createAdminUser(
+        const QString &login,
+        const QString &password,
+        const QString &role,
+        QObject *context,
+        std::function<void(const AdminUserData &user)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void updateAdminUserRole(
+        int userId,
+        const QString &role,
+        QObject *context,
+        std::function<void(const AdminUserData &user)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void deleteAdminUser(
+        int userId,
+        QObject *context,
+        std::function<void()> onSuccess,
+        std::function<void(const QString &error)> onError);
+
     void getCourseStudents(
         int courseId,
         QObject *context,
         std::function<void(const QVector<CourseStudentData> &students)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void getTeacherStudentAttempts(
+        int courseId,
+        int studentId,
+        QObject *context,
+        std::function<void(const QVector<TeacherStudentAttemptData> &attempts)> onSuccess,
         std::function<void(const QString &error)> onError);
 
     void getCourseAnalytics(

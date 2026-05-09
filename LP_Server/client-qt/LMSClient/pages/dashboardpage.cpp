@@ -164,6 +164,14 @@ void DashboardPage::setRoleMode(const QString &role)
         m_attemptsTitleLabel->setText("Фокус");
         m_recentCoursesTitleLabel->setText("Последние курсы преподавателя");
         m_focusTitleLabel->setText("Что сделать дальше");
+    } else if (role == "Admin") {
+        m_hintLabel->setText(
+            "Это административная панель платформы. Здесь постепенно собираются системные пользователи, курсы и обзор активности.");
+        m_coursesTitleLabel->setText("Курсы");
+        m_testsTitleLabel->setText("Пользователи");
+        m_attemptsTitleLabel->setText("Фокус");
+        m_recentCoursesTitleLabel->setText("Последние курсы системы");
+        m_focusTitleLabel->setText("Административный фокус");
     } else {
         m_hintLabel->setText(
             "Это стартовый экран платформы. Здесь можно быстро увидеть прогресс, доступные курсы и ближайшие шаги.");
@@ -219,6 +227,19 @@ void DashboardPage::refreshSummary()
             ? "Пока нет активных направлений."
             : "Столько курсов можно развивать дальше.");
         return;
+    } else if (m_role == "Admin") {
+        m_coursesCaptionLabel->setText(m_courses.isEmpty()
+            ? "Курсов в системе пока нет."
+            : "Полный каталог курсов платформы.");
+        m_testsValueLabel->setText(m_courses.isEmpty() ? "0" : QString::number(m_courses.size()));
+        m_testsCaptionLabel->setText(m_courses.isEmpty()
+            ? "Пользователи и курсы появятся после инициализации системы."
+            : "Перейди во вкладку пользователей для admin-контроля.");
+        m_attemptsValueLabel->setText(m_courses.isEmpty() ? "Старт" : "Контроль");
+        m_attemptsCaptionLabel->setText(m_courses.isEmpty()
+            ? "Пока не с чем работать."
+            : "Дальше можно идти в аналитику или системный каталог.");
+        return;
     }
 
     int passedCount = 0;
@@ -251,9 +272,11 @@ void DashboardPage::refreshRecentCourses()
     if (m_courses.isEmpty()) {
         appendInfoCard(
             m_recentCoursesList,
-            m_role == "Teacher" ? "Курсов пока нет" : "Курсы пока не найдены",
+            m_role == "Teacher" ? "Курсов пока нет" : m_role == "Admin" ? "Системных курсов пока нет" : "Курсы пока не найдены",
             m_role == "Teacher"
                 ? "Создай первый курс, чтобы он появился в рабочем кабинете."
+                : m_role == "Admin"
+                    ? "Когда в системе появятся курсы, они сразу станут видны и в административном каталоге."
                 : "Когда курсы станут доступны, они появятся здесь.");
         return;
     }
@@ -266,6 +289,8 @@ void DashboardPage::refreshRecentCourses()
             m_courses[i].description.isEmpty()
                 ? (m_role == "Teacher"
                     ? "Открой курс или перейди в конструктор."
+                    : m_role == "Admin"
+                        ? "Открой курс, чтобы проверить его структуру и системное состояние."
                     : "Открой курс, чтобы посмотреть уроки, материалы и тесты.")
                 : m_courses[i].description);
     }
@@ -284,6 +309,10 @@ void DashboardPage::refreshFocus()
 
         appendInfoCard(m_focusList, "Открой конструктор курса", "Уточни структуру уроков, материалов и тестов для выбранного курса.");
         appendInfoCard(m_focusList, "Проверь студентов", "Посмотри, кто уже записан, и открой аналитику по попыткам.");
+        return;
+    } else if (m_role == "Admin") {
+        appendInfoCard(m_focusList, "Открой пользователей", "Проверь состав системы и текущее распределение ролей.");
+        appendInfoCard(m_focusList, "Открой аналитику", "Посмотри, как ведут себя курсы уже на уровне всей платформы.");
         return;
     }
 

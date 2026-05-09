@@ -11,17 +11,20 @@ CourseCard::CourseCard(
     int courseId,
     const QString &title,
     const QString &description,
-    bool showEnrollAction,
+    const QString &role,
     QWidget *parent)
     : QWidget(parent)
     , m_courseId(courseId)
 {
+    const bool isStudent = role == "Student";
+    const bool isAdmin = role == "Admin";
+
     auto *rootLayout = new QVBoxLayout(this);
     rootLayout->setContentsMargins(0, 0, 0, 0);
 
     auto *card = new QFrame(this);
     card->setObjectName("courseCard");
-    card->setMinimumHeight(showEnrollAction ? 196 : 206);
+    card->setMinimumHeight(isStudent ? 196 : 206);
 
     auto *cardLayout = new QVBoxLayout(card);
     cardLayout->setContentsMargins(18, 16, 18, 16);
@@ -30,7 +33,7 @@ CourseCard::CourseCard(
     auto *badgeRow = new QHBoxLayout();
     badgeRow->setSpacing(8);
 
-    auto *modeBadge = new QLabel(showEnrollAction ? "Student view" : "Teacher view", card);
+    auto *modeBadge = new QLabel(isStudent ? "Student view" : isAdmin ? "Admin view" : "Teacher view", card);
     modeBadge->setStyleSheet(
         "QLabel {"
         " background: #eef5ff;"
@@ -41,7 +44,7 @@ CourseCard::CourseCard(
         " font-weight: 700;"
         "}");
 
-    auto *contentBadge = new QLabel(showEnrollAction ? "Материалы и тесты" : "Контент и структура", card);
+    auto *contentBadge = new QLabel(isStudent ? "Материалы и тесты" : isAdmin ? "Система и контроль" : "Контент и структура", card);
     contentBadge->setStyleSheet(
         "QLabel {"
         " background: #f1f5f9;"
@@ -67,9 +70,11 @@ CourseCard::CourseCard(
     descriptionLabel->setWordWrap(true);
 
     auto *metaLabel = new QLabel(
-        showEnrollAction
+        isStudent
             ? "Открой курс, чтобы посмотреть программу, материалы и доступные тесты."
-            : "Режим преподавателя: открой курс для обзора или перейди в конструктор для редактирования.",
+            : isAdmin
+                ? "Административный режим: открой курс для обзора или переходи к управлению курсом."
+                : "Режим преподавателя: открой курс для обзора или перейди в конструктор для редактирования.",
         card);
     metaLabel->setObjectName("sectionHintLabel");
     metaLabel->setWordWrap(true);
@@ -88,7 +93,7 @@ CourseCard::CourseCard(
     openButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     actionsLayout->addWidget(openButton);
-    if (showEnrollAction) {
+    if (isStudent) {
         enrollButton = new QPushButton("Записаться", card);
         enrollButton->setObjectName("cardAccentButton");
         enrollButton->setMinimumWidth(140);

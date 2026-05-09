@@ -50,3 +50,23 @@ CourseAnalytics InMemoryAttemptRepository::getCourseAnalytics(int courseId) {
 
     return analytics;
 }
+
+std::vector<StudentCourseAttempt> InMemoryAttemptRepository::getStudentCourseAttempts(int courseId, int studentId) {
+    std::vector<StudentCourseAttempt> result;
+
+    for (const auto& attempt : attempts) {
+        if (attempt.userId != studentId) {
+            continue;
+        }
+
+        result.push_back({
+            "Test #" + std::to_string(courseId),
+            attempt.score,
+            attempt.total,
+            attempt.percentage,
+            attempt.passed
+        });
+    }
+
+    return result;
+}

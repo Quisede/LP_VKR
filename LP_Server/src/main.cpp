@@ -51,6 +51,8 @@
 #include "repositories/PostgresCourseRepository.h"
 
 #include "services/JwtService.h"
+#include "services/AdminService.h"
+#include "controllers/AdminController.h"
 
 int main() {
     try {
@@ -80,6 +82,7 @@ int main() {
     
     SimplePasswordHasher hasher; // хэшер паролей
     AuthService authService(userRepo, hasher); // сервис аутентификации, принимает зависимости через конструктор
+    AdminService adminService(userRepo);
 
     PostgresCourseRepository courseRepo(conn); // хранилище курсов в памяти
     // InMemoryEnrollmentRepository enrollRepo; // хранилище связей
@@ -128,12 +131,14 @@ int main() {
     
     // создается контроллер аутентификации
     AuthController authController(authService, jwtService);
+    AdminController adminController(adminService, authService, jwtService);
     
     // создается контроллер для курсов
     CourseController courseController(courseService, jwtService);
     
     // регистрируем новый обработчик аутентификации в сервере
     authController.registerRoutes(server);
+    adminController.registerRoutes(server);
     
     // регистрируем новый обработчик курсов в сервере
     courseController.registerRoutes(server);

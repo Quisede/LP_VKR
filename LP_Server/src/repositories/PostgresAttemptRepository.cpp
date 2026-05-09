@@ -132,3 +132,46 @@ CourseAnalytics PostgresAttemptRepository::getCourseAnalytics(int courseId) {
     PQclear(rowsRes);
     return analytics;
 }
+
+std::vector<StudentCourseAttempt> PostgresAttemptRepository::getStudentCourseAttempts(int courseId, int studentId) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
+
+    std::vector<StudentCourseAttempt> attempts;
+    const std::string courseIdValue = std::to_string(courseId);
+    const std::string studentIdValue = std::to_string(studentId);
+    const char* params[] = {courseIdValue.c_str(), studentIdValue.c_str()};
+
+    PGresult* res = PQexecParams(
+        connection.get(),
+        "SELECT t.title, a.score, a.total, a.percentage, a.passed "
+        "FROM attempts a "
+        "JOIN tests t ON t.id = a.test_id "
+        "WHERE t.course_id = $1 AND a.user_id = $2 "
+        "ORDER BY a.id DESC",
+        2,
+        nullptr,
+        params,
+        nullptr,
+        nullptr,
+        0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::string error = PQerrorMessage(connection.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to get student attempts: " + error);
+    }
+
+    const int rows = PQntuples(res);
+    for (int i = 0; i < rows; ++i) {
+        attempts.push_back({
+            PQgetvalue(res, i, 0),
+            std::stoi(PQgetvalue(res, i, 1)),
+            std::stoi(PQgetvalue(res, i, 2)),
+            std::stod(PQgetvalue(res, i, 3)),
+            std::string(PQgetvalue(res, i, 4)) == "t"
+        });
+    }
+
+    PQclear(res);
+    return attempts;
+}

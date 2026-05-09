@@ -28,6 +28,8 @@ set(LMSCLIENT_SOURCES
     widgets/coursecard.cpp
     pages/dashboardpage.h
     pages/dashboardpage.cpp
+    pages/adminuserspage.h
+    pages/adminuserspage.cpp
     pages/coursespage.h
     pages/coursespage.cpp
     pages/teachercreatecoursepage.h
@@ -46,6 +48,7 @@ set(LMSCLIENT_SOURCES
     pages/attemptspage.cpp
     pages/profilepage.h
     pages/profilepage.cpp
+    resources/resources.qrc
     models/sessiondata.h
     models/coursemodel.h
     models/coursestudentmodel.h
@@ -54,7 +57,9 @@ set(LMSCLIENT_SOURCES
     models/testmodel.h
     models/questionmodel.h
     models/attemptmodel.h
+    models/adminusermodel.h
     models/teacheranalyticsmodel.h
+    models/teacherstudentattemptmodel.h
 )
 
 if (QT_VERSION_MAJOR EQUAL 6)

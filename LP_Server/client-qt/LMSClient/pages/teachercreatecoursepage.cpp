@@ -1,6 +1,5 @@
 #include "teachercreatecoursepage.h"
 
-#include <QFormLayout>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -35,10 +34,11 @@ TeacherCreateCoursePage::TeacherCreateCoursePage(QWidget *parent)
     m_hintLabel->setWordWrap(true);
 
     auto *formCard = new QFrame(pageCard);
-    formCard->setObjectName("profileInfoCard");
-    auto *formLayout = new QFormLayout(formCard);
-    formLayout->setHorizontalSpacing(18);
-    formLayout->setVerticalSpacing(14);
+    formCard->setObjectName("moduleCard");
+    formCard->setMaximumWidth(760);
+    auto *formLayout = new QVBoxLayout(formCard);
+    formLayout->setContentsMargins(24, 24, 24, 24);
+    formLayout->setSpacing(16);
 
     const QString inputStyle =
         "QLineEdit, QTextEdit {"
@@ -53,10 +53,11 @@ TeacherCreateCoursePage::TeacherCreateCoursePage(QWidget *parent)
     m_titleEdit = new QLineEdit(formCard);
     m_titleEdit->setPlaceholderText("Например: Modern C++");
     m_titleEdit->setStyleSheet(inputStyle);
+    m_titleEdit->setMinimumHeight(48);
 
     m_descriptionEdit = new QTextEdit(formCard);
     m_descriptionEdit->setPlaceholderText("Коротко опиши, чему научатся студенты и что входит в курс.");
-    m_descriptionEdit->setMinimumHeight(160);
+    m_descriptionEdit->setMinimumHeight(220);
     m_descriptionEdit->setStyleSheet(inputStyle);
 
     m_submitButton = new QPushButton("Создать курс", formCard);
@@ -74,8 +75,16 @@ TeacherCreateCoursePage::TeacherCreateCoursePage(QWidget *parent)
     buttonsRow->addWidget(m_deleteButton);
     buttonsRow->addStretch();
 
-    formLayout->addRow("Название курса", m_titleEdit);
-    formLayout->addRow("Описание", m_descriptionEdit);
+    auto *titleFieldLabel = new QLabel("Название курса", formCard);
+    titleFieldLabel->setObjectName("moduleTitleLabel");
+
+    auto *descriptionFieldLabel = new QLabel("Описание курса", formCard);
+    descriptionFieldLabel->setObjectName("moduleTitleLabel");
+
+    formLayout->addWidget(titleFieldLabel);
+    formLayout->addWidget(m_titleEdit);
+    formLayout->addWidget(descriptionFieldLabel);
+    formLayout->addWidget(m_descriptionEdit);
 
     layout->addWidget(m_titleLabel);
     layout->addWidget(m_hintLabel);

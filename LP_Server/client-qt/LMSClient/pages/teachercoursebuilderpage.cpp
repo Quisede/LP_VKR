@@ -1,4 +1,5 @@
 #include "teachercoursebuilderpage.h"
+#include "../ui/uistyles.h"
 
 #include <QComboBox>
 #include <QFormLayout>
@@ -86,6 +87,11 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
         " border-radius: 14px;"
         " padding: 10px 12px;"
         " font-size: 14px;"
+        "}"
+        "QComboBox::drop-down {"
+        " width: 34px;"
+        " border: none;"
+        " background: transparent;"
         "}";
 
     m_courseTitleLabel = new QLabel("Конструктор курса", pageCard);
@@ -202,6 +208,7 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     m_lessonTitleEdit = new QLineEdit(lessonFormCard);
     m_lessonTitleEdit->setPlaceholderText("Название урока");
     m_lessonTitleEdit->setStyleSheet(inputStyle);
+    m_lessonTitleEdit->setMinimumHeight(48);
 
     m_lessonContentEdit = new QTextEdit(lessonFormCard);
     m_lessonContentEdit->setPlaceholderText("Текст, краткое описание или основное содержание урока");
@@ -247,8 +254,8 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
 
     QVBoxLayout *materialsCardLayout = nullptr;
     auto *materialsCard = createSectionCard("Материалы урока", materialsTab, &materialsCardLayout);
-    m_materialLessonCombo = new QComboBox(materialsCard);
-    m_materialLessonCombo->setStyleSheet(inputStyle);
+    m_materialLessonCombo = ui_styles::createComboBox(materialsCard);
+    ui_styles::applyComboBoxStyle(m_materialLessonCombo);
     m_materialsList = new QListWidget(materialsCard);
     m_materialsList->setSpacing(10);
     m_materialsList->setMinimumWidth(360);
@@ -269,10 +276,11 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     m_materialTitleEdit = new QLineEdit(materialFormCard);
     m_materialTitleEdit->setPlaceholderText("Например: Теория по указателям");
     m_materialTitleEdit->setStyleSheet(inputStyle);
+    m_materialTitleEdit->setMinimumHeight(48);
 
-    m_materialTypeCombo = new QComboBox(materialFormCard);
+    m_materialTypeCombo = ui_styles::createComboBox(materialFormCard);
     m_materialTypeCombo->addItems({"text", "video", "link"});
-    m_materialTypeCombo->setStyleSheet(inputStyle);
+    ui_styles::applyComboBoxStyle(m_materialTypeCombo);
 
     m_materialContentEdit = new QTextEdit(materialFormCard);
     m_materialContentEdit->setPlaceholderText("Текст материала, ссылка на видео или полезный ресурс");
@@ -357,6 +365,7 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     m_testTitleEdit = new QLineEdit(testFormCard);
     m_testTitleEdit->setPlaceholderText("Например: Финальный тест по теме");
     m_testTitleEdit->setStyleSheet(inputStyle);
+    m_testTitleEdit->setMinimumHeight(48);
 
     m_addTestButton = new QPushButton("Создать тест", testFormCard);
     m_addTestButton->setObjectName("cardAccentButton");
@@ -398,8 +407,8 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     questionForm->setHorizontalSpacing(12);
     questionForm->setVerticalSpacing(12);
 
-    m_questionTestCombo = new QComboBox(questionFormCard);
-    m_questionTestCombo->setStyleSheet(inputStyle);
+    m_questionTestCombo = ui_styles::createComboBox(questionFormCard);
+    ui_styles::applyComboBoxStyle(m_questionTestCombo);
 
     m_questionTextEdit = new QTextEdit(questionFormCard);
     m_questionTextEdit->setPlaceholderText("Текст вопроса");
@@ -413,11 +422,12 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     for (QLineEdit *edit : {m_optionOneEdit, m_optionTwoEdit, m_optionThreeEdit, m_optionFourEdit}) {
         edit->setPlaceholderText("Вариант ответа");
         edit->setStyleSheet(inputStyle);
+        edit->setMinimumHeight(44);
     }
 
-    m_correctOptionCombo = new QComboBox(questionFormCard);
+    m_correctOptionCombo = ui_styles::createComboBox(questionFormCard);
     m_correctOptionCombo->addItems({"Вариант 1", "Вариант 2", "Вариант 3", "Вариант 4"});
-    m_correctOptionCombo->setStyleSheet(inputStyle);
+    ui_styles::applyComboBoxStyle(m_correctOptionCombo);
 
     m_addQuestionButton = new QPushButton("Сохранить вопрос", questionFormCard);
     m_addQuestionButton->setObjectName("cardAccentButton");

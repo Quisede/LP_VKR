@@ -1,4 +1,6 @@
 #include <QApplication>
+#include <QIcon>
+#include <QStyleFactory>
 #include "api/apiclient.h"
 #include "mainwindow.h"
 #include "windows/loginwindow.h"
@@ -6,6 +8,10 @@
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
+    a.setStyle(QStyleFactory::create("Fusion"));
+    a.setWindowIcon(QIcon(":/icons/lms-app.svg"));
+    a.setApplicationName("LMS Client");
+    a.setApplicationDisplayName("LMS Client");
 
     qRegisterMetaType<SessionData>("SessionData");
 

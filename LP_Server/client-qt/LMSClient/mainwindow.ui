@@ -152,7 +152,9 @@ QPushButton#loadTestButton,
 QPushButton#submitTestButton,
 QPushButton#backToCoursesButton,
 QPushButton#cardActionButton,
-QPushButton#cardAccentButton {
+QPushButton#cardAccentButton,
+QPushButton#cardGhostButton,
+QPushButton#cardDangerButton {
     min-height: 44px;
     border: none;
     border-radius: 14px;
@@ -168,7 +170,9 @@ QPushButton#loadTestButton:hover,
 QPushButton#submitTestButton:hover,
 QPushButton#backToCoursesButton:hover,
 QPushButton#cardActionButton:hover,
-QPushButton#cardAccentButton:hover {
+QPushButton#cardAccentButton:hover,
+QPushButton#cardGhostButton:hover,
+QPushButton#cardDangerButton:hover {
     background-color: #1e293b;
 }
 
@@ -182,14 +186,100 @@ QPushButton#cardAccentButton:hover {
     background-color: #1d4ed8;
 }
 
-QListWidget,
-QComboBox {
+QPushButton#cardGhostButton {
+    background-color: #eef4ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+
+QPushButton#cardGhostButton:hover {
+    background-color: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+
+QPushButton#cardDangerButton {
+    background-color: #fff1f2;
+    color: #b91c1c;
+    border: 1px solid #fecdd3;
+}
+
+QPushButton#cardDangerButton:hover {
+    background-color: #ffe4e6;
+    color: #991b1b;
+    border: 1px solid #fda4af;
+}
+
+QPushButton#cardActionButton:disabled,
+QPushButton#cardAccentButton:disabled,
+QPushButton#cardGhostButton:disabled,
+QPushButton#cardDangerButton:disabled,
+QPushButton#enrollButton:disabled,
+QPushButton#loadTestButton:disabled,
+QPushButton#submitTestButton:disabled,
+QPushButton#backToCoursesButton:disabled {
+    background-color: #e2e8f0;
+    color: #94a3b8;
+    border: 1px solid #dbe4f0;
+}
+
+QListWidget {
     border: none;
     border-radius: 16px;
     background-color: transparent;
     color: #0f172a;
     padding: 0;
     font-size: 14px;
+}
+
+QComboBox {
+    background-color: #ffffff;
+    color: #0f172a;
+    border: 1px solid #dbe4f0;
+    border-radius: 14px;
+    padding: 10px 14px;
+    font-size: 14px;
+}
+
+QComboBox:hover {
+    border: 1px solid #93c5fd;
+}
+
+QComboBox:focus {
+    border: 1px solid #2563eb;
+}
+
+QComboBox::drop-down {
+    width: 34px;
+    border: none;
+    background: transparent;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    color: #0f172a;
+    border: 1px solid #dbe4f0;
+    border-radius: 14px;
+    padding: 6px;
+    selection-background-color: #dbeafe;
+    selection-color: #1d4ed8;
+    outline: 0;
+}
+
+QComboBox QAbstractItemView::item {
+    min-height: 30px;
+    padding: 6px 10px;
+    border-radius: 10px;
+}
+
+QComboBox QAbstractItemView::item:hover {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+QComboBox QAbstractItemView::item:selected {
+    background: #dbeafe;
+    color: #1d4ed8;
 }
 
 QRadioButton {

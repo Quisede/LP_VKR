@@ -13,6 +13,7 @@
 #include "models/materialmodel.h"
 #include "models/questionmodel.h"
 #include "models/sessiondata.h"
+#include "models/teacherstudentattemptmodel.h"
 #include "models/testmodel.h"
 
 QT_BEGIN_NAMESPACE
@@ -22,6 +23,7 @@ class MainWindow;
 QT_END_NAMESPACE
 
 class ApiClient;
+class AdminUsersPage;
 class AttemptsPage;
 class CourseDetailsPage;
 class CoursesPage;
@@ -65,6 +67,7 @@ private slots:
     void onSubmitTestRequested(int testId, const QVector<QPair<int, int>> &answers);
 
 private:
+    bool isAdminMode() const;
     bool isTeacherMode() const;
     void applyRoleMode();
     void setActiveSection(QPushButton *button);
@@ -76,11 +79,13 @@ private:
 
     void loadCourses();
     void loadAttempts();
+    void loadAdminUsers();
     void loadCourseContent(int courseId);
     void loadCourseLessonsAndMaterials(int courseId);
     void loadCourseTests(int courseId);
     void loadManagedQuestions(int testId);
     void loadTeacherCourseStudents(int courseId);
+    void loadTeacherStudentAttempts(int courseId, int studentId, const QString &studentLogin);
     void loadTeacherAnalytics(int courseId);
     void refreshSelectedCourseFromCache();
     QVector<CourseData> visibleCoursesForCurrentRole(const QVector<CourseData> &courses) const;
@@ -88,6 +93,7 @@ private:
     Ui::MainWindow *ui;
     ApiClient *m_apiClient;
 
+    AdminUsersPage *m_adminUsersPage;
     DashboardPage *m_dashboardPage;
     CoursesPage *m_coursesPage;
     TeacherCreateCoursePage *m_teacherCreateCoursePage;

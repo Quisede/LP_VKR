@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 
 #include "api/apiclient.h"
+#include "pages/adminuserspage.h"
 #include "pages/attemptspage.h"
 #include "pages/coursedetailspage.h"
 #include "pages/coursespage.h"
@@ -62,6 +63,7 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , m_apiClient(apiClient)
+    , m_adminUsersPage(new AdminUsersPage(this))
     , m_dashboardPage(new DashboardPage(this))
     , m_coursesPage(new CoursesPage(this))
     , m_teacherCreateCoursePage(new TeacherCreateCoursePage(this))
@@ -85,6 +87,7 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
     ui->sidebarLayout->insertWidget(7, m_studentsButton);
 
     ui->stackedWidget->addWidget(m_dashboardPage);
+    ui->stackedWidget->addWidget(m_adminUsersPage);
     ui->stackedWidget->addWidget(m_coursesPage);
     ui->stackedWidget->addWidget(m_teacherCreateCoursePage);
     ui->stackedWidget->addWidget(m_courseDetailsPage);
@@ -109,19 +112,19 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
     connect(m_coursesPage, &CoursesPage::courseOpened, this, &MainWindow::onCourseOpened);
     connect(m_coursesPage, &CoursesPage::courseBuilderRequested, this, &MainWindow::onCourseBuilderRequested);
     connect(m_coursesPage, &CoursesPage::courseEditRequested, this, [this](const CourseData &course) {
-        if (!isTeacherMode()) {
+        if (!isTeacherMode() && !isAdminMode()) {
             return;
         }
 
         m_selectedCourse = course;
         m_teacherCreateCoursePage->setEditMode(course);
         ui->stackedWidget->setCurrentWidget(m_teacherCreateCoursePage);
-        setActiveSection(m_createCourseButton);
+        setActiveSection(isAdminMode() ? ui->coursesButton : m_createCourseButton);
         setHeader("Редактировать курс", "Обновляй описание курса или удаляй его, если он больше не нужен.");
         showStatus(QString("Редактируем курс \"%1\"").arg(course.title));
     });
     connect(m_coursesPage, &CoursesPage::courseDeleteRequested, this, [this](const CourseData &course) {
-        if (!isTeacherMode()) {
+        if (!isTeacherMode() && !isAdminMode()) {
             return;
         }
 
@@ -489,10 +492,103 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
             loadTeacherCourseStudents(courseId);
         }
     });
+    connect(m_teacherStudentsPage, &TeacherStudentsPage::studentSelected, this, [this](int studentId, const QString &studentLogin) {
+        const int courseId = m_teacherStudentsPage->selectedCourseId();
+        if (courseId >= 0 && studentId >= 0) {
+            loadTeacherStudentAttempts(courseId, studentId, studentLogin);
+        }
+    });
     connect(m_teacherAnalyticsPage, &TeacherAnalyticsPage::courseSelected, this, [this](int courseId) {
         if (courseId >= 0) {
             loadTeacherAnalytics(courseId);
         }
+    });
+    connect(m_adminUsersPage, &AdminUsersPage::createUserRequested, this, [this](const QString &login, const QString &password, const QString &role) {
+        if (!isAdminMode()) {
+            return;
+        }
+
+        if (login.isEmpty() || password.isEmpty()) {
+            m_adminUsersPage->showMessage("Заполни логин и пароль для нового пользователя.", true);
+            showStatus("Нужно заполнить логин и пароль");
+            return;
+        }
+
+        m_adminUsersPage->setBusy(true);
+        m_adminUsersPage->showMessage("Создаём пользователя...", false);
+        showStatus("Создаём пользователя...");
+
+        m_apiClient->createAdminUser(
+            login,
+            password,
+            role,
+            this,
+            [this](const AdminUserData &user) {
+                m_adminUsersPage->setBusy(false);
+                m_adminUsersPage->clearDraft();
+                m_adminUsersPage->showMessage(
+                    QString("Пользователь %1 с ролью %2 создан.").arg(user.login, user.role),
+                    false);
+                showStatus(QString("Создан пользователь %1").arg(user.login));
+                loadAdminUsers();
+                loadCourses();
+            },
+            [this](const QString &error) {
+                m_adminUsersPage->setBusy(false);
+                m_adminUsersPage->showMessage(error, true);
+                showStatus(error);
+            });
+    });
+    connect(m_adminUsersPage, &AdminUsersPage::updateUserRoleRequested, this, [this](int userId, const QString &role) {
+        if (!isAdminMode()) {
+            return;
+        }
+
+        m_adminUsersPage->setBusy(true);
+        m_adminUsersPage->showMessage("Обновляем роль пользователя...", false);
+        showStatus("Обновляем роль пользователя...");
+
+        m_apiClient->updateAdminUserRole(
+            userId,
+            role,
+            this,
+            [this](const AdminUserData &user) {
+                m_adminUsersPage->setBusy(false);
+                m_adminUsersPage->showMessage(
+                    QString("Роль пользователя %1 обновлена на %2.").arg(user.login, user.role),
+                    false);
+                showStatus(QString("Роль обновлена для %1").arg(user.login));
+                loadAdminUsers();
+            },
+            [this](const QString &error) {
+                m_adminUsersPage->setBusy(false);
+                m_adminUsersPage->showMessage(error, true);
+                showStatus(error);
+            });
+    });
+    connect(m_adminUsersPage, &AdminUsersPage::deleteUserRequested, this, [this](int userId) {
+        if (!isAdminMode()) {
+            return;
+        }
+
+        m_adminUsersPage->setBusy(true);
+        m_adminUsersPage->showMessage("Удаляем пользователя...", false);
+        showStatus("Удаляем пользователя...");
+
+        m_apiClient->deleteAdminUser(
+            userId,
+            this,
+            [this]() {
+                m_adminUsersPage->setBusy(false);
+                m_adminUsersPage->showMessage("Пользователь удалён.", false);
+                showStatus("Пользователь удалён");
+                loadAdminUsers();
+            },
+            [this](const QString &error) {
+                m_adminUsersPage->setBusy(false);
+                m_adminUsersPage->showMessage(error, true);
+                showStatus(error);
+            });
     });
 
     ui->stackedWidget->setCurrentWidget(m_dashboardPage);
@@ -533,6 +629,8 @@ void MainWindow::showHomePage()
     setActiveSection(ui->homeButton);
     if (isTeacherMode()) {
         setHeader("Панель преподавателя", "Сводка по курсам преподавателя и базовый рабочий обзор кабинета.");
+    } else if (isAdminMode()) {
+        setHeader("Панель администратора", "Общий обзор системы: пользователи, курсы и административные рабочие точки.");
     } else {
         setHeader("Главная", "Сводка по обучению, доступным курсам и последним данным аккаунта.");
     }
@@ -545,6 +643,8 @@ void MainWindow::showCoursesPage()
     setActiveSection(ui->coursesButton);
     if (isTeacherMode()) {
         setHeader("Мои курсы", "Курсы преподавателя. Открой курс, чтобы перейти к структуре, урокам и тестам.");
+    } else if (isAdminMode()) {
+        setHeader("Курсы системы", "Полный список курсов платформы. Здесь администратор видит общую структуру без student-flow.");
     } else {
         setHeader("Курсы", "Каталог курсов. Открой карточку курса, чтобы перейти к урокам, материалам и тестам.");
     }
@@ -557,23 +657,32 @@ void MainWindow::showCoursesPage()
 
 void MainWindow::showCreateCoursePage()
 {
-    if (!isTeacherMode()) {
-        showStatus("Эта страница доступна только преподавателю");
+    if (!isTeacherMode() && !isAdminMode()) {
+        showStatus("Эта страница доступна только преподавателю и администратору");
         return;
     }
 
     m_teacherCreateCoursePage->setCreateMode();
     ui->stackedWidget->setCurrentWidget(m_teacherCreateCoursePage);
-    setActiveSection(m_createCourseButton);
+    setActiveSection(isAdminMode() ? ui->coursesButton : m_createCourseButton);
     setHeader("Создать курс", "Оформи новый курс и сразу переходи в конструктор, чтобы наполнить его уроками, материалами и тестами.");
     m_teacherCreateCoursePage->showMessage(
         "Курс после создания сразу появится в разделе \"Мои курсы\".",
         false);
-    showStatus("Открыта teacher-страница создания курса");
+    showStatus(isAdminMode() ? "Открыта admin-страница создания курса" : "Открыта teacher-страница создания курса");
 }
 
 void MainWindow::showTestPage()
 {
+    if (isAdminMode()) {
+        ui->stackedWidget->setCurrentWidget(m_adminUsersPage);
+        setActiveSection(ui->testButton);
+        setHeader("Пользователи", "Реестр пользователей системы: роли, состав платформы и база для дальнейших admin-инструментов.");
+        loadAdminUsers();
+        showStatus("Открыт admin-раздел пользователей");
+        return;
+    }
+
     if (isTeacherMode()) {
         if (m_selectedCourse.id == kInvalidId) {
             m_teacherCourseBuilderPage->clearBuilder();
@@ -604,16 +713,24 @@ void MainWindow::showTestPage()
 
 void MainWindow::showResultsPage()
 {
-    if (isTeacherMode()) {
+    if (isTeacherMode() || isAdminMode()) {
         ui->stackedWidget->setCurrentWidget(m_teacherAnalyticsPage);
         setActiveSection(ui->resultsButton);
-        setHeader("Аналитика", "Выбирай курс преподавателя и смотри студентов, попытки и средний результат по тестам.");
+        setHeader(
+            "Аналитика",
+            isAdminMode()
+                ? "Выбирай любой курс системы и смотри попытки, средний результат и активность по тестам."
+                : "Выбирай курс преподавателя и смотри студентов, попытки и средний результат по тестам.");
         if (m_courses.isEmpty()) {
-            m_teacherAnalyticsPage->showMessage("Сначала нужен хотя бы один курс преподавателя.", false);
+            m_teacherAnalyticsPage->showMessage(
+                isAdminMode()
+                    ? "В системе пока нет курсов, поэтому аналитика ещё пуста."
+                    : "Сначала нужен хотя бы один курс преподавателя.",
+                false);
         } else if (m_teacherAnalyticsPage->selectedCourseId() >= 0) {
             loadTeacherAnalytics(m_teacherAnalyticsPage->selectedCourseId());
         }
-        showStatus("Открыта teacher-страница аналитики");
+        showStatus(isAdminMode() ? "Открыта admin-страница аналитики" : "Открыта teacher-страница аналитики");
         return;
     }
 
@@ -646,7 +763,11 @@ void MainWindow::showProfilePage()
 {
     ui->stackedWidget->setCurrentWidget(m_profilePage);
     setActiveSection(ui->profileButton);
-    setHeader("Профиль", "Основные данные активной сессии пользователя.");
+    setHeader(
+        "Профиль",
+        isAdminMode()
+            ? "Сводка по административной сессии и системному режиму доступа."
+            : "Основные данные активной сессии пользователя.");
     showStatus("Личный кабинет открыт");
 }
 
@@ -689,7 +810,7 @@ void MainWindow::onCourseOpened(const CourseData &course)
 
 void MainWindow::onCourseBuilderRequested(const CourseData &course)
 {
-    if (!isTeacherMode()) {
+    if (!isTeacherMode() && !isAdminMode()) {
         onCourseOpened(course);
         return;
     }
@@ -714,8 +835,10 @@ void MainWindow::onCourseBuilderRequested(const CourseData &course)
 
 void MainWindow::onEnrollRequested(int courseId)
 {
-    if (isTeacherMode()) {
-        showStatus("В teacher-режиме запись на курс недоступна. Следующим шагом добавим управление курсами.");
+    if (isTeacherMode() || isAdminMode()) {
+        showStatus(isAdminMode()
+            ? "В admin-режиме запись на курс недоступна. Здесь администратор управляет системой, а не записывается на обучение."
+            : "В teacher-режиме запись на курс недоступна. Следующим шагом добавим управление курсами.");
         return;
     }
 
@@ -876,6 +999,10 @@ void MainWindow::showCourseDetailsPage()
         ui->stackedWidget->setCurrentWidget(m_courseDetailsPage);
         setActiveSection(ui->coursesButton);
         setHeader("Курс", "Обзор выбранного курса преподавателя: уроки, материалы, видео и тесты.");
+    } else if (isAdminMode()) {
+        ui->stackedWidget->setCurrentWidget(m_courseDetailsPage);
+        setActiveSection(ui->coursesButton);
+        setHeader("Курс системы", "Административный обзор выбранного курса: структура, материалы, видео и тесты.");
     } else {
         ui->stackedWidget->setCurrentWidget(m_courseDetailsPage);
         setActiveSection(ui->coursesButton);
@@ -887,7 +1014,11 @@ void MainWindow::showTeacherCourseBuilderPage()
 {
     ui->stackedWidget->setCurrentWidget(m_teacherCourseBuilderPage);
     setActiveSection(ui->testButton);
-    setHeader("Конструктор курса", "Собирай курс по шагам: уроки, материалы и тесты внутри teacher-кабинета.");
+    setHeader(
+        "Конструктор курса",
+        isAdminMode()
+            ? "Административный конструктор курса: уроки, материалы и тесты с системным уровнем доступа."
+            : "Собирай курс по шагам: уроки, материалы и тесты внутри teacher-кабинета.");
 }
 
 void MainWindow::showTestRunnerPage()
@@ -917,12 +1048,16 @@ void MainWindow::loadCourses()
             if (m_courses.isEmpty()) {
                 if (isTeacherMode()) {
                     m_teacherStudentsPage->setCourses({});
+                }
+                if (isTeacherMode() || isAdminMode()) {
                     m_teacherAnalyticsPage->setCourses({});
                 }
                 m_coursesPage->showPlaceholder(
-                    isTeacherMode() ? "У преподавателя пока нет курсов" : "Курсов пока нет",
+                    isTeacherMode() ? "У преподавателя пока нет курсов" : isAdminMode() ? "В системе пока нет курсов" : "Курсов пока нет",
                     isTeacherMode()
                         ? "Создай первый курс во вкладке \"Создать курс\", и он сразу появится здесь."
+                        : isAdminMode()
+                            ? "Когда в системе появятся курсы, администратор увидит их здесь вместе с общей аналитикой."
                         : "Сервер пока не вернул ни одного курса. Позже здесь появятся учебные карточки.");
                 showStatus("Каталог курсов пока пуст");
                 return;
@@ -931,6 +1066,8 @@ void MainWindow::loadCourses()
             m_coursesPage->setCourses(m_courses);
             if (isTeacherMode()) {
                 m_teacherStudentsPage->setCourses(m_courses);
+            }
+            if (isTeacherMode() || isAdminMode()) {
                 m_teacherAnalyticsPage->setCourses(m_courses);
             }
             refreshSelectedCourseFromCache();
@@ -949,8 +1086,12 @@ void MainWindow::loadCourses()
             if (isTeacherMode()) {
                 m_teacherStudentsPage->clearStudents();
                 m_teacherStudentsPage->showMessage("Не удалось загрузить курсы преподавателя.", true);
+            }
+            if (isTeacherMode() || isAdminMode()) {
                 m_teacherAnalyticsPage->clearAnalytics();
-                m_teacherAnalyticsPage->showMessage("Не удалось загрузить курсы преподавателя.", true);
+                m_teacherAnalyticsPage->showMessage(
+                    isAdminMode() ? "Не удалось загрузить курсы системы." : "Не удалось загрузить курсы преподавателя.",
+                    true);
             }
             m_coursesPage->showPlaceholder(
                 "Не удалось загрузить курсы",
@@ -966,6 +1107,11 @@ void MainWindow::loadAttempts()
         m_attempts.clear();
         m_attemptsPage->showPlaceholder(
             "Teacher analytics будет следующим шагом: здесь появятся студенты, результаты и показатели по курсам.");
+        return;
+    } else if (isAdminMode()) {
+        m_attempts.clear();
+        m_attemptsPage->showPlaceholder(
+            "Admin использует отдельные страницы пользователей и аналитики. Student-история попыток здесь не применяется.");
         return;
     }
 
@@ -989,6 +1135,35 @@ void MainWindow::loadAttempts()
         });
 }
 
+void MainWindow::loadAdminUsers()
+{
+    if (!isAdminMode()) {
+        return;
+    }
+
+    m_adminUsersPage->showMessage("Загружаем пользователей системы...", false);
+    showStatus("Загружаем пользователей...");
+
+    m_apiClient->getAdminUsers(
+        this,
+        [this](const QVector<AdminUserData> &users) {
+            QVector<AdminUserData> visibleUsers = users;
+            for (auto &user : visibleUsers) {
+                user.editable = user.id != m_session.userId;
+            }
+
+            m_adminUsersPage->setUsers(visibleUsers);
+            m_adminUsersPage->showMessage(QString("Найдено пользователей: %1").arg(visibleUsers.size()), false);
+            showStatus("Список пользователей обновлён");
+        },
+        [this](const QString &error) {
+            m_adminUsersPage->clearUsers();
+            m_adminUsersPage->showMessage(error, true);
+            showStatus(error);
+            qDebug() << "Load admin users error:" << error;
+        });
+}
+
 void MainWindow::loadCourseContent(int courseId)
 {
     if (courseId < 0) {
@@ -1001,7 +1176,7 @@ void MainWindow::loadCourseContent(int courseId)
 
 void MainWindow::loadManagedQuestions(int testId)
 {
-    if (!isTeacherMode() || testId < 0) {
+    if ((!isTeacherMode() && !isAdminMode()) || testId < 0) {
         return;
     }
 
@@ -1049,7 +1224,7 @@ void MainWindow::loadCourseLessonsAndMaterials(int courseId)
             }
 
             m_selectedLessons = lessons;
-            if (isTeacherMode()) {
+            if (isTeacherMode() || isAdminMode()) {
                 m_teacherCourseBuilderPage->setLessons(lessons);
             } else {
                 m_courseDetailsPage->setLessons(lessons);
@@ -1057,7 +1232,7 @@ void MainWindow::loadCourseLessonsAndMaterials(int courseId)
 
             if (lessons.isEmpty()) {
                 m_selectedMaterials.clear();
-                if (isTeacherMode()) {
+                if (isTeacherMode() || isAdminMode()) {
                     m_teacherCourseBuilderPage->setMaterials({});
                 } else {
                     m_courseDetailsPage->setMaterials({}, {});
@@ -1098,7 +1273,7 @@ void MainWindow::loadCourseLessonsAndMaterials(int courseId)
                             for (const MaterialData &video : std::as_const(accumulator->videos)) {
                                 m_selectedMaterials.push_back(video);
                             }
-                            if (isTeacherMode()) {
+                            if (isTeacherMode() || isAdminMode()) {
                                 m_teacherCourseBuilderPage->setMaterials(m_selectedMaterials);
                             } else {
                                 m_courseDetailsPage->setMaterials(
@@ -1124,7 +1299,7 @@ void MainWindow::loadCourseLessonsAndMaterials(int courseId)
                             for (const MaterialData &video : std::as_const(accumulator->videos)) {
                                 m_selectedMaterials.push_back(video);
                             }
-                            if (isTeacherMode()) {
+                            if (isTeacherMode() || isAdminMode()) {
                                 m_teacherCourseBuilderPage->setMaterials(m_selectedMaterials);
                             } else {
                                 m_courseDetailsPage->setMaterials(
@@ -1144,7 +1319,7 @@ void MainWindow::loadCourseLessonsAndMaterials(int courseId)
 
             m_selectedLessons.clear();
             m_selectedMaterials.clear();
-            if (isTeacherMode()) {
+            if (isTeacherMode() || isAdminMode()) {
                 m_teacherCourseBuilderPage->setLessons({});
                 m_teacherCourseBuilderPage->setMaterials({});
             } else {
@@ -1167,7 +1342,7 @@ void MainWindow::loadCourseTests(int courseId)
             }
 
             m_selectedTests = tests;
-            if (isTeacherMode()) {
+            if (isTeacherMode() || isAdminMode()) {
                 m_teacherCourseBuilderPage->setTests(tests);
                 m_selectedQuestions.clear();
                 m_teacherCourseBuilderPage->setQuestions({});
@@ -1179,7 +1354,7 @@ void MainWindow::loadCourseTests(int courseId)
                 return;
             }
 
-            if (isTeacherMode()) {
+            if (isTeacherMode() || isAdminMode()) {
                 loadManagedQuestions(tests.first().id);
             }
 
@@ -1191,7 +1366,7 @@ void MainWindow::loadCourseTests(int courseId)
             }
 
             m_selectedTests.clear();
-            if (isTeacherMode()) {
+            if (isTeacherMode() || isAdminMode()) {
                 m_teacherCourseBuilderPage->setTests({});
                 m_teacherCourseBuilderPage->setQuestions({});
             } else {
@@ -1226,9 +1401,34 @@ void MainWindow::loadTeacherCourseStudents(int courseId)
         });
 }
 
-void MainWindow::loadTeacherAnalytics(int courseId)
+void MainWindow::loadTeacherStudentAttempts(int courseId, int studentId, const QString &studentLogin)
 {
     if (!isTeacherMode()) {
+        return;
+    }
+
+    m_teacherStudentsPage->showMessage(QString("Загружаем попытки студента %1...").arg(studentLogin), false);
+    showStatus("Загружаем попытки студента...");
+
+    m_apiClient->getTeacherStudentAttempts(
+        courseId,
+        studentId,
+        this,
+        [this, studentLogin](const QVector<TeacherStudentAttemptData> &attempts) {
+            m_teacherStudentsPage->setStudentAttempts(studentLogin, attempts);
+            showStatus("Попытки выбранного студента загружены");
+        },
+        [this](const QString &error) {
+            m_teacherStudentsPage->clearStudentAttempts();
+            m_teacherStudentsPage->showMessage(error, true);
+            showStatus(error);
+            qDebug() << "Load teacher student attempts error:" << error;
+        });
+}
+
+void MainWindow::loadTeacherAnalytics(int courseId)
+{
+    if (!isTeacherMode() && !isAdminMode()) {
         return;
     }
 
@@ -1264,6 +1464,11 @@ void MainWindow::refreshSelectedCourseFromCache()
     }
 }
 
+bool MainWindow::isAdminMode() const
+{
+    return m_session.role == "Admin";
+}
+
 bool MainWindow::isTeacherMode() const
 {
     return m_session.role == "Teacher";
@@ -1275,6 +1480,7 @@ void MainWindow::applyRoleMode()
     m_coursesPage->setRoleMode(m_session.role);
     m_courseDetailsPage->setRoleMode(m_session.role);
     m_attemptsPage->setRoleMode(m_session.role);
+    m_teacherAnalyticsPage->setRoleMode(m_session.role);
 
     if (isTeacherMode()) {
         ui->brandLabel->setText("LMS Teacher");
@@ -1285,6 +1491,16 @@ void MainWindow::applyRoleMode()
         ui->testButton->setText("Конструктор курса");
         ui->resultsButton->setText("Аналитика");
         m_studentsButton->show();
+        ui->profileButton->setText("Профиль");
+    } else if (isAdminMode()) {
+        ui->brandLabel->setText("LMS Admin");
+        ui->brandCaptionLabel->setText("Системное пространство");
+        ui->homeButton->setText("Панель");
+        ui->coursesButton->setText("Курсы");
+        m_createCourseButton->hide();
+        ui->testButton->setText("Пользователи");
+        ui->resultsButton->setText("Аналитика");
+        m_studentsButton->hide();
         ui->profileButton->setText("Профиль");
     } else {
         ui->brandLabel->setText("LMS Client");

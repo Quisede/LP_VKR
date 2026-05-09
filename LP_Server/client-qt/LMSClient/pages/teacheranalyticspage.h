@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QString>
 #include <QWidget>
 #include <QVector>
 
@@ -18,6 +19,7 @@ class TeacherAnalyticsPage : public QWidget
 public:
     explicit TeacherAnalyticsPage(QWidget *parent = nullptr);
 
+    void setRoleMode(const QString &role);
     void setCourses(const QVector<CourseData> &courses);
     void setAnalytics(const TeacherCourseAnalyticsData &analytics);
     void clearAnalytics();
@@ -28,6 +30,7 @@ signals:
     void courseSelected(int courseId);
 
 private:
+    QString m_role = "Teacher";
     QLabel *m_overviewTitleLabel;
     QComboBox *m_courseCombo;
     QLabel *m_messageLabel;

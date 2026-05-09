@@ -1,4 +1,5 @@
 #include "teacheranalyticspage.h"
+#include "../ui/uistyles.h"
 
 #include <QAbstractItemView>
 #include <QColor>
@@ -55,16 +56,6 @@ TeacherAnalyticsPage::TeacherAnalyticsPage(QWidget *parent)
     layout->setContentsMargins(24, 24, 24, 24);
     layout->setSpacing(16);
 
-    const QString inputStyle =
-        "QComboBox {"
-        " background-color: #ffffff;"
-        " color: #0f172a;"
-        " border: 1px solid #dbe4f0;"
-        " border-radius: 14px;"
-        " padding: 10px 12px;"
-        " font-size: 14px;"
-        "}";
-
     auto *titleLabel = new QLabel("Аналитика курса", pageCard);
     titleLabel->setObjectName("sectionTitleLabel");
 
@@ -74,8 +65,8 @@ TeacherAnalyticsPage::TeacherAnalyticsPage(QWidget *parent)
     hintLabel->setObjectName("sectionHintLabel");
     hintLabel->setWordWrap(true);
 
-    m_courseCombo = new QComboBox(pageCard);
-    m_courseCombo->setStyleSheet(inputStyle);
+    m_courseCombo = ui_styles::createComboBox(pageCard);
+    ui_styles::applyComboBoxStyle(m_courseCombo);
 
     m_overviewTitleLabel = new QLabel("Сводка по выбранному курсу", pageCard);
     m_overviewTitleLabel->setObjectName("moduleTitleLabel");
@@ -152,6 +143,11 @@ TeacherAnalyticsPage::TeacherAnalyticsPage(QWidget *parent)
     clearAnalytics();
 }
 
+void TeacherAnalyticsPage::setRoleMode(const QString &role)
+{
+    m_role = role;
+}
+
 void TeacherAnalyticsPage::setCourses(const QVector<CourseData> &courses)
 {
     const int previousId = selectedCourseId();
@@ -180,7 +176,11 @@ void TeacherAnalyticsPage::setCourses(const QVector<CourseData> &courses)
     if (m_courseCombo->count() > 0) {
         emit courseSelected(selectedCourseId());
     } else {
-        showMessage("У преподавателя пока нет курсов. Сначала создай курс.", false);
+        showMessage(
+            m_role == "Admin"
+                ? "В системе пока нет курсов. Как только они появятся, администратор увидит их здесь."
+                : "У преподавателя пока нет курсов. Сначала создай курс.",
+            false);
     }
 }
 

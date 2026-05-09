@@ -1,4 +1,5 @@
 #include "teacherstudentspage.h"
+#include "../ui/uistyles.h"
 
 #include <QAbstractItemView>
 #include <QComboBox>
@@ -50,16 +51,6 @@ TeacherStudentsPage::TeacherStudentsPage(QWidget *parent)
     layout->setContentsMargins(24, 24, 24, 24);
     layout->setSpacing(16);
 
-    const QString inputStyle =
-        "QComboBox {"
-        " background-color: #ffffff;"
-        " color: #0f172a;"
-        " border: 1px solid #dbe4f0;"
-        " border-radius: 14px;"
-        " padding: 10px 12px;"
-        " font-size: 14px;"
-        "}";
-
     auto *titleLabel = new QLabel("Студенты курса", pageCard);
     titleLabel->setObjectName("sectionTitleLabel");
 
@@ -69,8 +60,8 @@ TeacherStudentsPage::TeacherStudentsPage(QWidget *parent)
     hintLabel->setObjectName("sectionHintLabel");
     hintLabel->setWordWrap(true);
 
-    m_courseCombo = new QComboBox(pageCard);
-    m_courseCombo->setStyleSheet(inputStyle);
+    m_courseCombo = ui_styles::createComboBox(pageCard);
+    ui_styles::applyComboBoxStyle(m_courseCombo);
 
     m_overviewTitleLabel = new QLabel("Сводка по студентам курса", pageCard);
     m_overviewTitleLabel->setObjectName("moduleTitleLabel");
@@ -100,11 +91,54 @@ TeacherStudentsPage::TeacherStudentsPage(QWidget *parent)
     m_studentsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
     m_studentsTable->verticalHeader()->setVisible(false);
     m_studentsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_studentsTable->setSelectionMode(QAbstractItemView::NoSelection);
-    m_studentsTable->setFocusPolicy(Qt::NoFocus);
+    m_studentsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_studentsTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_studentsTable->setFocusPolicy(Qt::StrongFocus);
     m_studentsTable->setAlternatingRowColors(true);
     m_studentsTable->setMinimumHeight(300);
     m_studentsTable->setStyleSheet(
+        "QTableWidget {"
+        " background-color: #ffffff;"
+        " alternate-background-color: #f8fbff;"
+        " color: #0f172a;"
+        " border: 1px solid #dbe4f0;"
+        " border-radius: 16px;"
+        " gridline-color: #e2e8f0;"
+        "}"
+        "QHeaderView::section {"
+        " background-color: #eff6ff;"
+        " color: #1e293b;"
+        " border: none;"
+        " border-bottom: 1px solid #dbe4f0;"
+        " padding: 10px 12px;"
+        " font-weight: 700;"
+        "}");
+
+    m_attemptsTitleLabel = new QLabel("Попытки выбранного студента", pageCard);
+    m_attemptsTitleLabel->setObjectName("moduleTitleLabel");
+
+    m_attemptsSummaryLabel = new QLabel("Выбери студента в таблице выше, чтобы посмотреть его попытки по тестам курса.", pageCard);
+    m_attemptsSummaryLabel->setObjectName("sectionHintLabel");
+    m_attemptsSummaryLabel->setWordWrap(true);
+
+    m_attemptsEmptyStateLabel = new QLabel(pageCard);
+    m_attemptsEmptyStateLabel->setObjectName("sectionHintLabel");
+    m_attemptsEmptyStateLabel->setWordWrap(true);
+
+    m_attemptsTable = new QTableWidget(pageCard);
+    m_attemptsTable->setColumnCount(4);
+    m_attemptsTable->setHorizontalHeaderLabels({"Тест", "Результат", "Процент", "Статус"});
+    m_attemptsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    m_attemptsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    m_attemptsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    m_attemptsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    m_attemptsTable->verticalHeader()->setVisible(false);
+    m_attemptsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_attemptsTable->setSelectionMode(QAbstractItemView::NoSelection);
+    m_attemptsTable->setFocusPolicy(Qt::NoFocus);
+    m_attemptsTable->setAlternatingRowColors(true);
+    m_attemptsTable->setMinimumHeight(220);
+    m_attemptsTable->setStyleSheet(
         "QTableWidget {"
         " background-color: #ffffff;"
         " alternate-background-color: #f8fbff;"
@@ -131,6 +165,10 @@ TeacherStudentsPage::TeacherStudentsPage(QWidget *parent)
     layout->addWidget(m_focusLabel);
     layout->addWidget(m_emptyStateLabel);
     layout->addWidget(m_studentsTable);
+    layout->addWidget(m_attemptsTitleLabel);
+    layout->addWidget(m_attemptsSummaryLabel);
+    layout->addWidget(m_attemptsEmptyStateLabel);
+    layout->addWidget(m_attemptsTable);
     rootLayout->addWidget(pageCard);
 
     connect(m_courseCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int index) {
@@ -138,6 +176,22 @@ TeacherStudentsPage::TeacherStudentsPage(QWidget *parent)
             return;
         }
         emit courseSelected(m_courseCombo->currentData().toInt());
+    });
+
+    connect(m_studentsTable, &QTableWidget::itemSelectionChanged, this, [this]() {
+        const auto selectedItems = m_studentsTable->selectedItems();
+        if (selectedItems.isEmpty()) {
+            return;
+        }
+
+        const int row = selectedItems.first()->row();
+        QTableWidgetItem *idItem = m_studentsTable->item(row, 0);
+        QTableWidgetItem *loginItem = m_studentsTable->item(row, 1);
+        if (!idItem || !loginItem) {
+            return;
+        }
+
+        emit studentSelected(idItem->text().toInt(), loginItem->text());
     });
 
     clearStudents();
@@ -150,6 +204,7 @@ void TeacherStudentsPage::setCourses(const QVector<CourseData> &courses)
     m_courseCombo->blockSignals(true);
     m_courseCombo->clear();
     m_studentsTable->setRowCount(0);
+    clearStudentAttempts();
 
     for (const CourseData &course : courses) {
         m_courseCombo->addItem(course.title, course.id);
@@ -209,6 +264,7 @@ void TeacherStudentsPage::setStudents(const QVector<CourseStudentData> &students
         m_emptyStateLabel->setText("Пока таблица пустая: у выбранного курса нет записанных студентов.");
         m_emptyStateLabel->show();
         m_studentsTable->hide();
+        clearStudentAttempts();
     } else {
         showMessage(QString("Найдено студентов: %1").arg(students.size()), false);
         m_focusLabel->setText(
@@ -216,7 +272,55 @@ void TeacherStudentsPage::setStudents(const QVector<CourseStudentData> &students
                 .arg(QString::number(averageProgress, 'f', 1)));
         m_emptyStateLabel->hide();
         m_studentsTable->show();
+        m_studentsTable->selectRow(0);
     }
+}
+
+void TeacherStudentsPage::setStudentAttempts(const QString &studentLogin, const QVector<TeacherStudentAttemptData> &attempts)
+{
+    m_attemptsTitleLabel->setText(QString("Попытки студента: %1").arg(studentLogin));
+    m_attemptsTable->setRowCount(attempts.size());
+
+    for (int row = 0; row < attempts.size(); ++row) {
+        const auto &attempt = attempts[row];
+
+        auto *testItem = new QTableWidgetItem(attempt.testTitle);
+        auto *scoreItem = new QTableWidgetItem(QString("%1/%2").arg(attempt.score).arg(attempt.total));
+        auto *percentageItem = new QTableWidgetItem(QString("%1%").arg(QString::number(attempt.percentage, 'f', 1)));
+        auto *statusItem = new QTableWidgetItem(attempt.passed ? "Пройден" : "Не пройден");
+
+        scoreItem->setTextAlignment(Qt::AlignCenter);
+        percentageItem->setTextAlignment(Qt::AlignCenter);
+        statusItem->setTextAlignment(Qt::AlignCenter);
+        statusItem->setForeground(attempt.passed ? QColor("#15803d") : QColor("#b91c1c"));
+
+        m_attemptsTable->setItem(row, 0, testItem);
+        m_attemptsTable->setItem(row, 1, scoreItem);
+        m_attemptsTable->setItem(row, 2, percentageItem);
+        m_attemptsTable->setItem(row, 3, statusItem);
+    }
+
+    if (attempts.isEmpty()) {
+        m_attemptsSummaryLabel->setText(QString("У студента %1 пока нет попыток по тестам выбранного курса.").arg(studentLogin));
+        m_attemptsEmptyStateLabel->setText("Когда студент начнёт проходить тесты, здесь появится хронология его результатов.");
+        m_attemptsEmptyStateLabel->show();
+        m_attemptsTable->hide();
+    } else {
+        m_attemptsSummaryLabel->setText(
+            QString("Показаны попытки студента %1 по тестам выбранного курса.").arg(studentLogin));
+        m_attemptsEmptyStateLabel->hide();
+        m_attemptsTable->show();
+    }
+}
+
+void TeacherStudentsPage::clearStudentAttempts()
+{
+    m_attemptsTitleLabel->setText("Попытки выбранного студента");
+    m_attemptsSummaryLabel->setText("Выбери студента в таблице выше, чтобы посмотреть его попытки по тестам курса.");
+    m_attemptsEmptyStateLabel->setText("После выбора студента здесь появится таблица его результатов.");
+    m_attemptsEmptyStateLabel->show();
+    m_attemptsTable->hide();
+    m_attemptsTable->setRowCount(0);
 }
 
 void TeacherStudentsPage::clearStudents()
@@ -228,6 +332,7 @@ void TeacherStudentsPage::clearStudents()
     m_emptyStateLabel->show();
     m_studentsTable->hide();
     m_studentsTable->setRowCount(0);
+    clearStudentAttempts();
 }
 
 void TeacherStudentsPage::showMessage(const QString &message, bool error)

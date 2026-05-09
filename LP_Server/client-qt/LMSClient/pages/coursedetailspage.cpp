@@ -240,7 +240,7 @@ void CourseDetailsPage::setRoleMode(const QString &role)
 {
     m_role = role;
 
-    if (role == "Teacher") {
+    if (role == "Teacher" || role == "Admin") {
         m_primaryActionButton->hide();
     } else {
         m_primaryActionButton->show();
@@ -252,9 +252,9 @@ void CourseDetailsPage::setCourse(const CourseData &course)
 {
     m_course = course;
     if (course.id < 0) {
-        m_titleLabel->setText(m_role == "Teacher" ? "Курс не выбран" : "Курс без названия");
+        m_titleLabel->setText((m_role == "Teacher" || m_role == "Admin") ? "Курс не выбран" : "Курс без названия");
         m_descriptionLabel->setText(
-            m_role == "Teacher"
+            (m_role == "Teacher" || m_role == "Admin")
                 ? "Выбери курс во вкладке \"Мои курсы\", чтобы открыть конструктор курса."
                 : "Для этого курса пока нет подробного описания.");
         refreshOverview();
@@ -320,7 +320,7 @@ void CourseDetailsPage::setTests(const QVector<TestData> &tests)
             });
         auto *cardWidget = m_testsList->itemWidget(m_testsList->item(m_testsList->count() - 1));
         if (auto *button = cardWidget ? cardWidget->findChild<QPushButton *>() : nullptr) {
-            button->setText(m_role == "Teacher" ? "Открыть тест" : "Начать тест");
+            button->setText((m_role == "Teacher" || m_role == "Admin") ? "Открыть тест" : "Начать тест");
         }
     }
     m_testsSummaryLabel->setText(QString::number(tests.size()));
@@ -372,6 +372,10 @@ void CourseDetailsPage::refreshOverview()
     if (m_role == "Teacher") {
         m_overviewHintLabel->setText(
             QString("Этот экран показывает учебную структуру %1 в student-view: уроки, материалы, видео и тесты.")
+                .arg(courseTitle));
+    } else if (m_role == "Admin") {
+        m_overviewHintLabel->setText(
+            QString("Административный обзор %1: здесь можно проверить структуру курса, материалы и тесты без student-flow.")
                 .arg(courseTitle));
     } else {
         m_overviewHintLabel->setText(

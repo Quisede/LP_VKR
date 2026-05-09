@@ -103,6 +103,91 @@ User PostgresUserRepository::createUser(
     return user;
 }
 
+std::vector<User> PostgresUserRepository::getAllUsers()
+{
+    std::lock_guard<std::mutex> lock(connection.mutex());
+
+    PGresult* res = PQexec(
+        connection.get(),
+        "SELECT id, login, password_hash, role FROM users ORDER BY id");
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::string error = PQerrorMessage(connection.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to get all users: " + error);
+    }
+
+    std::vector<User> users;
+    const int rows = PQntuples(res);
+    users.reserve(rows);
+
+    for (int i = 0; i < rows; ++i) {
+        User user;
+        user.id = std::stoi(PQgetvalue(res, i, 0));
+        user.login = PQgetvalue(res, i, 1);
+        user.passwordHash = PQgetvalue(res, i, 2);
+
+        const std::string role = PQgetvalue(res, i, 3);
+        if (role == "Student") user.role = UserRole::Student;
+        if (role == "Teacher") user.role = UserRole::Teacher;
+        if (role == "Admin") user.role = UserRole::Admin;
+
+        users.push_back(user);
+    }
+
+    PQclear(res);
+    return users;
+}
+
+User PostgresUserRepository::updateUserRole(int userId, UserRole role)
+{
+    std::lock_guard<std::mutex> lock(connection.mutex());
+
+    std::string roleStr;
+    if (role == UserRole::Student) roleStr = "Student";
+    if (role == UserRole::Teacher) roleStr = "Teacher";
+    if (role == UserRole::Admin) roleStr = "Admin";
+
+    std::string query =
+        "UPDATE users SET role='" + roleStr + "' "
+        "WHERE id=" + std::to_string(userId) +
+        " RETURNING id, login, password_hash, role";
+
+    PGresult* res = PQexec(connection.get(), query.c_str());
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) == 0) {
+        std::string error = PQerrorMessage(connection.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to update user role: " + error);
+    }
+
+    User user;
+    user.id = std::stoi(PQgetvalue(res, 0, 0));
+    user.login = PQgetvalue(res, 0, 1);
+    user.passwordHash = PQgetvalue(res, 0, 2);
+    user.role = role;
+
+    PQclear(res);
+    return user;
+}
+
+void PostgresUserRepository::deleteUser(int userId)
+{
+    std::lock_guard<std::mutex> lock(connection.mutex());
+
+    std::string query =
+        "DELETE FROM users WHERE id=" + std::to_string(userId);
+
+    PGresult* res = PQexec(connection.get(), query.c_str());
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::string error = PQerrorMessage(connection.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to delete user: " + error);
+    }
+
+    PQclear(res);
+}
+
 std::vector<CourseStudent> PostgresUserRepository::getStudentsForCourse(int courseId) {
     std::lock_guard<std::mutex> lock(connection.mutex());
 

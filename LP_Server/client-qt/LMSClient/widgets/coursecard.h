@@ -14,7 +14,7 @@ public:
         int courseId,
         const QString &title,
         const QString &description,
-        bool showEnrollAction = true,
+        const QString &role = "Student",
         QWidget *parent = nullptr);
 
 signals:

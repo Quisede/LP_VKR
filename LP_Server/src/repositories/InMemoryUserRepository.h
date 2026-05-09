@@ -6,6 +6,8 @@
 //
 
 #include "UserRepository.h"
+#include <algorithm>
+#include <stdexcept>
 #include <vector>
 
 class InMemoryUserRepository : public UserRepository {
@@ -35,6 +37,30 @@ public:
         
         users.push_back(user);
         return user;
+    }
+
+    std::vector<User> getAllUsers() override {
+        return users;
+    }
+
+    User updateUserRole(int userId, UserRole role) override {
+        for (auto &user : users) {
+            if (user.id == userId) {
+                user.role = role;
+                return user;
+            }
+        }
+
+        throw std::runtime_error("User not found");
+    }
+
+    void deleteUser(int userId) override {
+        users.erase(
+            std::remove_if(
+                users.begin(),
+                users.end(),
+                [userId](const User &user) { return user.id == userId; }),
+            users.end());
     }
 
     std::vector<CourseStudent> getStudentsForCourse(int) override {
