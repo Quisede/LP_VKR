@@ -14,4 +14,7 @@ struct Course {
     std::string title;
     std::string description;
     int teacherId;
+    int lessonsCount = 0;
+    int testsCount = 0;
+    int studentsCount = 0;
 };

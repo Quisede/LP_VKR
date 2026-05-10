@@ -218,6 +218,7 @@ void QuestionController::registerRoutes(httplib::Server& server) {
             auto result = questionService.submitTest(auth.userId, testId, answers);
 
             json response;
+            response["testId"] = testId;
             response["score"] = result.score;
             response["total"] = result.total;
             response["percentage"] = result.percentage;

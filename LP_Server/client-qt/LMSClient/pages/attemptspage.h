@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QString>
 #include <QWidget>
 #include <QVector>
 
@@ -21,6 +22,8 @@ public:
     void showError(const QString &error);
 
 private:
+    void updateTableHeaders();
+
     QString m_role = "Student";
     QLabel *m_titleLabel;
     QLabel *m_summaryLabel;

@@ -4,8 +4,29 @@
 PostgresAttemptRepository::PostgresAttemptRepository(PostgresConnection& connection) 
 : connection(connection) {}
 
+void PostgresAttemptRepository::ensureSchema() {
+    if (schemaChecked) {
+        return;
+    }
+
+    PGresult* res = PQexec(
+        connection.get(),
+        "ALTER TABLE attempts "
+        "ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::string error = PQerrorMessage(connection.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to ensure attempts schema: " + error);
+    }
+
+    PQclear(res);
+    schemaChecked = true;
+}
+
 void PostgresAttemptRepository::saveAttempt(const Attempt& attempt) {
     std::lock_guard<std::mutex> lock(connection.mutex());
+    ensureSchema();
     std::string query =
         "INSERT INTO attempts(user_id,test_id,score,total,percentage,passed) "
         "VALUES(" +
@@ -28,11 +49,17 @@ void PostgresAttemptRepository::saveAttempt(const Attempt& attempt) {
 
 std::vector<Attempt> PostgresAttemptRepository::getAttemptsForUser(int userId) {
     std::lock_guard<std::mutex> lock(connection.mutex());
+    ensureSchema();
     std::vector<Attempt> attempts;
     // формируем SQL-запрос для получения всех попыток, связанных с определенным пользователем, из базы данных
     std::string query = 
-        "SELECT id, user_id, test_id, score, total, percentage, passed"
-         " FROM attempts WHERE user_id = " + std::to_string(userId);
+        "SELECT a.id, a.user_id, a.test_id, a.score, a.total, a.percentage, a.passed, "
+        "COALESCE(t.title, ''), "
+        "COALESCE(TO_CHAR(a.created_at, 'DD.MM.YYYY HH24:MI'), '') "
+        "FROM attempts a "
+        "LEFT JOIN tests t ON t.id = a.test_id "
+        "WHERE a.user_id = " + std::to_string(userId) +
+        " ORDER BY a.id DESC";
     
     PGresult* res = PQexec(connection.get(), query.c_str());
     if(PQresultStatus(res) != PGRES_TUPLES_OK) {
@@ -54,6 +81,8 @@ std::vector<Attempt> PostgresAttemptRepository::getAttemptsForUser(int userId) {
         attempt.total = std::stoi(PQgetvalue(res, i, 4));
         attempt.percentage = std::stod(PQgetvalue(res, i, 5));
         attempt.passed = (std::string(PQgetvalue(res, i, 6)) == "t");
+        attempt.testTitle = PQgetvalue(res, i, 7);
+        attempt.submittedAt = PQgetvalue(res, i, 8);
         attempts.push_back(attempt);
     }
     PQclear(res);

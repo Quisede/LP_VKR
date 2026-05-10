@@ -51,6 +51,7 @@ signals:
     void createTestRequested(int courseId, const QString &title);
     void updateTestRequested(int testId, const QString &title);
     void deleteTestRequested(int testId);
+    void openDedicatedTestEditorRequested();
     void testSelectedForQuestions(int testId);
     void createQuestionRequested(int testId, const QString &text, const QStringList &options, int correctOptionIndex);
     void updateQuestionRequested(int questionId, const QString &text, const QStringList &options, int correctOptionIndex);
@@ -64,6 +65,9 @@ private:
     void refreshTestSelector();
     void refreshTestsList();
     void refreshQuestionsList();
+    void refreshMaterialPreview();
+    QStringList questionOptionTexts() const;
+    void setQuestionOptionTexts(const QStringList &options);
     int selectedLessonId() const;
     int selectedLessonListId() const;
     int selectedMaterialId() const;
@@ -83,6 +87,10 @@ private:
     QLabel *m_lessonsSummaryLabel;
     QLabel *m_materialsSummaryLabel;
     QLabel *m_testsSummaryLabel;
+    QLabel *m_stageChecklistLabel;
+    QLabel *m_materialsGuardLabel;
+    QLabel *m_questionsGuardLabel;
+    QLabel *m_questionEditorSummaryLabel;
 
     QListWidget *m_lessonsList;
     QListWidget *m_materialsList;
@@ -100,6 +108,7 @@ private:
     QLineEdit *m_materialTitleEdit;
     QComboBox *m_materialTypeCombo;
     QTextEdit *m_materialContentEdit;
+    QTextEdit *m_materialPreviewEdit;
     QPushButton *m_addMaterialButton;
     QPushButton *m_loadMaterialButton;
     QPushButton *m_updateMaterialButton;
@@ -118,6 +127,9 @@ private:
     QLineEdit *m_optionThreeEdit;
     QLineEdit *m_optionFourEdit;
     QComboBox *m_correctOptionCombo;
+    QComboBox *m_optionOrderCombo;
+    QPushButton *m_moveOptionUpButton;
+    QPushButton *m_moveOptionDownButton;
     QPushButton *m_addQuestionButton;
     QPushButton *m_loadQuestionButton;
     QPushButton *m_updateQuestionButton;

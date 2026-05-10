@@ -32,7 +32,9 @@ void AttemptController::registerRoutes(httplib::Server& server) {
                     {"score", a.score},
                     {"total", a.total},
                     {"percentage", a.percentage},
-                    {"passed", a.passed}
+                    {"passed", a.passed},
+                    {"testTitle", a.testTitle},
+                    {"submittedAt", a.submittedAt}
                 });
             }
 

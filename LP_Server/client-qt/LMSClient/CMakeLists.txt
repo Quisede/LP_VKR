@@ -36,6 +36,8 @@ set(LMSCLIENT_SOURCES
     pages/teachercreatecoursepage.cpp
     pages/teachercoursebuilderpage.h
     pages/teachercoursebuilderpage.cpp
+    pages/teachertesteditorpage.h
+    pages/teachertesteditorpage.cpp
     pages/teacherstudentspage.h
     pages/teacherstudentspage.cpp
     pages/teacheranalyticspage.h
@@ -58,6 +60,7 @@ set(LMSCLIENT_SOURCES
     models/questionmodel.h
     models/attemptmodel.h
     models/adminusermodel.h
+    models/adminoverviewmodel.h
     models/teacheranalyticsmodel.h
     models/teacherstudentattemptmodel.h
 )
@@ -83,12 +86,3 @@ install(TARGETS LMSClient
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
-
-if (QT_VERSION_MAJOR EQUAL 6)
-    qt_generate_deploy_app_script(
-        TARGET LMSClient
-        OUTPUT_SCRIPT deploy_script
-        NO_UNSUPPORTED_PLATFORM_ERROR
-    )
-    install(SCRIPT ${deploy_script})
-endif()

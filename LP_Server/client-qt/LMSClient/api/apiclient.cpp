@@ -112,6 +112,9 @@ void ApiClient::getCourses(
             course.title = obj.value("title").toString();
             course.description = obj.value("description").toString();
             course.teacherId = obj.value("teacherId").toInt(-1);
+            course.lessonsCount = obj.value("lessonsCount").toInt(0);
+            course.testsCount = obj.value("testsCount").toInt(0);
+            course.studentsCount = obj.value("studentsCount").toInt(0);
             courses.push_back(course);
         }
 
@@ -160,6 +163,9 @@ void ApiClient::createCourse(
         course.title = obj.value("title").toString();
         course.description = obj.value("description").toString();
         course.teacherId = obj.value("teacherId").toInt(-1);
+        course.lessonsCount = obj.value("lessonsCount").toInt(0);
+        course.testsCount = obj.value("testsCount").toInt(0);
+        course.studentsCount = obj.value("studentsCount").toInt(0);
         onSuccess(course);
         reply->deleteLater();
     });
@@ -206,6 +212,9 @@ void ApiClient::updateCourse(
         course.title = obj.value("title").toString();
         course.description = obj.value("description").toString();
         course.teacherId = obj.value("teacherId").toInt(-1);
+        course.lessonsCount = obj.value("lessonsCount").toInt(0);
+        course.testsCount = obj.value("testsCount").toInt(0);
+        course.studentsCount = obj.value("studentsCount").toInt(0);
         onSuccess(course);
         reply->deleteLater();
     });
@@ -440,6 +449,48 @@ void ApiClient::getMaterials(
         const QJsonDocument doc = QJsonDocument::fromJson(data);
         if (!doc.isObject()) {
             onError("Некорректный ответ по материалам");
+            reply->deleteLater();
+            return;
+        }
+
+        QVector<MaterialData> materials;
+        for (const auto &value : doc.object().value("materials").toArray()) {
+            const QJsonObject obj = value.toObject();
+            MaterialData material;
+            material.id = obj.value("id").toInt(-1);
+            material.lessonId = obj.value("lessonId").toInt(-1);
+            material.title = obj.value("title").toString();
+            material.type = obj.value("type").toString();
+            material.content = obj.value("content").toString();
+            materials.push_back(material);
+        }
+
+        onSuccess(materials);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::getCourseMaterials(
+    int courseId,
+    QObject *context,
+    std::function<void(const QVector<MaterialData> &materials)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QNetworkReply *reply = m_networkManager.get(
+        createRequest(QString("/api/courses/%1/materials").arg(courseId), false));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) {
+            onError("Некорректный ответ по материалам курса");
             reply->deleteLater();
             return;
         }
@@ -1022,6 +1073,8 @@ void ApiClient::submitTest(
         result.total = obj.value("total").toInt();
         result.percentage = obj.value("percentage").toDouble();
         result.passed = obj.value("passed").toBool();
+        result.testTitle = obj.value("testTitle").toString();
+        result.submittedAt = obj.value("submittedAt").toString();
 
         onSuccess(result);
         reply->deleteLater();
@@ -1062,10 +1115,50 @@ void ApiClient::getAttempts(
             attempt.total = obj.value("total").toInt();
             attempt.percentage = obj.value("percentage").toDouble();
             attempt.passed = obj.value("passed").toBool();
+            attempt.testTitle = obj.value("testTitle").toString();
+            attempt.submittedAt = obj.value("submittedAt").toString();
             attempts.push_back(attempt);
         }
 
         onSuccess(attempts);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::getAdminOverview(
+    QObject *context,
+    std::function<void(const AdminOverviewData &overview)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QNetworkReply *reply = m_networkManager.get(createRequest("/api/admin/overview"));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) {
+            onError("Некорректный ответ по admin-обзору");
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonObject obj = doc.object();
+        AdminOverviewData overview;
+        overview.totalUsers = obj.value("totalUsers").toInt(0);
+        overview.studentsCount = obj.value("studentsCount").toInt(0);
+        overview.teachersCount = obj.value("teachersCount").toInt(0);
+        overview.adminsCount = obj.value("adminsCount").toInt(0);
+        overview.coursesCount = obj.value("coursesCount").toInt(0);
+        overview.lessonsCount = obj.value("lessonsCount").toInt(0);
+        overview.testsCount = obj.value("testsCount").toInt(0);
+        overview.enrollmentsCount = obj.value("enrollmentsCount").toInt(0);
+        onSuccess(overview);
         reply->deleteLater();
     });
 }

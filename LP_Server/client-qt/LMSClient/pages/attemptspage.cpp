@@ -66,9 +66,8 @@ AttemptsPage::AttemptsPage(QWidget *parent)
     m_emptyStateLabel->setWordWrap(true);
 
     m_table = new QTableWidget(pageCard);
-    m_table->setColumnCount(5);
-    m_table->setHorizontalHeaderLabels(
-        {"Тест", "Баллы", "Всего", "Процент", "Статус"});
+    m_table->setColumnCount(6);
+    updateTableHeaders();
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     m_table->verticalHeader()->setVisible(false);
@@ -126,6 +125,8 @@ void AttemptsPage::setRoleMode(const QString &role)
             "После прохождения тестов здесь появятся баллы, проценты и статус прохождения.");
         showPlaceholder("История пока пуста. После первого отправленного теста здесь появятся результаты.");
     }
+
+    updateTableHeaders();
 }
 
 void AttemptsPage::setAttempts(const QVector<AttemptData> &attempts)
@@ -163,14 +164,19 @@ void AttemptsPage::setAttempts(const QVector<AttemptData> &attempts)
     m_emptyStateLabel->hide();
     m_table->show();
     m_table->setRowCount(attempts.size());
+    m_table->clearContents();
 
     for (int row = 0; row < attempts.size(); ++row) {
         const AttemptData &attempt = attempts[row];
-        auto *testItem = new QTableWidgetItem(QString("Тест #%1").arg(attempt.testId));
+        const QString testTitle = attempt.testTitle.isEmpty()
+            ? QString("Тест #%1").arg(attempt.testId)
+            : attempt.testTitle;
+        auto *testItem = new QTableWidgetItem(testTitle);
         auto *scoreItem = new QTableWidgetItem(QString::number(attempt.score));
         auto *totalItem = new QTableWidgetItem(QString::number(attempt.total));
         auto *percentItem = new QTableWidgetItem(QString::number(attempt.percentage, 'f', 1) + "%");
         auto *statusItem = new QTableWidgetItem(attempt.passed ? "Пройден" : "Не пройден");
+        auto *timeItem = new QTableWidgetItem(attempt.submittedAt.isEmpty() ? "—" : attempt.submittedAt);
         statusItem->setForeground(attempt.passed ? QColor("#15803d") : QColor("#b91c1c"));
 
         m_table->setItem(row, 0, testItem);
@@ -178,7 +184,10 @@ void AttemptsPage::setAttempts(const QVector<AttemptData> &attempts)
         m_table->setItem(row, 2, totalItem);
         m_table->setItem(row, 3, percentItem);
         m_table->setItem(row, 4, statusItem);
+        m_table->setItem(row, 5, timeItem);
     }
+
+    m_table->resizeRowsToContents();
 }
 
 void AttemptsPage::showPlaceholder(const QString &message)
@@ -196,4 +205,9 @@ void AttemptsPage::showPlaceholder(const QString &message)
 void AttemptsPage::showError(const QString &error)
 {
     showPlaceholder(error);
+}
+
+void AttemptsPage::updateTableHeaders()
+{
+    m_table->setHorizontalHeaderLabels({"Тест", "Баллы", "Всего", "Процент", "Статус", "Когда"});
 }

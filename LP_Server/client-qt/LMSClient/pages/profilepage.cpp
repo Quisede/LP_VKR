@@ -6,6 +6,34 @@
 #include <QLabel>
 #include <QVBoxLayout>
 
+namespace {
+
+double averageAttemptScore(const QVector<AttemptData> &attempts)
+{
+    if (attempts.isEmpty()) {
+        return 0.0;
+    }
+
+    double total = 0.0;
+    for (const auto &attempt : attempts) {
+        total += attempt.percentage;
+    }
+    return total / static_cast<double>(attempts.size());
+}
+
+int passedAttemptsCount(const QVector<AttemptData> &attempts)
+{
+    int count = 0;
+    for (const auto &attempt : attempts) {
+        if (attempt.passed) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+}
+
 ProfilePage::ProfilePage(QWidget *parent)
     : QWidget(parent)
 {
@@ -114,6 +142,7 @@ ProfilePage::ProfilePage(QWidget *parent)
 
 void ProfilePage::setSession(const SessionData &session)
 {
+    m_session = session;
     const QString displayName = session.login.isEmpty()
         ? QString("Пользователь #%1").arg(session.userId)
         : session.login;
@@ -140,12 +169,64 @@ void ProfilePage::setSession(const SessionData &session)
         m_introTextLabel->setText(
             "Текущая сессия открыта в административном режиме. Здесь будут собраны системные инструменты и общая статистика.");
     } else {
-        m_summaryOneTitleLabel->setText("Роль");
-        m_summaryOneValueLabel->setText("Student");
-        m_summaryTwoTitleLabel->setText("Режим");
-        m_summaryTwoValueLabel->setText("Обучение");
+        m_summaryOneTitleLabel->setText("Курсы");
+        m_summaryTwoTitleLabel->setText("Средний балл");
         m_introTitleLabel->setText("Учебный профиль");
         m_introTextLabel->setText(
             "Используй этот кабинет как опорную точку: отсюда видно, под какой ролью открыт доступ и какой пользователь сейчас работает с платформой.");
+    }
+
+    refreshLearningSummary();
+}
+
+void ProfilePage::setCourses(const QVector<CourseData> &courses)
+{
+    m_courses = courses;
+    refreshLearningSummary();
+}
+
+void ProfilePage::setAttempts(const QVector<AttemptData> &attempts)
+{
+    m_attempts = attempts;
+    refreshLearningSummary();
+}
+
+void ProfilePage::refreshLearningSummary()
+{
+    if (m_session.role == "Teacher") {
+        m_summaryOneTitleLabel->setText("Роль");
+        m_summaryOneValueLabel->setText("Teacher");
+        m_summaryTwoTitleLabel->setText("Режим");
+        m_summaryTwoValueLabel->setText("Управление курсами");
+        return;
+    }
+
+    if (m_session.role == "Admin") {
+        m_summaryOneTitleLabel->setText("Роль");
+        m_summaryOneValueLabel->setText("Admin");
+        m_summaryTwoTitleLabel->setText("Режим");
+        m_summaryTwoValueLabel->setText("Системный доступ");
+        return;
+    }
+
+    const int coursesCount = m_courses.size();
+    const int attemptsCount = m_attempts.size();
+    const int passedCount = passedAttemptsCount(m_attempts);
+    const double average = averageAttemptScore(m_attempts);
+
+    m_summaryOneTitleLabel->setText("Курсы");
+    m_summaryOneValueLabel->setText(QString::number(coursesCount));
+    m_summaryTwoTitleLabel->setText("Средний балл");
+    m_summaryTwoValueLabel->setText(QString("%1%").arg(QString::number(average, 'f', 1)));
+
+    if (attemptsCount == 0) {
+        m_introTextLabel->setText(
+            QString("Сейчас у тебя %1 доступных курсов. Начни с материалов и первого теста — после этого здесь появится учебная динамика.")
+                .arg(coursesCount));
+    } else {
+        m_introTextLabel->setText(
+            QString("У тебя уже %1 попыток, из них успешно: %2. Продолжай обучение и улучшай средний результат по тестам.")
+                .arg(attemptsCount)
+                .arg(passedCount));
     }
 }

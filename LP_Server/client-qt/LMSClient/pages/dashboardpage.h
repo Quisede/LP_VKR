@@ -3,6 +3,7 @@
 #include <QWidget>
 #include <QVector>
 
+#include "../models/adminoverviewmodel.h"
 #include "../models/attemptmodel.h"
 #include "../models/coursemodel.h"
 #include "../models/sessiondata.h"
@@ -10,6 +11,7 @@
 class QLabel;
 class QListWidget;
 class QFrame;
+class QPushButton;
 
 class DashboardPage : public QWidget
 {
@@ -22,11 +24,22 @@ public:
     void setSession(const SessionData &session);
     void setCourses(const QVector<CourseData> &courses);
     void setAttempts(const QVector<AttemptData> &attempts);
+    void setAdminOverview(const AdminOverviewData &overview);
+
+signals:
+    void openCoursesRequested();
+    void openCreateCourseRequested();
+    void openStudentsRequested();
+    void openAnalyticsRequested();
+    void openResultsRequested();
+    void openTestsRequested();
+    void openUsersRequested();
 
 private:
     QString m_role = "Student";
     QVector<CourseData> m_courses;
     QVector<AttemptData> m_attempts;
+    AdminOverviewData m_adminOverview;
     void refreshSummary();
     void refreshRecentCourses();
     void refreshFocus();
@@ -43,6 +56,11 @@ private:
     QLabel *m_coursesCaptionLabel;
     QLabel *m_testsCaptionLabel;
     QLabel *m_attemptsCaptionLabel;
+    QLabel *m_actionsTitleLabel;
     QListWidget *m_recentCoursesList;
     QListWidget *m_focusList;
+    QPushButton *m_primaryActionButton;
+    QPushButton *m_secondaryActionButton;
+    QPushButton *m_tertiaryActionButton;
+    QPushButton *m_quaternaryActionButton;
 };

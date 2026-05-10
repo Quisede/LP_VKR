@@ -37,9 +37,11 @@ private:
     QLabel *m_totalUsersValueLabel;
     QLabel *m_studentsValueLabel;
     QLabel *m_teachersValueLabel;
+    QLabel *m_adminsValueLabel;
     QLabel *m_focusLabel;
     QLabel *m_emptyStateLabel;
     QLineEdit *m_searchEdit;
+    QComboBox *m_filterRoleCombo;
     QLineEdit *m_loginEdit;
     QLineEdit *m_passwordEdit;
     QComboBox *m_roleCombo;

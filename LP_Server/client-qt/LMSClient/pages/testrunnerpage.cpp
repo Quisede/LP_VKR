@@ -4,6 +4,7 @@
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QSizePolicy>
@@ -132,6 +133,26 @@ TestRunnerPage::TestRunnerPage(QWidget *parent)
         }
     });
     connect(m_submitButton, &QPushButton::clicked, this, [this]() {
+        if (!allQuestionsAnswered()) {
+            QMessageBox::information(
+                this,
+                "Нужно завершить тест",
+                "Ответь на все вопросы, и только после этого отправляй тест на проверку.");
+            return;
+        }
+
+        const auto confirmation = QMessageBox::question(
+            this,
+            "Подтверждение отправки",
+            QString("Отправить тест \"%1\" на проверку?")
+                .arg(m_test.title.isEmpty() ? "Без названия" : m_test.title),
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::No);
+
+        if (confirmation != QMessageBox::Yes) {
+            return;
+        }
+
         emit submitRequested(m_test.id, selectedAnswers());
     });
 }
@@ -150,25 +171,25 @@ void TestRunnerPage::setQuestions(const QVector<QuestionData> &questions)
 {
     m_questions = questions;
     m_selectedAnswers.clear();
+    m_hasResult = false;
+    m_lastResult = AttemptData{};
     m_currentIndex = 0;
     renderCurrentQuestion();
 }
 
 void TestRunnerPage::showResult(const AttemptData &result)
 {
-    m_resultLabel->setText(
-        QString("Результат: %1/%2, %3%, %4")
-            .arg(result.score)
-            .arg(result.total)
-            .arg(QString::number(result.percentage, 'f', 1))
-            .arg(result.passed ? "тест пройден" : "тест не пройден"));
-    m_resultLabel->show();
+    m_lastResult = result;
+    m_hasResult = true;
+    renderCurrentQuestion();
 }
 
 void TestRunnerPage::showPlaceholder(const QString &title, const QString &message)
 {
     m_questions.clear();
     m_selectedAnswers.clear();
+    m_hasResult = false;
+    m_lastResult = AttemptData{};
     m_currentIndex = 0;
     m_emptyTitle = title;
     m_emptyMessage = message;
@@ -182,6 +203,35 @@ void TestRunnerPage::renderCurrentQuestion()
     while (QLayoutItem *item = m_answersLayout->takeAt(0)) {
         delete item->widget();
         delete item;
+    }
+
+    if (m_hasResult) {
+        m_titleLabel->setText(m_lastResult.testTitle.isEmpty() ? (m_test.title.isEmpty() ? "Тест" : m_test.title) : m_lastResult.testTitle);
+        m_progressLabel->setText("Тест завершён");
+        m_questionLabel->setText("Результат уже сохранён");
+        m_hintLabel->setText("Попытка записана в историю. Можно вернуться к курсу или открыть раздел результатов в боковом меню.");
+        m_questionNumberValueLabel->setText("—");
+        m_totalQuestionsValueLabel->setText("—");
+        m_answersCountValueLabel->setText("—");
+
+        auto *resultHint = new QLabel(
+            QString("%1\nБаллы: %2/%3\nПроцент: %4%\nСтатус: %5\nВремя: %6")
+                .arg(m_lastResult.testTitle.isEmpty() ? (m_test.title.isEmpty() ? "Тест" : m_test.title) : m_lastResult.testTitle)
+                .arg(m_lastResult.score)
+                .arg(m_lastResult.total)
+                .arg(QString::number(m_lastResult.percentage, 'f', 1))
+                .arg(m_lastResult.passed ? "Пройден" : "Не пройден")
+                .arg(m_lastResult.submittedAt.isEmpty() ? "только что" : m_lastResult.submittedAt),
+            m_answersContainer);
+        resultHint->setWordWrap(true);
+        resultHint->setStyleSheet("color: #2563eb; font-size: 18px; font-weight: 700; line-height: 1.5;");
+        m_answersLayout->addWidget(resultHint);
+
+        m_resultLabel->hide();
+        m_prevButton->setEnabled(false);
+        m_nextButton->setEnabled(false);
+        m_submitButton->setEnabled(false);
+        return;
     }
 
     if (m_questions.isEmpty()) {
@@ -209,7 +259,9 @@ void TestRunnerPage::renderCurrentQuestion()
     m_hintLabel->setText(
         question.options.isEmpty()
             ? "У этого вопроса нет вариантов ответа, поэтому тест нельзя корректно отправить."
-            : "Выбери один вариант ответа. После этого можно перейти к следующему вопросу или сразу отправить тест.");
+            : QString("Выбери один вариант ответа. Отвечено: %1 из %2.")
+                  .arg(m_selectedAnswers.size())
+                  .arg(m_questions.size()));
     m_questionLabel->setText(question.text);
 
     for (const auto &option : question.options) {
@@ -244,7 +296,7 @@ void TestRunnerPage::renderCurrentQuestion()
 
     m_prevButton->setEnabled(m_currentIndex > 0);
     m_nextButton->setEnabled(m_currentIndex + 1 < m_questions.size());
-    m_submitButton->setEnabled(!m_questions.isEmpty() && !question.options.isEmpty());
+    m_submitButton->setEnabled(!m_questions.isEmpty() && !question.options.isEmpty() && allQuestionsAnswered());
 }
 
 QVector<QPair<int, int>> TestRunnerPage::selectedAnswers() const
@@ -254,4 +306,19 @@ QVector<QPair<int, int>> TestRunnerPage::selectedAnswers() const
         answers.push_back(qMakePair(it.key(), it.value()));
     }
     return answers;
+}
+
+bool TestRunnerPage::allQuestionsAnswered() const
+{
+    if (m_questions.isEmpty()) {
+        return false;
+    }
+
+    for (const auto &question : m_questions) {
+        if (!m_selectedAnswers.contains(question.id)) {
+            return false;
+        }
+    }
+
+    return true;
 }

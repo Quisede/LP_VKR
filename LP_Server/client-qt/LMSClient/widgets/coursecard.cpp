@@ -1,5 +1,7 @@
 #include "coursecard.h"
 
+#include "../models/coursemodel.h"
+
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -8,13 +10,11 @@
 #include <QVBoxLayout>
 
 CourseCard::CourseCard(
-    int courseId,
-    const QString &title,
-    const QString &description,
+    const CourseData &course,
     const QString &role,
     QWidget *parent)
     : QWidget(parent)
-    , m_courseId(courseId)
+    , m_courseId(course.id)
 {
     const bool isStudent = role == "Student";
     const bool isAdmin = role == "Admin";
@@ -24,11 +24,11 @@ CourseCard::CourseCard(
 
     auto *card = new QFrame(this);
     card->setObjectName("courseCard");
-    card->setMinimumHeight(isStudent ? 196 : 206);
+    card->setMinimumHeight(isStudent ? 236 : 246);
 
     auto *cardLayout = new QVBoxLayout(card);
     cardLayout->setContentsMargins(18, 16, 18, 16);
-    cardLayout->setSpacing(10);
+    cardLayout->setSpacing(12);
 
     auto *badgeRow = new QHBoxLayout();
     badgeRow->setSpacing(8);
@@ -59,28 +59,61 @@ CourseCard::CourseCard(
     badgeRow->addWidget(contentBadge);
     badgeRow->addStretch();
 
-    auto *titleLabel = new QLabel(title, card);
+    auto *titleLabel = new QLabel(course.title, card);
     titleLabel->setObjectName("courseCardTitleLabel");
     titleLabel->setWordWrap(true);
 
     auto *descriptionLabel = new QLabel(
-        description.isEmpty() ? "Описание курса пока не добавлено." : description,
+        course.description.isEmpty() ? "Описание курса пока не добавлено." : course.description,
         card);
     descriptionLabel->setObjectName("courseCardDescriptionLabel");
     descriptionLabel->setWordWrap(true);
+
+    auto *statsRow = new QHBoxLayout();
+    statsRow->setSpacing(8);
+
+    auto createStatBadge = [card](const QString &text, const QString &bg, const QString &fg) {
+        auto *badge = new QLabel(text, card);
+        badge->setStyleSheet(QString(
+            "QLabel {"
+            " background: %1;"
+            " color: %2;"
+            " border-radius: 10px;"
+            " padding: 6px 10px;"
+            " font-size: 12px;"
+            " font-weight: 700;"
+            "}").arg(bg, fg));
+        return badge;
+    };
+
+    statsRow->addWidget(createStatBadge(
+        QString("Уроков %1").arg(course.lessonsCount),
+        "#f8fafc",
+        "#334155"));
+    statsRow->addWidget(createStatBadge(
+        QString("Тестов %1").arg(course.testsCount),
+        "#eff6ff",
+        "#2563eb"));
+    statsRow->addWidget(createStatBadge(
+        isStudent
+            ? QString("Преподаватель #%1").arg(course.teacherId)
+            : QString("Студентов %1").arg(course.studentsCount),
+        isStudent ? "#f8fafc" : "#ecfeff",
+        isStudent ? "#475569" : "#0f766e"));
+    statsRow->addStretch();
 
     auto *metaLabel = new QLabel(
         isStudent
             ? "Открой курс, чтобы посмотреть программу, материалы и доступные тесты."
             : isAdmin
-                ? "Административный режим: открой курс для обзора или переходи к управлению курсом."
-                : "Режим преподавателя: открой курс для обзора или перейди в конструктор для редактирования.",
+                ? "Административный режим: проверь структуру курса и переходи к управлению, если нужна системная правка."
+                : "Режим преподавателя: открой обзор курса или переходи в конструктор, чтобы управлять контентом и тестами.",
         card);
     metaLabel->setObjectName("sectionHintLabel");
     metaLabel->setWordWrap(true);
 
     auto *actionsLayout = new QHBoxLayout();
-    actionsLayout->setSpacing(10);
+    actionsLayout->setSpacing(8);
     actionsLayout->setContentsMargins(0, 6, 0, 0);
 
     auto *openButton = new QPushButton("Открыть курс", card);
@@ -89,7 +122,7 @@ CourseCard::CourseCard(
     QPushButton *editButton = nullptr;
     QPushButton *deleteButton = nullptr;
     openButton->setObjectName("cardActionButton");
-    openButton->setMinimumWidth(150);
+    openButton->setMinimumWidth(isStudent ? 150 : 132);
     openButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     actionsLayout->addWidget(openButton);
@@ -102,19 +135,19 @@ CourseCard::CourseCard(
     } else {
         manageButton = new QPushButton("Конструктор", card);
         manageButton->setObjectName("cardAccentButton");
-        manageButton->setMinimumWidth(140);
+        manageButton->setMinimumWidth(128);
         manageButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         actionsLayout->addWidget(manageButton);
 
         editButton = new QPushButton("Редактировать", card);
         editButton->setObjectName("cardGhostButton");
-        editButton->setMinimumWidth(150);
+        editButton->setMinimumWidth(128);
         editButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         actionsLayout->addWidget(editButton);
 
         deleteButton = new QPushButton("Удалить", card);
         deleteButton->setObjectName("cardDangerButton");
-        deleteButton->setMinimumWidth(120);
+        deleteButton->setMinimumWidth(108);
         deleteButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         actionsLayout->addWidget(deleteButton);
     }
@@ -123,6 +156,7 @@ CourseCard::CourseCard(
     cardLayout->addLayout(badgeRow);
     cardLayout->addWidget(titleLabel);
     cardLayout->addWidget(descriptionLabel);
+    cardLayout->addLayout(statsRow);
     cardLayout->addWidget(metaLabel);
     cardLayout->addLayout(actionsLayout);
 

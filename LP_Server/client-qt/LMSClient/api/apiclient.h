@@ -8,6 +8,7 @@
 
 #include "../models/attemptmodel.h"
 #include "../models/adminusermodel.h"
+#include "../models/adminoverviewmodel.h"
 #include "../models/coursemodel.h"
 #include "../models/coursestudentmodel.h"
 #include "../models/lessonmodel.h"
@@ -98,6 +99,12 @@ public:
 
     void getMaterials(
         int lessonId,
+        QObject *context,
+        std::function<void(const QVector<MaterialData> &materials)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void getCourseMaterials(
+        int courseId,
         QObject *context,
         std::function<void(const QVector<MaterialData> &materials)> onSuccess,
         std::function<void(const QString &error)> onError);
@@ -204,6 +211,11 @@ public:
     void getAdminUsers(
         QObject *context,
         std::function<void(const QVector<AdminUserData> &users)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void getAdminOverview(
+        QObject *context,
+        std::function<void(const AdminOverviewData &overview)> onSuccess,
         std::function<void(const QString &error)> onError);
 
     void createAdminUser(

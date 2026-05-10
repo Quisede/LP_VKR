@@ -18,6 +18,8 @@ class PostgresAttemptRepository : public AttemptRepository {
         CourseAnalytics getCourseAnalytics(int courseId) override;
         std::vector<StudentCourseAttempt> getStudentCourseAttempts(int courseId, int studentId) override;
     private:
+        void ensureSchema();
         // ссылка на объект PostgresConnection для выполнения операций с базой данных
         PostgresConnection& connection;
+        bool schemaChecked = false;
 };

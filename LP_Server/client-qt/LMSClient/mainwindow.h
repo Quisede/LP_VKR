@@ -7,6 +7,7 @@
 #include <QString>
 #include <QVector>
 
+#include "models/adminoverviewmodel.h"
 #include "models/attemptmodel.h"
 #include "models/coursemodel.h"
 #include "models/lessonmodel.h"
@@ -33,6 +34,7 @@ class TeacherCourseBuilderPage;
 class TeacherCreateCoursePage;
 class TeacherAnalyticsPage;
 class TeacherStudentsPage;
+class TeacherTestEditorPage;
 class TestRunnerPage;
 
 class MainWindow : public QMainWindow
@@ -44,6 +46,7 @@ public:
     ~MainWindow() override;
 
     void setSession(const SessionData &session);
+    void automationOpenPage(const QString &pageKey, const QString &courseTitle = QString());
 
 signals:
     void logoutRequested();
@@ -75,10 +78,12 @@ private:
     void showStatus(const QString &status);
     void showCourseDetailsPage();
     void showTeacherCourseBuilderPage();
+    void showTeacherTestEditorPage();
     void showTestRunnerPage();
 
     void loadCourses();
     void loadAttempts();
+    void loadAdminOverview();
     void loadAdminUsers();
     void loadCourseContent(int courseId);
     void loadCourseLessonsAndMaterials(int courseId);
@@ -89,6 +94,7 @@ private:
     void loadTeacherAnalytics(int courseId);
     void refreshSelectedCourseFromCache();
     QVector<CourseData> visibleCoursesForCurrentRole(const QVector<CourseData> &courses) const;
+    CourseData automationCourseCandidate(const QString &courseTitle) const;
 
     Ui::MainWindow *ui;
     ApiClient *m_apiClient;
@@ -99,6 +105,7 @@ private:
     TeacherCreateCoursePage *m_teacherCreateCoursePage;
     CourseDetailsPage *m_courseDetailsPage;
     TeacherCourseBuilderPage *m_teacherCourseBuilderPage;
+    TeacherTestEditorPage *m_teacherTestEditorPage;
     TestRunnerPage *m_testRunnerPage;
     AttemptsPage *m_attemptsPage;
     TeacherStudentsPage *m_teacherStudentsPage;
@@ -111,6 +118,7 @@ private:
     SessionData m_session;
     QVector<CourseData> m_courses;
     QVector<AttemptData> m_attempts;
+    AdminOverviewData m_adminOverview;
     QVector<LessonData> m_selectedLessons;
     QVector<MaterialData> m_selectedMaterials;
     QVector<TestData> m_selectedTests;

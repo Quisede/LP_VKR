@@ -10,4 +10,6 @@ struct Attempt {
     int total;
     double percentage;
     bool passed;
+    std::string testTitle;
+    std::string submittedAt;
 };

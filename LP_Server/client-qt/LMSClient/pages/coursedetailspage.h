@@ -36,6 +36,10 @@ private:
     QString m_role = "Student";
     void setListItems(QListWidget *list, const QVector<QPair<QString, QString>> &items, const QString &emptyTitle, const QString &emptySubtitle);
     void refreshOverview();
+    QVector<LessonData> m_lessons;
+    QVector<MaterialData> m_materials;
+    QVector<MaterialData> m_videos;
+    QVector<TestData> m_tests;
 
     CourseData m_course;
     QLabel *m_titleLabel;
@@ -45,6 +49,7 @@ private:
     QLabel *m_videosSummaryLabel;
     QLabel *m_testsSummaryLabel;
     QLabel *m_overviewHintLabel;
+    QLabel *m_progressHintLabel;
     QPushButton *m_primaryActionButton;
     QTabWidget *m_sectionsTabs;
     QListWidget *m_lessonsList;

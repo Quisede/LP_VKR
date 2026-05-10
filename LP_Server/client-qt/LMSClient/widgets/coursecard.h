@@ -2,6 +2,8 @@
 
 #include <QWidget>
 
+struct CourseData;
+
 class QLabel;
 class QPushButton;
 
@@ -11,9 +13,7 @@ class CourseCard : public QWidget
 
 public:
     explicit CourseCard(
-        int courseId,
-        const QString &title,
-        const QString &description,
+        const CourseData &course,
         const QString &role = "Student",
         QWidget *parent = nullptr);
 

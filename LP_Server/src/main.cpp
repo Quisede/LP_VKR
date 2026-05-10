@@ -82,9 +82,8 @@ int main() {
     
     SimplePasswordHasher hasher; // хэшер паролей
     AuthService authService(userRepo, hasher); // сервис аутентификации, принимает зависимости через конструктор
-    AdminService adminService(userRepo);
-
     PostgresCourseRepository courseRepo(conn); // хранилище курсов в памяти
+    AdminService adminService(userRepo, courseRepo);
     // InMemoryEnrollmentRepository enrollRepo; // хранилище связей
     PostgresEnrollmentRepository enrollRepo(conn);
     CourseService courseService(courseRepo, enrollRepo, userRepo); // сервис курсов

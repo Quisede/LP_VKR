@@ -33,5 +33,24 @@ services:
     ports:
       - "8080:8080"
 
+  qt_client:
+    build:
+      context: .
+      dockerfile: client-qt/LMSClient/Dockerfile.qt
+    container_name: lms_qt_client
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+    environment:
+      LMS_API_BASE_URL: http://app:8080
+      QT_QPA_PLATFORM: offscreen
+    volumes:
+      - .:/workspace
+      - ./artifacts/qt-client:/artifacts
+    profiles:
+      - qt
+
 volumes:
   postgres_data:

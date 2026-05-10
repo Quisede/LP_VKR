@@ -2,9 +2,9 @@
 
 InMemoryAttemptRepository::InMemoryAttemptRepository() {
     // можно добавить начальные данные, если нужно
-    attempts.push_back(Attempt{1, 1, 1, 85, 100, 85.0, true});
-    attempts.push_back(Attempt{2, 1, 1, 90, 100, 90.0, true});
-    attempts.push_back(Attempt{3, 2, 1, 75, 100, 75.0, true});
+    attempts.push_back(Attempt{1, 1, 1, 85, 100, 85.0, true, "Test #1", "01.01.2026 10:00"});
+    attempts.push_back(Attempt{2, 1, 1, 90, 100, 90.0, true, "Test #1", "02.01.2026 12:00"});
+    attempts.push_back(Attempt{3, 2, 1, 75, 100, 75.0, true, "Test #1", "03.01.2026 14:00"});
 }   
 
 void InMemoryAttemptRepository::saveAttempt(const Attempt& attempt) {

@@ -82,6 +82,7 @@ AdminUsersPage::AdminUsersPage(QWidget *parent)
     statsLayout->addWidget(createStatCard("Всего пользователей", &m_totalUsersValueLabel, pageCard));
     statsLayout->addWidget(createStatCard("Студенты", &m_studentsValueLabel, pageCard));
     statsLayout->addWidget(createStatCard("Преподаватели", &m_teachersValueLabel, pageCard));
+    statsLayout->addWidget(createStatCard("Администраторы", &m_adminsValueLabel, pageCard));
 
     const QString inputStyle =
         "QLineEdit {"
@@ -142,6 +143,19 @@ AdminUsersPage::AdminUsersPage(QWidget *parent)
         applyUsersFilter(text);
     });
 
+    m_filterRoleCombo = ui_styles::createComboBox(pageCard);
+    m_filterRoleCombo->addItems({"Все роли", "Student", "Teacher", "Admin"});
+    ui_styles::applyComboBoxStyle(m_filterRoleCombo);
+    m_filterRoleCombo->setMinimumWidth(180);
+    connect(m_filterRoleCombo, &QComboBox::currentTextChanged, this, [this]() {
+        applyUsersFilter(m_searchEdit->text());
+    });
+
+    auto *searchRowLayout = new QHBoxLayout();
+    searchRowLayout->setSpacing(10);
+    searchRowLayout->addWidget(m_searchEdit, 1);
+    searchRowLayout->addWidget(m_filterRoleCombo, 0);
+
     m_emptyStateLabel = new QLabel(pageCard);
     m_emptyStateLabel->setObjectName("sectionHintLabel");
     m_emptyStateLabel->setWordWrap(true);
@@ -184,7 +198,7 @@ AdminUsersPage::AdminUsersPage(QWidget *parent)
     layout->addLayout(statsLayout);
     layout->addWidget(formCard);
     layout->addWidget(m_focusLabel);
-    layout->addWidget(m_searchEdit);
+    layout->addLayout(searchRowLayout);
     layout->addWidget(m_emptyStateLabel);
     layout->addWidget(m_usersTable);
     rootLayout->addWidget(pageCard);
@@ -209,12 +223,15 @@ void AdminUsersPage::applyUsersFilter(const QString &query)
 {
     int students = 0;
     int teachers = 0;
+    int admins = 0;
     const QString normalizedQuery = query.trimmed().toLower();
+    const QString selectedRole = m_filterRoleCombo ? m_filterRoleCombo->currentText() : QString("Все роли");
     QVector<AdminUserData> users;
 
     for (const auto &user : m_allUsers) {
         const QString haystack = (user.login + " " + user.role).toLower();
-        if (normalizedQuery.isEmpty() || haystack.contains(normalizedQuery)) {
+        const bool roleMatches = selectedRole == "Все роли" || user.role == selectedRole;
+        if ((normalizedQuery.isEmpty() || haystack.contains(normalizedQuery)) && roleMatches) {
             users.push_back(user);
         }
     }
@@ -227,6 +244,7 @@ void AdminUsersPage::applyUsersFilter(const QString &query)
 
         if (user.role == "Student") ++students;
         if (user.role == "Teacher") ++teachers;
+        if (user.role == "Admin") ++admins;
 
         auto *idItem = new QTableWidgetItem(QString::number(user.id));
         auto *loginItem = new QTableWidgetItem(user.login);
@@ -289,6 +307,7 @@ void AdminUsersPage::applyUsersFilter(const QString &query)
     m_totalUsersValueLabel->setText(QString::number(users.size()));
     m_studentsValueLabel->setText(QString::number(students));
     m_teachersValueLabel->setText(QString::number(teachers));
+    m_adminsValueLabel->setText(QString::number(admins));
 
     if (users.isEmpty()) {
         if (m_allUsers.isEmpty()) {
@@ -301,7 +320,6 @@ void AdminUsersPage::applyUsersFilter(const QString &query)
         m_emptyStateLabel->show();
         m_usersTable->hide();
     } else {
-        const int admins = users.size() - students - teachers;
         m_focusLabel->setText(
             QString("Сейчас в системе %1 пользователей: %2 студентов, %3 преподавателей и %4 администраторов.")
                 .arg(users.size())
@@ -319,11 +337,15 @@ void AdminUsersPage::clearUsers()
     m_totalUsersValueLabel->setText("0");
     m_studentsValueLabel->setText("0");
     m_teachersValueLabel->setText("0");
+    m_adminsValueLabel->setText("0");
     m_focusLabel->setText("Как только список пользователей загрузится, здесь появится общая срезка по ролям.");
     m_emptyStateLabel->setText("После загрузки здесь появится таблица пользователей системы.");
     m_emptyStateLabel->show();
     m_usersTable->hide();
     m_usersTable->setRowCount(0);
+    if (m_filterRoleCombo) {
+        m_filterRoleCombo->setCurrentIndex(0);
+    }
 }
 
 void AdminUsersPage::showMessage(const QString &message, bool error)

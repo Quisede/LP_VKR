@@ -150,6 +150,18 @@ CourseDetailsPage::CourseDetailsPage(QWidget *parent)
     m_overviewHintLabel->setObjectName("sectionHintLabel");
     m_overviewHintLabel->setWordWrap(true);
 
+    m_progressHintLabel = new QLabel(pageCard);
+    m_progressHintLabel->setWordWrap(true);
+    m_progressHintLabel->setObjectName("sectionHintLabel");
+    m_progressHintLabel->setStyleSheet(
+        "QLabel {"
+        " background: #eff6ff;"
+        " color: #1e3a8a;"
+        " border: 1px solid #bfdbfe;"
+        " border-radius: 16px;"
+        " padding: 14px 16px;"
+        "}");
+
     m_sectionsTabs = new QTabWidget(pageCard);
     m_sectionsTabs->setDocumentMode(true);
     m_sectionsTabs->tabBar()->setDrawBase(false);
@@ -210,6 +222,7 @@ CourseDetailsPage::CourseDetailsPage(QWidget *parent)
     overviewLayout->setSpacing(14);
     overviewLayout->addLayout(summaryLayout);
     overviewLayout->addWidget(m_overviewHintLabel);
+    overviewLayout->addWidget(m_progressHintLabel);
     overviewLayout->addStretch();
 
     auto *lessonsTab = createListTab("Уроки курса", &m_lessonsList);
@@ -271,6 +284,7 @@ void CourseDetailsPage::setCourse(const CourseData &course)
 
 void CourseDetailsPage::setLessons(const QVector<LessonData> &lessons)
 {
+    m_lessons = lessons;
     QVector<QPair<QString, QString>> items;
     for (const auto &lesson : lessons) {
         items.push_back({lesson.title, lesson.content});
@@ -282,6 +296,8 @@ void CourseDetailsPage::setLessons(const QVector<LessonData> &lessons)
 
 void CourseDetailsPage::setMaterials(const QVector<MaterialData> &materials, const QVector<MaterialData> &videos)
 {
+    m_materials = materials;
+    m_videos = videos;
     QVector<QPair<QString, QString>> materialItems;
     for (const auto &material : materials) {
         materialItems.push_back({material.title, material.content});
@@ -300,6 +316,7 @@ void CourseDetailsPage::setMaterials(const QVector<MaterialData> &materials, con
 
 void CourseDetailsPage::setTests(const QVector<TestData> &tests)
 {
+    m_tests = tests;
     m_testsList->clear();
     if (tests.isEmpty()) {
         appendCard(m_testsList, "Тестов пока нет", "Для этого курса ещё не добавили тесты.");
@@ -329,6 +346,10 @@ void CourseDetailsPage::setTests(const QVector<TestData> &tests)
 
 void CourseDetailsPage::showLoadingState()
 {
+    m_lessons.clear();
+    m_materials.clear();
+    m_videos.clear();
+    m_tests.clear();
     m_lessonsList->clear();
     m_materialsList->clear();
     m_videosList->clear();
@@ -382,4 +403,46 @@ void CourseDetailsPage::refreshOverview()
             QString("Здесь собраны все элементы %1: сначала посмотри уроки и материалы, затем переходи к тестам.")
                 .arg(courseTitle));
     }
+
+    if (m_role == "Student") {
+        if (m_course.id < 0) {
+            m_progressHintLabel->setText(
+                "Открой конкретный курс, чтобы увидеть его учебный маршрут: сколько там уроков, материалов и когда логично переходить к тестам.");
+            return;
+        }
+
+        const bool hasLessons = !m_lessons.isEmpty();
+        const bool hasResources = !m_materials.isEmpty() || !m_videos.isEmpty();
+        const bool hasTests = !m_tests.isEmpty();
+
+        m_progressHintLabel->setText(QString(
+            "Маршрут по курсу: уроки — %1, материалы и видео — %2, тесты — %3.\n"
+            "Следующий шаг: %4")
+            .arg(hasLessons ? QString("доступны (%1)").arg(m_lessons.size()) : "ещё не добавлены")
+            .arg(hasResources ? QString("доступны (%1)").arg(m_materials.size() + m_videos.size()) : "пока мало контента")
+            .arg(hasTests ? QString("готовы (%1)").arg(m_tests.size()) : "пока нет тестов")
+            .arg(!hasLessons
+                ? "подожди, пока преподаватель наполнит курс уроками."
+                : !hasResources
+                    ? "начни с уроков, а материалы появятся по мере наполнения курса."
+                    : hasTests
+                        ? "посмотри уроки и материалы, затем переходи к тестам."
+                        : "сейчас лучше изучить содержание курса, тесты появятся позже."));
+        return;
+    }
+
+    if (m_role == "Teacher") {
+        m_progressHintLabel->setText(
+            QString("Student-view этого курса уже показывает: %1 уроков, %2 материалов/видео и %3 тестов. Это помогает быстро понять, как курс выглядит глазами ученика.")
+                .arg(m_lessons.size())
+                .arg(m_materials.size() + m_videos.size())
+                .arg(m_tests.size()));
+        return;
+    }
+
+    m_progressHintLabel->setText(
+        QString("Системный обзор: в курсе сейчас %1 уроков, %2 материалов/видео и %3 тестов.")
+            .arg(m_lessons.size())
+            .arg(m_materials.size() + m_videos.size())
+            .arg(m_tests.size()));
 }

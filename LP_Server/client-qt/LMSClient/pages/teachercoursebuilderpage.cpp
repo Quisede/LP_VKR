@@ -4,6 +4,7 @@
 #include <QComboBox>
 #include <QFormLayout>
 #include <QFrame>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -61,6 +62,18 @@ QFrame *createSectionCard(const QString &title, QWidget *parent, QVBoxLayout **c
     layout->addWidget(titleLabel);
     *contentLayout = layout;
     return card;
+}
+
+QLabel *createFieldLabel(const QString &text, QWidget *parent)
+{
+    auto *label = new QLabel(text, parent);
+    label->setObjectName("moduleTitleLabel");
+    return label;
+}
+
+QString statusWord(bool ready)
+{
+    return ready ? "готово" : "ожидает";
 }
 
 }
@@ -178,8 +191,22 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     overviewNote->setObjectName("sectionHintLabel");
     overviewNote->setWordWrap(true);
 
+    m_stageChecklistLabel = new QLabel(overviewTab);
+    m_stageChecklistLabel->setObjectName("sectionHintLabel");
+    m_stageChecklistLabel->setWordWrap(true);
+    m_stageChecklistLabel->setStyleSheet(
+        "QLabel {"
+        " background: #eff6ff;"
+        " color: #1e3a8a;"
+        " border: 1px solid #bfdbfe;"
+        " border-radius: 16px;"
+        " padding: 14px 16px;"
+        " line-height: 1.4;"
+        "}");
+
     overviewLayout->addLayout(summaryLayout);
     overviewLayout->addWidget(overviewNote);
+    overviewLayout->addWidget(m_stageChecklistLabel);
     overviewLayout->addStretch();
 
     auto *lessonsTab = new QWidget(tabs);
@@ -269,6 +296,17 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
         materialFormCard);
     materialFormHint->setObjectName("sectionHintLabel");
     materialFormHint->setWordWrap(true);
+    m_materialsGuardLabel = new QLabel(materialFormCard);
+    m_materialsGuardLabel->setObjectName("sectionHintLabel");
+    m_materialsGuardLabel->setWordWrap(true);
+    m_materialsGuardLabel->setStyleSheet(
+        "QLabel {"
+        " background: #fff7ed;"
+        " color: #9a3412;"
+        " border: 1px solid #fed7aa;"
+        " border-radius: 14px;"
+        " padding: 10px 12px;"
+        "}");
     auto *materialForm = new QFormLayout();
     materialForm->setHorizontalSpacing(12);
     materialForm->setVerticalSpacing(12);
@@ -286,6 +324,12 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     m_materialContentEdit->setPlaceholderText("Текст материала, ссылка на видео или полезный ресурс");
     m_materialContentEdit->setMinimumHeight(180);
     m_materialContentEdit->setStyleSheet(inputStyle);
+
+    m_materialPreviewEdit = new QTextEdit(materialFormCard);
+    m_materialPreviewEdit->setReadOnly(true);
+    m_materialPreviewEdit->setMinimumHeight(120);
+    m_materialPreviewEdit->setPlaceholderText("Здесь появится предпросмотр выбранного материала.");
+    m_materialPreviewEdit->setStyleSheet(inputStyle + "QTextEdit { background-color: #f8fbff; }");
 
     m_addMaterialButton = new QPushButton("Добавить материал", materialFormCard);
     m_addMaterialButton->setObjectName("cardAccentButton");
@@ -309,10 +353,12 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     materialDangerRow->addStretch();
 
     materialFormLayout->addWidget(materialFormHint);
+    materialFormLayout->addWidget(m_materialsGuardLabel);
     materialForm->addRow("Урок", m_materialLessonCombo);
     materialForm->addRow("Название", m_materialTitleEdit);
     materialForm->addRow("Тип", m_materialTypeCombo);
     materialForm->addRow("Содержимое", m_materialContentEdit);
+    materialForm->addRow("Предпросмотр", m_materialPreviewEdit);
     materialFormLayout->addLayout(materialForm);
     materialFormLayout->addLayout(materialPrimaryRow);
     materialFormLayout->addLayout(materialDangerRow);
@@ -353,10 +399,12 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     QVBoxLayout *testFormLayout = nullptr;
     auto *testFormCard = createSectionCard("1. Настрой тест", testsTab, &testFormLayout);
     auto *testFormHint = new QLabel(
-        "Создай новый тест или выбери существующий и загрузи его в форму для редактирования.",
+        "Для быстрых правок можно работать здесь. Если вопросов уже много, удобнее открыть отдельный пошаговый редактор тестов.",
         testFormCard);
     testFormHint->setObjectName("sectionHintLabel");
     testFormHint->setWordWrap(true);
+    auto *openEditorButton = new QPushButton("Перейти в пошаговый редактор тестов", testFormCard);
+    openEditorButton->setObjectName("cardGhostButton");
 
     auto *testForm = new QFormLayout();
     testForm->setHorizontalSpacing(12);
@@ -389,30 +437,60 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     testDangerRow->addStretch();
 
     testFormLayout->addWidget(testFormHint);
+    testFormLayout->addWidget(openEditorButton, 0, Qt::AlignLeft);
     testForm->addRow("Название теста", m_testTitleEdit);
     testFormLayout->addLayout(testForm);
     testFormLayout->addLayout(testButtonsRow);
     testFormLayout->addLayout(testDangerRow);
     rightColumnLayout->addWidget(testFormCard);
 
-    QVBoxLayout *questionFormLayout = nullptr;
-    auto *questionFormCard = createSectionCard("2. Наполни тест вопросами", testsTab, &questionFormLayout);
+    QVBoxLayout *questionSummaryLayout = nullptr;
+    auto *questionSummaryCard = createSectionCard("2. Вопросы и сценарий теста", testsTab, &questionSummaryLayout);
     auto *questionDivider = new QLabel(
-        "Выбери тест, добавь формулировку вопроса, четыре варианта и отметь правильный ответ.",
-        questionFormCard);
+        "Внутри конструктора оставляем только быстрый обзор. Полное редактирование вопросов удобнее делать в отдельном пошаговом редакторе.",
+        questionSummaryCard);
     questionDivider->setObjectName("sectionHintLabel");
     questionDivider->setWordWrap(true);
+    m_questionsGuardLabel = new QLabel(questionSummaryCard);
+    m_questionsGuardLabel->setObjectName("sectionHintLabel");
+    m_questionsGuardLabel->setWordWrap(true);
+    m_questionsGuardLabel->setStyleSheet(
+        "QLabel {"
+        " background: #fff7ed;"
+        " color: #9a3412;"
+        " border: 1px solid #fed7aa;"
+        " border-radius: 14px;"
+        " padding: 10px 12px;"
+        "}");
 
-    auto *questionForm = new QFormLayout();
-    questionForm->setHorizontalSpacing(12);
-    questionForm->setVerticalSpacing(12);
-
-    m_questionTestCombo = ui_styles::createComboBox(questionFormCard);
+    m_questionTestCombo = ui_styles::createComboBox(questionSummaryCard);
     ui_styles::applyComboBoxStyle(m_questionTestCombo);
+    m_questionTestCombo->setMinimumHeight(46);
+
+    m_questionEditorSummaryLabel = new QLabel(questionSummaryCard);
+    m_questionEditorSummaryLabel->setObjectName("sectionHintLabel");
+    m_questionEditorSummaryLabel->setWordWrap(true);
+
+    auto *openQuestionEditorButton = new QPushButton("Открыть отдельный редактор вопросов", questionSummaryCard);
+    openQuestionEditorButton->setObjectName("cardAccentButton");
+
+    questionSummaryLayout->addWidget(questionDivider);
+    questionSummaryLayout->addWidget(m_questionsGuardLabel);
+    questionSummaryLayout->addWidget(createFieldLabel("Тест для предпросмотра вопросов", questionSummaryCard));
+    questionSummaryLayout->addWidget(m_questionTestCombo);
+    questionSummaryLayout->addWidget(m_questionEditorSummaryLabel);
+    questionSummaryLayout->addWidget(openQuestionEditorButton, 0, Qt::AlignLeft);
+    questionSummaryLayout->addStretch();
+
+    auto *questionFormCard = new QFrame(testsTab);
+    questionFormCard->hide();
+    auto *questionFormLayout = new QVBoxLayout(questionFormCard);
+    questionFormLayout->setContentsMargins(0, 0, 0, 0);
+    questionFormLayout->setSpacing(10);
 
     m_questionTextEdit = new QTextEdit(questionFormCard);
     m_questionTextEdit->setPlaceholderText("Текст вопроса");
-    m_questionTextEdit->setMinimumHeight(120);
+    m_questionTextEdit->setMinimumHeight(110);
     m_questionTextEdit->setStyleSheet(inputStyle);
 
     m_optionOneEdit = new QLineEdit(questionFormCard);
@@ -428,6 +506,17 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     m_correctOptionCombo = ui_styles::createComboBox(questionFormCard);
     m_correctOptionCombo->addItems({"Вариант 1", "Вариант 2", "Вариант 3", "Вариант 4"});
     ui_styles::applyComboBoxStyle(m_correctOptionCombo);
+    m_correctOptionCombo->setMinimumHeight(46);
+
+    m_optionOrderCombo = ui_styles::createComboBox(questionFormCard);
+    m_optionOrderCombo->addItems({"Вариант 1", "Вариант 2", "Вариант 3", "Вариант 4"});
+    ui_styles::applyComboBoxStyle(m_optionOrderCombo);
+    m_optionOrderCombo->setMinimumHeight(46);
+
+    m_moveOptionUpButton = new QPushButton("Поднять вариант выше", questionFormCard);
+    m_moveOptionUpButton->setObjectName("cardGhostButton");
+    m_moveOptionDownButton = new QPushButton("Опустить вариант ниже", questionFormCard);
+    m_moveOptionDownButton->setObjectName("cardGhostButton");
 
     m_addQuestionButton = new QPushButton("Сохранить вопрос", questionFormCard);
     m_addQuestionButton->setObjectName("cardAccentButton");
@@ -438,13 +527,29 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     m_deleteQuestionButton = new QPushButton("Удалить вопрос", questionFormCard);
     m_deleteQuestionButton->setObjectName("cardDangerButton");
 
-    questionForm->addRow("Тест", m_questionTestCombo);
-    questionForm->addRow("Вопрос", m_questionTextEdit);
-    questionForm->addRow("Вариант 1", m_optionOneEdit);
-    questionForm->addRow("Вариант 2", m_optionTwoEdit);
-    questionForm->addRow("Вариант 3", m_optionThreeEdit);
-    questionForm->addRow("Вариант 4", m_optionFourEdit);
-    questionForm->addRow("Правильный ответ", m_correctOptionCombo);
+    auto *optionsGrid = new QGridLayout();
+    optionsGrid->setHorizontalSpacing(12);
+    optionsGrid->setVerticalSpacing(10);
+    optionsGrid->addWidget(createFieldLabel("Вариант 1", questionFormCard), 0, 0);
+    optionsGrid->addWidget(createFieldLabel("Вариант 2", questionFormCard), 0, 1);
+    optionsGrid->addWidget(m_optionOneEdit, 1, 0);
+    optionsGrid->addWidget(m_optionTwoEdit, 1, 1);
+    optionsGrid->addWidget(createFieldLabel("Вариант 3", questionFormCard), 2, 0);
+    optionsGrid->addWidget(createFieldLabel("Вариант 4", questionFormCard), 2, 1);
+    optionsGrid->addWidget(m_optionThreeEdit, 3, 0);
+    optionsGrid->addWidget(m_optionFourEdit, 3, 1);
+
+    auto *answerSettingsColumn = new QVBoxLayout();
+    answerSettingsColumn->setSpacing(10);
+    answerSettingsColumn->addWidget(createFieldLabel("Правильный ответ", questionFormCard));
+    answerSettingsColumn->addWidget(m_correctOptionCombo);
+    answerSettingsColumn->addWidget(createFieldLabel("Какой вариант переставить", questionFormCard));
+    answerSettingsColumn->addWidget(m_optionOrderCombo);
+    auto *optionOrderRow = new QHBoxLayout();
+    optionOrderRow->setSpacing(10);
+    optionOrderRow->addWidget(m_moveOptionUpButton);
+    optionOrderRow->addWidget(m_moveOptionDownButton);
+    optionOrderRow->addStretch();
     auto *questionPrimaryRow = new QHBoxLayout();
     questionPrimaryRow->setSpacing(10);
     questionPrimaryRow->addWidget(m_addQuestionButton);
@@ -458,13 +563,21 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     questionDangerRow->addStretch();
 
     questionFormLayout->addWidget(questionDivider);
-    questionFormLayout->addLayout(questionForm);
+    questionFormLayout->addWidget(m_questionsGuardLabel);
+    questionFormLayout->addWidget(createFieldLabel("Тест, к которому относится вопрос", questionFormCard));
+    questionFormLayout->addWidget(m_questionTestCombo);
+    questionFormLayout->addWidget(createFieldLabel("Формулировка вопроса", questionFormCard));
+    questionFormLayout->addWidget(m_questionTextEdit);
+    questionFormLayout->addWidget(createFieldLabel("Варианты ответа", questionFormCard));
+    questionFormLayout->addLayout(optionsGrid);
+    questionFormLayout->addLayout(answerSettingsColumn);
+    questionFormLayout->addLayout(optionOrderRow);
     questionFormLayout->addLayout(questionPrimaryRow);
     questionFormLayout->addLayout(questionDangerRow);
     questionFormLayout->addStretch();
 
     testsLayout->addLayout(testsColumnLayout, 3);
-    rightColumnLayout->addWidget(questionFormCard);
+    rightColumnLayout->addWidget(questionSummaryCard);
     testsLayout->addLayout(rightColumnLayout, 2);
 
     tabs->addTab(overviewTab, "Обзор");
@@ -487,6 +600,7 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
         updateActionState();
     });
     connect(m_materialsList, &QListWidget::itemSelectionChanged, this, [this]() { updateActionState(); });
+    connect(m_materialsList, &QListWidget::itemSelectionChanged, this, [this]() { refreshMaterialPreview(); });
     connect(m_questionTestCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int index) {
         Q_UNUSED(index);
         refreshQuestionsList();
@@ -494,6 +608,51 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
         if (selectedManagedTestId() >= 0) {
             emit testSelectedForQuestions(selectedManagedTestId());
         }
+    });
+    connect(m_testsList, &QListWidget::itemSelectionChanged, this, [this]() {
+        QListWidgetItem *currentItem = m_testsList->currentItem();
+        if (!currentItem) {
+            updateActionState();
+            return;
+        }
+
+        const int testId = currentItem->data(Qt::UserRole).toInt();
+        if (testId < 0) {
+            updateActionState();
+            return;
+        }
+
+        for (const auto &test : std::as_const(m_tests)) {
+            if (test.id == testId) {
+                populateTestDraft(test);
+                break;
+            }
+        }
+
+        for (int i = 0; i < m_questionTestCombo->count(); ++i) {
+            if (m_questionTestCombo->itemData(i).toInt() == testId) {
+                m_questionTestCombo->setCurrentIndex(i);
+                break;
+            }
+        }
+
+        showMessage("Тест выбран. Ниже можно посмотреть вопросы или перейти в отдельный редактор.", false);
+        updateActionState();
+    });
+    connect(m_questionsList, &QListWidget::itemSelectionChanged, this, [this]() {
+        const int questionId = selectedQuestionId();
+        if (questionId < 0) {
+            updateActionState();
+            return;
+        }
+
+        for (const auto &question : std::as_const(m_questions)) {
+            if (question.id == questionId) {
+                populateQuestionDraft(question);
+                break;
+            }
+        }
+        updateActionState();
     });
     connect(m_materialTitleEdit, &QLineEdit::textChanged, this, [this]() { updateActionState(); });
     connect(m_materialContentEdit, &QTextEdit::textChanged, this, [this]() { updateActionState(); });
@@ -503,6 +662,47 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     connect(m_optionTwoEdit, &QLineEdit::textChanged, this, [this]() { updateActionState(); });
     connect(m_optionThreeEdit, &QLineEdit::textChanged, this, [this]() { updateActionState(); });
     connect(m_optionFourEdit, &QLineEdit::textChanged, this, [this]() { updateActionState(); });
+    connect(m_optionOrderCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this]() { updateActionState(); });
+    connect(m_moveOptionUpButton, &QPushButton::clicked, this, [this]() {
+        const int index = m_optionOrderCombo->currentIndex();
+        if (index <= 0) {
+            return;
+        }
+
+        QStringList options = questionOptionTexts();
+        options.swapItemsAt(index, index - 1);
+        setQuestionOptionTexts(options);
+
+        int correctIndex = m_correctOptionCombo->currentIndex();
+        if (correctIndex == index) {
+            m_correctOptionCombo->setCurrentIndex(index - 1);
+        } else if (correctIndex == index - 1) {
+            m_correctOptionCombo->setCurrentIndex(index);
+        }
+
+        m_optionOrderCombo->setCurrentIndex(index - 1);
+        showMessage("Порядок вариантов обновлён. Не забудь сохранить вопрос.", false);
+    });
+    connect(m_moveOptionDownButton, &QPushButton::clicked, this, [this]() {
+        const int index = m_optionOrderCombo->currentIndex();
+        if (index < 0 || index >= 3) {
+            return;
+        }
+
+        QStringList options = questionOptionTexts();
+        options.swapItemsAt(index, index + 1);
+        setQuestionOptionTexts(options);
+
+        int correctIndex = m_correctOptionCombo->currentIndex();
+        if (correctIndex == index) {
+            m_correctOptionCombo->setCurrentIndex(index + 1);
+        } else if (correctIndex == index + 1) {
+            m_correctOptionCombo->setCurrentIndex(index);
+        }
+
+        m_optionOrderCombo->setCurrentIndex(index + 1);
+        showMessage("Порядок вариантов обновлён. Не забудь сохранить вопрос.", false);
+    });
 
     connect(m_addLessonButton, &QPushButton::clicked, this, [this]() {
         emit createLessonRequested(
@@ -575,6 +775,8 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     connect(m_deleteTestButton, &QPushButton::clicked, this, [this]() {
         emit deleteTestRequested(m_editingTestId);
     });
+    connect(openEditorButton, &QPushButton::clicked, this, &TeacherCourseBuilderPage::openDedicatedTestEditorRequested);
+    connect(openQuestionEditorButton, &QPushButton::clicked, this, &TeacherCourseBuilderPage::openDedicatedTestEditorRequested);
     connect(m_addQuestionButton, &QPushButton::clicked, this, [this]() {
         QStringList options{
             m_optionOneEdit->text().trimmed(),
@@ -718,6 +920,7 @@ void TeacherCourseBuilderPage::clearMaterialDraft()
     m_materialTitleEdit->clear();
     m_materialContentEdit->clear();
     m_materialTypeCombo->setCurrentIndex(0);
+    m_materialPreviewEdit->clear();
     updateActionState();
 }
 
@@ -737,6 +940,7 @@ void TeacherCourseBuilderPage::clearQuestionDraft()
     m_optionThreeEdit->clear();
     m_optionFourEdit->clear();
     m_correctOptionCombo->setCurrentIndex(0);
+    m_optionOrderCombo->setCurrentIndex(0);
     updateActionState();
 }
 
@@ -793,6 +997,7 @@ void TeacherCourseBuilderPage::populateMaterialDraft(const MaterialData &materia
     const int typeIndex = m_materialTypeCombo->findText(material.type);
     m_materialTypeCombo->setCurrentIndex(typeIndex >= 0 ? typeIndex : 0);
     m_materialContentEdit->setText(material.content);
+    refreshMaterialPreview();
     updateActionState();
 }
 
@@ -801,6 +1006,35 @@ void TeacherCourseBuilderPage::refreshOverview()
     m_lessonsSummaryLabel->setText(QString::number(m_lessons.size()));
     m_materialsSummaryLabel->setText(QString::number(m_materials.size()));
     m_testsSummaryLabel->setText(QString::number(m_tests.size()));
+
+    const bool hasCourse = m_course.id >= 0;
+    const bool lessonsReady = !m_lessons.isEmpty();
+    const bool materialsReady = !m_materials.isEmpty();
+    const bool testsReady = !m_tests.isEmpty();
+    const bool builderReady = lessonsReady && materialsReady && testsReady;
+
+    if (!hasCourse) {
+        m_stageChecklistLabel->setText(
+            "Шаг 1. Выбери курс во вкладке \"Мои курсы\".\n"
+            "Шаг 2. Добавь уроки, затем привяжи материалы.\n"
+            "Шаг 3. Настрой тесты и только после этого переходи к полноценной проверке курса.");
+        return;
+    }
+
+    m_stageChecklistLabel->setText(QString(
+        "Шаг 1. Уроки — %1 (%2)\n"
+        "Шаг 2. Материалы — %3 (%4)\n"
+        "Шаг 3. Тесты — %5 (%6)\n"
+        "Итог: %7")
+        .arg(statusWord(lessonsReady))
+        .arg(lessonsReady ? QString("создано %1").arg(m_lessons.size()) : QString("сначала добавь первый урок"))
+        .arg(statusWord(materialsReady))
+        .arg(materialsReady ? QString("добавлено %1").arg(m_materials.size()) : QString("привяжи материалы к урокам"))
+        .arg(statusWord(testsReady))
+        .arg(testsReady ? QString("создано %1").arg(m_tests.size()) : QString("настрой хотя бы один тест"))
+        .arg(builderReady
+            ? "структура курса уже выглядит полной, можно идти в студентов и аналитику."
+            : "конструктор ещё не завершён: добавь недостающие блоки, чтобы курс стал рабочим."));
 }
 
 void TeacherCourseBuilderPage::refreshLessonsList()
@@ -882,6 +1116,8 @@ void TeacherCourseBuilderPage::refreshMaterialsList()
             "Материалов для этого урока пока нет",
             "Выбери тип материала и добавь первый текст, ссылку или видео.");
     }
+
+    refreshMaterialPreview();
 }
 
 void TeacherCourseBuilderPage::refreshTestsList()
@@ -968,6 +1204,47 @@ void TeacherCourseBuilderPage::refreshQuestionsList()
     }
 }
 
+void TeacherCourseBuilderPage::refreshMaterialPreview()
+{
+    const int materialId = selectedMaterialId();
+    if (materialId < 0) {
+        m_materialPreviewEdit->setPlainText("Выбери материал в списке слева, чтобы увидеть его содержимое.");
+        return;
+    }
+
+    for (const MaterialData &material : std::as_const(m_materials)) {
+        if (material.id != materialId) {
+            continue;
+        }
+
+        const QString preview = QString("Тип: %1\n\n%2")
+                                    .arg(material.type.isEmpty() ? "text" : material.type)
+                                    .arg(material.content.isEmpty() ? "Материал пока пуст." : material.content);
+        m_materialPreviewEdit->setPlainText(preview);
+        return;
+    }
+
+    m_materialPreviewEdit->setPlainText("Предпросмотр материала недоступен.");
+}
+
+QStringList TeacherCourseBuilderPage::questionOptionTexts() const
+{
+    return {
+        m_optionOneEdit->text(),
+        m_optionTwoEdit->text(),
+        m_optionThreeEdit->text(),
+        m_optionFourEdit->text()
+    };
+}
+
+void TeacherCourseBuilderPage::setQuestionOptionTexts(const QStringList &options)
+{
+    m_optionOneEdit->setText(options.value(0));
+    m_optionTwoEdit->setText(options.value(1));
+    m_optionThreeEdit->setText(options.value(2));
+    m_optionFourEdit->setText(options.value(3));
+}
+
 int TeacherCourseBuilderPage::selectedLessonId() const
 {
     if (m_materialLessonCombo->count() == 0) {
@@ -1036,6 +1313,10 @@ void TeacherCourseBuilderPage::updateActionState()
     const bool hasCourse = m_course.id >= 0;
     const bool hasLessons = !m_lessons.isEmpty();
     const bool hasTests = !m_tests.isEmpty();
+    const bool hasSelectedLesson = selectedLessonId() >= 0;
+    const bool hasSelectedTest = selectedManagedTestId() >= 0;
+    const bool materialFormEnabled = hasCourse && hasLessons;
+    const bool questionFormEnabled = hasCourse && hasTests && hasSelectedTest;
 
     m_addLessonButton->setEnabled(
         hasCourse
@@ -1052,7 +1333,7 @@ void TeacherCourseBuilderPage::updateActionState()
     m_addMaterialButton->setEnabled(
         hasCourse
         && hasLessons
-        && selectedLessonId() >= 0
+        && hasSelectedLesson
         && !m_materialTitleEdit->text().trimmed().isEmpty()
         && !m_materialContentEdit->toPlainText().trimmed().isEmpty());
     m_loadMaterialButton->setEnabled(selectedMaterialId() >= 0);
@@ -1060,7 +1341,7 @@ void TeacherCourseBuilderPage::updateActionState()
         hasCourse
         && hasLessons
         && m_editingMaterialId >= 0
-        && selectedLessonId() >= 0
+        && hasSelectedLesson
         && !m_materialTitleEdit->text().trimmed().isEmpty()
         && !m_materialContentEdit->toPlainText().trimmed().isEmpty());
     m_deleteMaterialButton->setEnabled(m_editingMaterialId >= 0);
@@ -1078,7 +1359,7 @@ void TeacherCourseBuilderPage::updateActionState()
     m_addQuestionButton->setEnabled(
         hasCourse
         && hasTests
-        && selectedManagedTestId() >= 0
+        && hasSelectedTest
         && !m_questionTextEdit->toPlainText().trimmed().isEmpty()
         && !m_optionOneEdit->text().trimmed().isEmpty()
         && !m_optionTwoEdit->text().trimmed().isEmpty()
@@ -1089,10 +1370,59 @@ void TeacherCourseBuilderPage::updateActionState()
         hasCourse
         && m_editingQuestionId >= 0
         && hasTests
+        && hasSelectedTest
         && !m_questionTextEdit->toPlainText().trimmed().isEmpty()
         && !m_optionOneEdit->text().trimmed().isEmpty()
         && !m_optionTwoEdit->text().trimmed().isEmpty()
         && !m_optionThreeEdit->text().trimmed().isEmpty()
         && !m_optionFourEdit->text().trimmed().isEmpty());
     m_deleteQuestionButton->setEnabled(m_editingQuestionId >= 0);
+    m_moveOptionUpButton->setEnabled(questionFormEnabled && m_optionOrderCombo->currentIndex() > 0);
+    m_moveOptionDownButton->setEnabled(questionFormEnabled && m_optionOrderCombo->currentIndex() >= 0 && m_optionOrderCombo->currentIndex() < 3);
+
+    m_materialLessonCombo->setEnabled(materialFormEnabled);
+    m_materialTitleEdit->setEnabled(materialFormEnabled);
+    m_materialTypeCombo->setEnabled(materialFormEnabled);
+    m_materialContentEdit->setEnabled(materialFormEnabled);
+    m_materialPreviewEdit->setEnabled(true);
+    m_materialsGuardLabel->setVisible(!materialFormEnabled || !hasSelectedLesson);
+    if (!hasCourse) {
+        m_materialsGuardLabel->setText("Сначала выбери курс, а затем переходи к наполнению уроков материалами.");
+    } else if (!hasLessons) {
+        m_materialsGuardLabel->setText("Сначала создай хотя бы один урок. После этого здесь станет доступно добавление материалов.");
+    } else if (!hasSelectedLesson) {
+        m_materialsGuardLabel->setText("Выбери урок в выпадающем списке, чтобы привязать к нему материал.");
+    }
+
+    m_questionTestCombo->setEnabled(hasCourse && hasTests);
+    m_questionTextEdit->setEnabled(questionFormEnabled);
+    m_optionOneEdit->setEnabled(questionFormEnabled);
+    m_optionTwoEdit->setEnabled(questionFormEnabled);
+    m_optionThreeEdit->setEnabled(questionFormEnabled);
+    m_optionFourEdit->setEnabled(questionFormEnabled);
+    m_correctOptionCombo->setEnabled(questionFormEnabled);
+    m_optionOrderCombo->setEnabled(questionFormEnabled);
+    m_questionsGuardLabel->setVisible(!questionFormEnabled);
+    if (!hasCourse) {
+        m_questionsGuardLabel->setText("Сначала выбери курс, затем настрой тесты и только после этого переходи к вопросам.");
+    } else if (!hasTests) {
+        m_questionsGuardLabel->setText("Сначала создай хотя бы один тест. После этого здесь можно будет собирать вопросы и правильные ответы.");
+    } else if (!hasSelectedTest) {
+        m_questionsGuardLabel->setText("Выбери тест в списке или в выпадающем поле, чтобы начать наполнять его вопросами.");
+    }
+
+    if (!hasCourse) {
+        m_questionEditorSummaryLabel->setText("Сначала выбери курс. После этого здесь появится краткая сводка по выбранному тесту и переход к отдельному редактору.");
+    } else if (!hasTests) {
+        m_questionEditorSummaryLabel->setText("У курса пока нет тестов. Создай хотя бы один тест в верхнем блоке, и тогда можно будет переходить к вопросам.");
+    } else if (!hasSelectedTest) {
+        m_questionEditorSummaryLabel->setText("Выбери тест в списке слева. Здесь появится краткая сводка, а полное редактирование вопросов откроется в отдельном окне.");
+    } else {
+        const int questionCount = m_questions.size();
+        m_questionEditorSummaryLabel->setText(
+            questionCount == 0
+                ? "У выбранного теста пока нет вопросов. Открой отдельный редактор и создай первый вопрос там."
+                : QString("У выбранного теста сейчас %1 вопросов. В builder оставляем только обзор, а глубокое редактирование ведём в отдельном редакторе.")
+                    .arg(questionCount));
+    }
 }

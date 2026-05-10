@@ -44,6 +44,9 @@ void CourseController::registerRoutes(httplib::Server &server) {
                     {"title", c.title},
                     {"description", c.description},
                     {"teacherId", c.teacherId},
+                    {"lessonsCount", c.lessonsCount},
+                    {"testsCount", c.testsCount},
+                    {"studentsCount", c.studentsCount},
                 });
             }
 
@@ -75,6 +78,9 @@ void CourseController::registerRoutes(httplib::Server &server) {
                     {"title", c.title},
                     {"description", c.description},
                     {"teacherId", c.teacherId},
+                    {"lessonsCount", c.lessonsCount},
+                    {"testsCount", c.testsCount},
+                    {"studentsCount", c.studentsCount},
                 });
             }
 
@@ -159,7 +165,10 @@ void CourseController::registerRoutes(httplib::Server &server) {
                 {"id", course.id},
                 {"title", course.title},
                 {"description", course.description},
-                {"teacherId", course.teacherId}
+                {"teacherId", course.teacherId},
+                {"lessonsCount", course.lessonsCount},
+                {"testsCount", course.testsCount},
+                {"studentsCount", course.studentsCount}
             };
 
             res.status = 201;
@@ -195,7 +204,10 @@ void CourseController::registerRoutes(httplib::Server &server) {
                 {"id", course.id},
                 {"title", course.title},
                 {"description", course.description},
-                {"teacherId", course.teacherId}
+                {"teacherId", course.teacherId},
+                {"lessonsCount", course.lessonsCount},
+                {"testsCount", course.testsCount},
+                {"studentsCount", course.studentsCount}
             }.dump(), "application/json");
         } catch (const std::exception& ex) {
             controller_utils::handleRouteException(res, ex);

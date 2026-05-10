@@ -15,6 +15,33 @@ MaterialController::MaterialController(
       jwtService(jwtService) {}
 
 void MaterialController::registerRoutes(httplib::Server& server) {
+    server.Get(R"(/api/courses/(\d+)/materials)", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            const int courseId = controller_utils::pathParamInt(req, 1, "courseId");
+            const auto lessons = lessonService.getLessonsForCourse(courseId);
+
+            json response;
+            response["materials"] = json::array();
+
+            for (const auto &lesson : lessons) {
+                const auto materials = materialService.getMaterialsForLesson(lesson.id);
+                for (const auto &material : materials) {
+                    response["materials"].push_back({
+                        {"id", material.id},
+                        {"lessonId", material.lessonId},
+                        {"title", material.title},
+                        {"type", material.type},
+                        {"content", material.content}
+                    });
+                }
+            }
+
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
+        }
+    });
+
     server.Get(R"(/api/lessons/(\d+)/materials)", [this](const httplib::Request& req, httplib::Response& res) {
         try {
             int lessonId = controller_utils::pathParamInt(req, 1, "lessonId");

@@ -34,10 +34,13 @@ signals:
 private:
     void renderCurrentQuestion();
     QVector<QPair<int, int>> selectedAnswers() const;
+    bool allQuestionsAnswered() const;
 
     TestData m_test;
     QVector<QuestionData> m_questions;
     QMap<int, int> m_selectedAnswers;
+    AttemptData m_lastResult;
+    bool m_hasResult = false;
     int m_currentIndex = 0;
     QString m_emptyTitle = "Тест не выбран";
     QString m_emptyMessage = "Выбери тест внутри курса, чтобы увидеть вопрос и варианты ответов.";

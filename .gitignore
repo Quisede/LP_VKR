@@ -16,3 +16,23 @@ DerivedData/
 # C++
 *.o
 *.out
+
+# Qt / Qt Creator
+.qtcreator/
+*.pro.user
+*.pro.user.*
+*.qbs.user
+*.qmake.stash
+CMakeLists.txt.user
+.qtc_clangd/
+
+# CMake local files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+Makefile
+
+# Qt docker artifacts
+artifacts/qt-client/
+**/build-docker/

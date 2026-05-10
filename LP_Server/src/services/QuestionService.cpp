@@ -214,6 +214,7 @@ TestResult QuestionService::submitTest(
     bool passed = percentage >= 60.0;
 
     TestResult result {score, total, percentage, passed};
+    auto test = testRepository.getTestById(testId);
 
     Attempt attempt {
         nextId++,
@@ -222,7 +223,9 @@ TestResult QuestionService::submitTest(
         result.score,
         result.total,
         result.percentage,
-        result.passed
+        result.passed,
+        test.has_value() ? test->title : "",
+        ""
     };
 
     attemptRepository.saveAttempt(attempt);

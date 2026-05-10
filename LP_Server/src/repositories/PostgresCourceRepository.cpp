@@ -2,6 +2,27 @@
 #include <libpq-fe.h>
 #include <stdexcept>
 
+namespace {
+
+const char *kCourseSelectWithStats =
+    "SELECT c.id, c.title, c.description, c.teacher_id, "
+    "       (SELECT COUNT(*) FROM lessons l WHERE l.course_id = c.id) AS lessons_count, "
+    "       (SELECT COUNT(*) FROM tests t WHERE t.course_id = c.id) AS tests_count, "
+    "       (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id) AS students_count ";
+
+void fillCourseFromResult(Course &course, PGresult *res, int row)
+{
+    course.id = std::stoi(PQgetvalue(res, row, 0));
+    course.title = PQgetvalue(res, row, 1);
+    course.description = PQgetvalue(res, row, 2);
+    course.teacherId = std::stoi(PQgetvalue(res, row, 3));
+    course.lessonsCount = std::stoi(PQgetvalue(res, row, 4));
+    course.testsCount = std::stoi(PQgetvalue(res, row, 5));
+    course.studentsCount = std::stoi(PQgetvalue(res, row, 6));
+}
+
+}
+
 PostgresCourseRepository::PostgresCourseRepository(
     PostgresConnection& conn)
     : connection(conn) {}
@@ -11,7 +32,7 @@ std::vector<Course> PostgresCourseRepository::getCoursesForStudent(int userId) {
     std::vector<Course> courses;
 
     std::string query = 
-        "SELECT c.id, c.title, c.description, c.teacher_id "
+        std::string(kCourseSelectWithStats) +
         "FROM courses c "
         "JOIN enrollments e ON c.id = e.course_id "
         "WHERE e.student_id = " + std::to_string(userId);
@@ -25,10 +46,7 @@ std::vector<Course> PostgresCourseRepository::getCoursesForStudent(int userId) {
     int rows = PQntuples(res);
     for (int i = 0; i < rows; ++i) {
         Course course;
-        course.id = std::stoi(PQgetvalue(res, i, 0));
-        course.title = PQgetvalue(res, i, 1);
-        course.description = PQgetvalue(res, i, 2);
-        course.teacherId = std::stoi(PQgetvalue(res, i, 3));
+        fillCourseFromResult(course, res, i);
         courses.push_back(course);
     }
 
@@ -42,8 +60,8 @@ std::vector<Course> PostgresCourseRepository::getCoursesForTeacher(int teacherId
     std::vector<Course> courses;
 
     std::string query =
-        "SELECT id,title,description,teacher_id "
-        "FROM courses WHERE teacher_id=" +
+        std::string(kCourseSelectWithStats) +
+        "FROM courses c WHERE c.teacher_id=" +
         std::to_string(teacherId);
 
     PGresult* res = PQexec(connection.get(), query.c_str());
@@ -59,10 +77,7 @@ std::vector<Course> PostgresCourseRepository::getCoursesForTeacher(int teacherId
 
         Course c;
 
-        c.id = std::stoi(PQgetvalue(res,i,0));
-        c.title = PQgetvalue(res,i,1);
-        c.description = PQgetvalue(res,i,2);
-        c.teacherId = std::stoi(PQgetvalue(res,i,3));
+        fillCourseFromResult(c, res, i);
 
         courses.push_back(c);
     }
@@ -82,8 +97,8 @@ std::vector<Course> PostgresCourseRepository::getCoursesByIds(
     }
 
     std::string query =
-        "SELECT id, title, description, teacher_id "
-        "FROM courses WHERE id IN (";
+        std::string(kCourseSelectWithStats) +
+        "FROM courses c WHERE c.id IN (";
 
     for (size_t i = 0; i < courseIds.size(); ++i) {
         if (i > 0) {
@@ -103,10 +118,7 @@ std::vector<Course> PostgresCourseRepository::getCoursesByIds(
     int rows = PQntuples(res);
     for (int i = 0; i < rows; ++i) {
         Course course;
-        course.id = std::stoi(PQgetvalue(res, i, 0));
-        course.title = PQgetvalue(res, i, 1);
-        course.description = PQgetvalue(res, i, 2);
-        course.teacherId = std::stoi(PQgetvalue(res, i, 3));
+        fillCourseFromResult(course, res, i);
         courses.push_back(course);
     }
 
@@ -122,7 +134,11 @@ std::optional<Course> PostgresCourseRepository::getCourseById(int courseId) {
 
     PGresult* res = PQexecParams(
         connection.get(),
-        "SELECT id, title, description, teacher_id FROM courses WHERE id = $1",
+        "SELECT c.id, c.title, c.description, c.teacher_id, "
+        "       (SELECT COUNT(*) FROM lessons l WHERE l.course_id = c.id) AS lessons_count, "
+        "       (SELECT COUNT(*) FROM tests t WHERE t.course_id = c.id) AS tests_count, "
+        "       (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id) AS students_count "
+        "FROM courses c WHERE c.id = $1",
         1,
         nullptr,
         params,
@@ -142,10 +158,7 @@ std::optional<Course> PostgresCourseRepository::getCourseById(int courseId) {
     }
 
     Course course;
-    course.id = std::stoi(PQgetvalue(res, 0, 0));
-    course.title = PQgetvalue(res, 0, 1);
-    course.description = PQgetvalue(res, 0, 2);
-    course.teacherId = std::stoi(PQgetvalue(res, 0, 3));
+    fillCourseFromResult(course, res, 0);
     PQclear(res);
     return course;
 }
@@ -155,8 +168,8 @@ std::vector<Course> PostgresCourseRepository::getAllCourses() {
     std::vector<Course> courses;
 
     std::string query =
-        "SELECT id, title, description, teacher_id "
-        "FROM courses";
+        std::string(kCourseSelectWithStats) +
+        "FROM courses c";
 
     PGresult* res = PQexec(connection.get(), query.c_str());
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
@@ -167,10 +180,7 @@ std::vector<Course> PostgresCourseRepository::getAllCourses() {
     int rows = PQntuples(res);
     for (int i = 0; i < rows; ++i) {
         Course course;
-        course.id = std::stoi(PQgetvalue(res, i, 0));
-        course.title = PQgetvalue(res, i, 1);
-        course.description = PQgetvalue(res, i, 2);
-        course.teacherId = std::stoi(PQgetvalue(res, i, 3));
+        fillCourseFromResult(course, res, i);
         courses.push_back(course);
     }
 
@@ -195,7 +205,7 @@ Course PostgresCourseRepository::createCourse(
         connection.get(),
         "INSERT INTO courses (title, description, teacher_id) "
         "VALUES ($1, $2, $3) "
-        "RETURNING id, title, description, teacher_id",
+        "RETURNING id, title, description, teacher_id, 0, 0, 0",
         3,
         nullptr,
         params,
@@ -210,10 +220,7 @@ Course PostgresCourseRepository::createCourse(
     }
 
     Course course;
-    course.id = std::stoi(PQgetvalue(res, 0, 0));
-    course.title = PQgetvalue(res, 0, 1);
-    course.description = PQgetvalue(res, 0, 2);
-    course.teacherId = std::stoi(PQgetvalue(res, 0, 3));
+    fillCourseFromResult(course, res, 0);
 
     PQclear(res);
     return course;
@@ -234,10 +241,13 @@ Course PostgresCourseRepository::updateCourse(
 
     PGresult* res = PQexecParams(
         connection.get(),
-        "UPDATE courses "
+        "UPDATE courses c "
         "SET title = $1, description = $2 "
-        "WHERE id = $3 "
-        "RETURNING id, title, description, teacher_id",
+        "WHERE c.id = $3 "
+        "RETURNING c.id, c.title, c.description, c.teacher_id, "
+        "          (SELECT COUNT(*) FROM lessons l WHERE l.course_id = c.id), "
+        "          (SELECT COUNT(*) FROM tests t WHERE t.course_id = c.id), "
+        "          (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id)",
         3,
         nullptr,
         params,
@@ -257,10 +267,7 @@ Course PostgresCourseRepository::updateCourse(
     }
 
     Course course;
-    course.id = std::stoi(PQgetvalue(res, 0, 0));
-    course.title = PQgetvalue(res, 0, 1);
-    course.description = PQgetvalue(res, 0, 2);
-    course.teacherId = std::stoi(PQgetvalue(res, 0, 3));
+    fillCourseFromResult(course, res, 0);
 
     PQclear(res);
     return course;
@@ -300,7 +307,7 @@ std::vector<Course> PostgresCourseRepository::getCoursesPaged(int userId, const 
 
     if (role == "Student") {
         query =
-            "SELECT c.id, c.title, c.description, c.teacher_id "
+            std::string(kCourseSelectWithStats) +
             "FROM courses c "
             "JOIN enrollments e ON c.id = e.course_id "
             "WHERE e.student_id = " + std::to_string(userId) + " "
@@ -309,17 +316,17 @@ std::vector<Course> PostgresCourseRepository::getCoursesPaged(int userId, const 
             " OFFSET " + std::to_string(offset);
     } else if (role == "Teacher") {
         query =
-            "SELECT id, title, description, teacher_id "
-            "FROM courses "
-            "WHERE teacher_id = " + std::to_string(userId) + " "
-            "ORDER BY id "
+            std::string(kCourseSelectWithStats) +
+            "FROM courses c "
+            "WHERE c.teacher_id = " + std::to_string(userId) + " "
+            "ORDER BY c.id "
             "LIMIT " + std::to_string(limit) +
             " OFFSET " + std::to_string(offset);
     } else {
         query =
-            "SELECT id, title, description, teacher_id "
-            "FROM courses "
-            "ORDER BY id "
+            std::string(kCourseSelectWithStats) +
+            "FROM courses c "
+            "ORDER BY c.id "
             "LIMIT " + std::to_string(limit) +
             " OFFSET " + std::to_string(offset);
     }
@@ -336,12 +343,7 @@ std::vector<Course> PostgresCourseRepository::getCoursesPaged(int userId, const 
 
     for (int i = 0; i < rows; i++) {
         Course c;
-
-        c.id = std::stoi(PQgetvalue(res, i, 0));
-        c.title = PQgetvalue(res, i, 1);
-        c.description = PQgetvalue(res, i, 2);
-        c.teacherId = std::stoi(PQgetvalue(res, i, 3));
-
+        fillCourseFromResult(c, res, i);
         courses.push_back(c);
     }
 

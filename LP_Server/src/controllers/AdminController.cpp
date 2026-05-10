@@ -24,6 +24,26 @@ AdminController::AdminController(AdminService& adminService, AuthService& authSe
 
 void AdminController::registerRoutes(httplib::Server& server)
 {
+    server.Get("/api/admin/overview", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto auth = controller_utils::requireAuth(req, jwtService);
+            const auto overview = adminService.getOverview(auth.userId, auth.role);
+
+            json response;
+            response["totalUsers"] = overview.totalUsers;
+            response["studentsCount"] = overview.studentsCount;
+            response["teachersCount"] = overview.teachersCount;
+            response["adminsCount"] = overview.adminsCount;
+            response["coursesCount"] = overview.coursesCount;
+            response["lessonsCount"] = overview.lessonsCount;
+            response["testsCount"] = overview.testsCount;
+            response["enrollmentsCount"] = overview.enrollmentsCount;
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
+        }
+    });
+
     server.Get("/api/admin/users", [this](const httplib::Request& req, httplib::Response& res) {
         try {
             auto auth = controller_utils::requireAuth(req, jwtService);

@@ -9,6 +9,37 @@
 #include <QScrollArea>
 #include <QVBoxLayout>
 
+namespace {
+
+int totalLessons(const QVector<CourseData> &courses)
+{
+    int sum = 0;
+    for (const auto &course : courses) {
+        sum += course.lessonsCount;
+    }
+    return sum;
+}
+
+int totalTests(const QVector<CourseData> &courses)
+{
+    int sum = 0;
+    for (const auto &course : courses) {
+        sum += course.testsCount;
+    }
+    return sum;
+}
+
+int totalStudents(const QVector<CourseData> &courses)
+{
+    int sum = 0;
+    for (const auto &course : courses) {
+        sum += course.studentsCount;
+    }
+    return sum;
+}
+
+}
+
 CoursesPage::CoursesPage(QWidget *parent)
     : QWidget(parent)
 {
@@ -122,36 +153,43 @@ void CoursesPage::setRoleMode(const QString &role)
             "Здесь отображаются курсы, где ты преподаватель. Открой курс, чтобы перейти к его внутренней структуре.");
         m_searchEdit->setPlaceholderText("Найти курс преподавателя по названию или описанию...");
         m_countTitleLabel->setText("Мои курсы");
-        m_focusTitleLabel->setText("Режим");
-        m_focusValueLabel->setText(m_coursesCount == 0 ? "Старт" : "Builder");
+        m_focusTitleLabel->setText("Студенты");
+        m_focusValueLabel->setText(QString::number(totalStudents(m_allCourses)));
         m_infoLabel->setText(
             m_coursesCount == 0
                 ? "Сначала создай первый курс, после этого он появится здесь и его можно будет открыть или развивать в конструкторе."
-                : "Открой курс для teacher-view или переходи в конструктор, чтобы редактировать уроки, материалы и тесты.");
+                : QString("Всего в твоих курсах: %1 уроков, %2 тестов и %3 записей студентов.")
+                    .arg(totalLessons(m_allCourses))
+                    .arg(totalTests(m_allCourses))
+                    .arg(totalStudents(m_allCourses)));
     } else if (role == "Admin") {
         m_titleLabel->setText("Курсы системы");
         m_hintLabel->setText(
             "Здесь собраны все курсы платформы. Администратор может открыть курс для обзора или перейти к управлению.");
         m_searchEdit->setPlaceholderText("Быстрый поиск по всем курсам системы...");
         m_countTitleLabel->setText("Всего курсов");
-        m_focusTitleLabel->setText("Режим");
-        m_focusValueLabel->setText(m_coursesCount == 0 ? "Ожидание" : "Контроль");
+        m_focusTitleLabel->setText("Студенты");
+        m_focusValueLabel->setText(QString::number(totalStudents(m_allCourses)));
         m_infoLabel->setText(
             m_coursesCount == 0
                 ? "Когда курсы появятся в системе, они будут собраны здесь вместе с дальнейшей административной аналитикой."
-                : "Используй этот экран как системный каталог: отсюда удобно переходить к обзору курса и административным действиям.");
+                : QString("В системе уже %1 уроков и %2 тестов. Используй экран как каталог и быстрый контроль структуры.")
+                    .arg(totalLessons(m_allCourses))
+                    .arg(totalTests(m_allCourses)));
     } else {
         m_titleLabel->setText("Каталог курсов");
         m_hintLabel->setText(
             "Курсы подгружаются автоматически. Нажми на карточку курса, чтобы открыть его внутреннюю страницу.");
         m_searchEdit->setPlaceholderText("Поиск по доступным курсам...");
         m_countTitleLabel->setText("Доступно курсов");
-        m_focusTitleLabel->setText("Что дальше");
-        m_focusValueLabel->setText(m_coursesCount == 0 ? "Ожидание" : "Учиться");
+        m_focusTitleLabel->setText("Тесты");
+        m_focusValueLabel->setText(QString::number(totalTests(m_allCourses)));
         m_infoLabel->setText(
             m_coursesCount == 0
                 ? "Когда курсы станут доступны, они появятся здесь. После записи можно переходить к урокам, материалам и тестам."
-                : "Сначала открой курс и изучи материалы, затем переходи к тестам и отслеживай результат в отдельной вкладке.");
+                : QString("Сейчас доступны %1 уроков и %2 тестов. Начни с материалов, затем переходи к проверке знаний.")
+                    .arg(totalLessons(m_allCourses))
+                    .arg(totalTests(m_allCourses)));
     }
 
     m_countValueLabel->setText(QString::number(m_coursesCount));
@@ -234,12 +272,7 @@ void CoursesPage::applyCourseFilter(const QString &query)
     }
 
     for (const auto &course : visibleCourses) {
-        auto *card = new CourseCard(
-            course.id,
-            course.title,
-            course.description,
-            m_role,
-            m_cardsContainer);
+        auto *card = new CourseCard(course, m_role, m_cardsContainer);
         QObject::connect(card, &CourseCard::openRequested, this, [this, course](int) {
             emit courseOpened(course);
         });
