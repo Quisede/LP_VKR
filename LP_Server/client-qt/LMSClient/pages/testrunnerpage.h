@@ -33,6 +33,7 @@ signals:
 
 private:
     void renderCurrentQuestion();
+    void refreshActionState();
     QVector<QPair<int, int>> selectedAnswers() const;
     bool allQuestionsAnswered() const;
 
@@ -43,7 +44,7 @@ private:
     bool m_hasResult = false;
     int m_currentIndex = 0;
     QString m_emptyTitle = "Тест не выбран";
-    QString m_emptyMessage = "Выбери тест внутри курса, чтобы увидеть вопрос и варианты ответов.";
+    QString m_emptyMessage = "Выберите тест внутри курса, чтобы увидеть вопрос и варианты ответов.";
 
     QLabel *m_titleLabel;
     QLabel *m_progressLabel;

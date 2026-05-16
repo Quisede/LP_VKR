@@ -16,5 +16,6 @@ struct TeacherCourseAnalyticsData {
     int studentsCount = 0;
     int attemptsCount = 0;
     double averagePercentage = 0.0;
+    double averageLessonProgress = 0.0;
     QVector<TeacherAnalyticsRowData> rows;
 };

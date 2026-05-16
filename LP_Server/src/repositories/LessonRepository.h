@@ -9,7 +9,9 @@ class LessonRepository {
 public:
     virtual ~LessonRepository() = default;
     virtual std::vector<Lesson> getLessonsForCourse(int courseId) = 0;
+    virtual std::vector<Lesson> getLessonsForCourseWithProgress(int courseId, int userId) = 0;
     virtual std::optional<Lesson> getLessonById(int lessonId) = 0;
+    virtual void markLessonCompleted(int lessonId, int userId) = 0;
     virtual Lesson createLesson(
         int courseId,
         const std::string& title,

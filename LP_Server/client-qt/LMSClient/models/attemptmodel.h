@@ -4,6 +4,7 @@
 
 struct AttemptData {
     int testId = -1;
+    int courseId = -1;
     int score = 0;
     int total = 0;
     double percentage = 0.0;

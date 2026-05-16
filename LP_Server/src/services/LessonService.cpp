@@ -8,8 +8,24 @@ std::vector<Lesson> LessonService::getLessonsForCourse(int courseId) {
     return lessonRepository.getLessonsForCourse(courseId);
 }
 
+std::vector<Lesson> LessonService::getLessonsForCourseForUser(int courseId, int userId) {
+    if (userId <= 0) {
+        return lessonRepository.getLessonsForCourse(courseId);
+    }
+
+    return lessonRepository.getLessonsForCourseWithProgress(courseId, userId);
+}
+
 std::optional<Lesson> LessonService::getLessonById(int lessonId) {
     return lessonRepository.getLessonById(lessonId);
+}
+
+void LessonService::markLessonCompleted(int lessonId, int userId) {
+    if (lessonId <= 0 || userId <= 0) {
+        throw std::invalid_argument("Lesson and user must be valid");
+    }
+
+    lessonRepository.markLessonCompleted(lessonId, userId);
 }
 
 Lesson LessonService::createLesson(

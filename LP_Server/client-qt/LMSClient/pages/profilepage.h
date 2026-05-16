@@ -8,6 +8,8 @@
 #include "../models/sessiondata.h"
 
 class QLabel;
+class QLineEdit;
+class QPushButton;
 
 class ProfilePage : public QWidget
 {
@@ -19,6 +21,11 @@ public:
     void setSession(const SessionData &session);
     void setCourses(const QVector<CourseData> &courses);
     void setAttempts(const QVector<AttemptData> &attempts);
+    void showPasswordMessage(const QString &message, bool isError);
+    void setPasswordBusy(bool busy);
+
+signals:
+    void changePasswordRequested(const QString &oldPassword, const QString &newPassword);
 
 private:
     void refreshLearningSummary();
@@ -34,6 +41,13 @@ private:
     QLabel *m_summaryTwoTitleLabel;
     QLabel *m_nameValueLabel;
     QLabel *m_roleValueLabel;
-    QLabel *m_tokenValueLabel;
-    QLabel *m_userIdValueLabel;
+    QLabel *m_loginValueLabel;
+    QLabel *m_groupValueLabel;
+    QLabel *m_emailValueLabel;
+    QLabel *m_phoneValueLabel;
+    QLabel *m_passwordStatusLabel;
+    QLineEdit *m_oldPasswordEdit;
+    QLineEdit *m_newPasswordEdit;
+    QLineEdit *m_repeatPasswordEdit;
+    QPushButton *m_changePasswordButton;
 };

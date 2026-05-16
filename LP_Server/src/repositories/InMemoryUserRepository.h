@@ -22,6 +22,15 @@ public:
         }
         return std::nullopt;
     }
+
+    std::optional<User> findById(int userId) override {
+        for (const auto& user : users) {
+            if (user.id == userId) {
+                return user;
+            }
+        }
+        return std::nullopt;
+    }
     
     bool exists(const std::string& login) override {
         return findByLogin(login).has_value();
@@ -32,7 +41,12 @@ public:
             ++currentId,
             login,
             passwordHash,
-            role
+            role,
+            login,
+            "",
+            "",
+            "",
+            ""
         };
         
         users.push_back(user);
@@ -48,6 +62,17 @@ public:
             if (user.id == userId) {
                 user.role = role;
                 return user;
+            }
+        }
+
+        throw std::runtime_error("User not found");
+    }
+
+    void updatePasswordHash(int userId, const std::string& passwordHash) override {
+        for (auto &user : users) {
+            if (user.id == userId) {
+                user.passwordHash = passwordHash;
+                return;
             }
         }
 

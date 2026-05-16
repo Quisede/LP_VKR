@@ -7,6 +7,7 @@
 #include <functional>
 
 #include "../models/attemptmodel.h"
+#include "../models/adminauditmodel.h"
 #include "../models/adminusermodel.h"
 #include "../models/adminoverviewmodel.h"
 #include "../models/coursemodel.h"
@@ -30,11 +31,28 @@ public:
     void setToken(const QString &token);
     QString token() const;
 
+    void checkHealth(
+        QObject *context,
+        std::function<void(const QString &status)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
     void login(
         const QString &login,
         const QString &password,
         QObject *context,
         std::function<void(const SessionData &session)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void getCurrentProfile(
+        QObject *context,
+        std::function<void(const SessionData &session)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void changePassword(
+        const QString &oldPassword,
+        const QString &newPassword,
+        QObject *context,
+        std::function<void()> onSuccess,
         std::function<void(const QString &error)> onError);
 
     void getCourses(
@@ -97,6 +115,12 @@ public:
         std::function<void()> onSuccess,
         std::function<void(const QString &error)> onError);
 
+    void markLessonCompleted(
+        int lessonId,
+        QObject *context,
+        std::function<void()> onSuccess,
+        std::function<void(const QString &error)> onError);
+
     void getMaterials(
         int lessonId,
         QObject *context,
@@ -131,6 +155,12 @@ public:
         int materialId,
         QObject *context,
         std::function<void()> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void downloadMaterialFile(
+        int materialId,
+        QObject *context,
+        std::function<void(const MaterialFileData &file)> onSuccess,
         std::function<void(const QString &error)> onError);
 
     void getTests(
@@ -216,6 +246,11 @@ public:
     void getAdminOverview(
         QObject *context,
         std::function<void(const AdminOverviewData &overview)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void getAdminAudit(
+        QObject *context,
+        std::function<void(const QVector<AdminAuditEventData> &events)> onSuccess,
         std::function<void(const QString &error)> onError);
 
     void createAdminUser(

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QByteArray>
 #include <QString>
 
 struct MaterialData {
@@ -8,4 +9,11 @@ struct MaterialData {
     QString title;
     QString type;
     QString content;
+};
+
+struct MaterialFileData {
+    int materialId = -1;
+    QString fileName;
+    QString mimeType;
+    QByteArray bytes;
 };

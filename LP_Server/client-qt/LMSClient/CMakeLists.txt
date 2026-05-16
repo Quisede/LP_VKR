@@ -28,6 +28,8 @@ set(LMSCLIENT_SOURCES
     widgets/coursecard.cpp
     pages/dashboardpage.h
     pages/dashboardpage.cpp
+    pages/adminauditpage.h
+    pages/adminauditpage.cpp
     pages/adminuserspage.h
     pages/adminuserspage.cpp
     pages/coursespage.h
@@ -59,6 +61,7 @@ set(LMSCLIENT_SOURCES
     models/testmodel.h
     models/questionmodel.h
     models/attemptmodel.h
+    models/adminauditmodel.h
     models/adminusermodel.h
     models/adminoverviewmodel.h
     models/teacheranalyticsmodel.h

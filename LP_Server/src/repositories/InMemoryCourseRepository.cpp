@@ -11,9 +11,9 @@
 #include <stdexcept>
 
 InMemoryCourseRepository::InMemoryCourseRepository() {
-    courses.push_back({1, "C++ Basics", "Intro to C++", 10, 6, 2, 12});
-    courses.push_back({2, "OOP Design", "Design principles", 10, 4, 1, 8});
-    courses.push_back({3, "Databases", "SQL and PostgreSQL", 20, 7, 3, 15});
+    courses.push_back({1, "C++ Basics", "Intro to C++", 10, "Иван Петров", 6, 2, 12});
+    courses.push_back({2, "OOP Design", "Design principles", 10, "Иван Петров", 4, 1, 8});
+    courses.push_back({3, "Databases", "SQL and PostgreSQL", 20, "Мария Соколова", 7, 3, 15});
 }
 
 std::vector<Course> InMemoryCourseRepository::getCoursesForStudent(int studentId) {
@@ -88,7 +88,7 @@ Course InMemoryCourseRepository::createCourse(
     const std::string& description,
     int teacherId) {
     int nextId = courses.empty() ? 1 : courses.back().id + 1;
-    Course course{nextId, title, description, teacherId};
+    Course course{nextId, title, description, teacherId, "Преподаватель"};
     courses.push_back(course);
     return course;
 }

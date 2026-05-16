@@ -29,6 +29,7 @@ void AttemptController::registerRoutes(httplib::Server& server) {
 
                 response["attempts"].push_back({
                     {"testId", a.testId},
+                    {"courseId", a.courseId},
                     {"score", a.score},
                     {"total", a.total},
                     {"percentage", a.percentage},
@@ -60,6 +61,7 @@ void AttemptController::registerRoutes(httplib::Server& server) {
             response["studentsCount"] = analytics.studentsCount;
             response["attemptsCount"] = analytics.attemptsCount;
             response["averagePercentage"] = analytics.averagePercentage;
+            response["averageLessonProgress"] = analytics.averageLessonProgress;
             response["results"] = json::array();
 
             for (const auto& row : analytics.rows) {

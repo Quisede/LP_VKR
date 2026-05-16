@@ -68,7 +68,7 @@ AdminUsersPage::AdminUsersPage(QWidget *parent)
     titleLabel->setObjectName("sectionTitleLabel");
 
     auto *hintLabel = new QLabel(
-        "Здесь собран реестр пользователей платформы. Используй эту страницу как стартовую точку для будущего admin-flow.",
+        "Здесь собран реестр пользователей платформы. Эта страница служит стартовой точкой для admin-flow.",
         pageCard);
     hintLabel->setObjectName("sectionHintLabel");
     hintLabel->setWordWrap(true);
@@ -315,7 +315,7 @@ void AdminUsersPage::applyUsersFilter(const QString &query)
             m_emptyStateLabel->setText("Таблица пока пуста: в системе ещё нет ни студентов, ни преподавателей.");
         } else {
             m_focusLabel->setText("По текущему запросу пользователи не найдены.");
-            m_emptyStateLabel->setText("Попробуй изменить строку поиска: можно искать по логину или роли.");
+            m_emptyStateLabel->setText("Можно изменить строку поиска: поиск работает по логину или роли.");
         }
         m_emptyStateLabel->show();
         m_usersTable->hide();

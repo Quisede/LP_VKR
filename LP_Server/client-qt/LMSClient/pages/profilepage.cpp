@@ -4,6 +4,8 @@
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
 #include <QVBoxLayout>
 
 namespace {
@@ -52,7 +54,7 @@ ProfilePage::ProfilePage(QWidget *parent)
     titleLabel->setObjectName("profileSectionTitleLabel");
 
     auto *hintLabel = new QLabel(
-        "Здесь собраны основные данные активной сессии пользователя.",
+        "Здесь собраны контактные данные, учебная информация и настройки безопасности.",
         pageCard);
     hintLabel->setObjectName("profileHintLabel");
     hintLabel->setWordWrap(true);
@@ -107,21 +109,89 @@ ProfilePage::ProfilePage(QWidget *parent)
     m_roleValueLabel = new QLabel("Неизвестно", infoCard);
     m_roleValueLabel->setObjectName("profileRoleValueLabel");
 
-    auto *userIdLabel = new QLabel("User ID", infoCard);
-    userIdLabel->setObjectName("profileKeyLabel");
-    m_userIdValueLabel = new QLabel("-", infoCard);
-    m_userIdValueLabel->setObjectName("profileNameValueLabel");
+    auto *loginLabel = new QLabel("Логин", infoCard);
+    loginLabel->setObjectName("profileKeyLabel");
+    m_loginValueLabel = new QLabel("-", infoCard);
+    m_loginValueLabel->setObjectName("profileNameValueLabel");
 
-    auto *tokenLabel = new QLabel("Токен", infoCard);
-    tokenLabel->setObjectName("profileKeyLabel");
-    m_tokenValueLabel = new QLabel("Пусто", infoCard);
-    m_tokenValueLabel->setObjectName("profileTokenValueLabel");
-    m_tokenValueLabel->setWordWrap(true);
+    auto *groupLabel = new QLabel("Группа / подразделение", infoCard);
+    groupLabel->setObjectName("profileKeyLabel");
+    m_groupValueLabel = new QLabel("-", infoCard);
+    m_groupValueLabel->setObjectName("profileNameValueLabel");
+
+    auto *emailLabel = new QLabel("Почта", infoCard);
+    emailLabel->setObjectName("profileKeyLabel");
+    m_emailValueLabel = new QLabel("-", infoCard);
+    m_emailValueLabel->setObjectName("profileNameValueLabel");
+
+    auto *phoneLabel = new QLabel("Телефон", infoCard);
+    phoneLabel->setObjectName("profileKeyLabel");
+    m_phoneValueLabel = new QLabel("-", infoCard);
+    m_phoneValueLabel->setObjectName("profileNameValueLabel");
 
     formLayout->addRow(nameLabel, m_nameValueLabel);
     formLayout->addRow(roleLabel, m_roleValueLabel);
-    formLayout->addRow(userIdLabel, m_userIdValueLabel);
-    formLayout->addRow(tokenLabel, m_tokenValueLabel);
+    formLayout->addRow(loginLabel, m_loginValueLabel);
+    formLayout->addRow(groupLabel, m_groupValueLabel);
+    formLayout->addRow(emailLabel, m_emailValueLabel);
+    formLayout->addRow(phoneLabel, m_phoneValueLabel);
+
+    auto *passwordCard = new QFrame(pageCard);
+    passwordCard->setObjectName("profileInfoCard");
+    auto *passwordLayout = new QVBoxLayout(passwordCard);
+    passwordLayout->setContentsMargins(18, 18, 18, 18);
+    passwordLayout->setSpacing(12);
+
+    auto *passwordTitleLabel = new QLabel("Смена пароля", passwordCard);
+    passwordTitleLabel->setObjectName("moduleTitleLabel");
+
+    auto *passwordHintLabel = new QLabel(
+        "Для безопасности нужно указать текущий пароль, затем новый пароль и повтор.",
+        passwordCard);
+    passwordHintLabel->setObjectName("sectionHintLabel");
+    passwordHintLabel->setWordWrap(true);
+
+    auto *passwordForm = new QFormLayout();
+    passwordForm->setHorizontalSpacing(18);
+    passwordForm->setVerticalSpacing(10);
+
+    m_oldPasswordEdit = new QLineEdit(passwordCard);
+    m_oldPasswordEdit->setPlaceholderText("Текущий пароль");
+    m_oldPasswordEdit->setEchoMode(QLineEdit::Password);
+    m_newPasswordEdit = new QLineEdit(passwordCard);
+    m_newPasswordEdit->setPlaceholderText("Новый пароль");
+    m_newPasswordEdit->setEchoMode(QLineEdit::Password);
+    m_repeatPasswordEdit = new QLineEdit(passwordCard);
+    m_repeatPasswordEdit->setPlaceholderText("Повторите новый пароль");
+    m_repeatPasswordEdit->setEchoMode(QLineEdit::Password);
+
+    const QString inputStyle =
+        "QLineEdit { background: #ffffff; border: 1px solid #dbe4f0; border-radius: 12px; padding: 10px 12px; color: #0f172a; }"
+        "QLineEdit:focus { border-color: #2563eb; }";
+    m_oldPasswordEdit->setStyleSheet(inputStyle);
+    m_newPasswordEdit->setStyleSheet(inputStyle);
+    m_repeatPasswordEdit->setStyleSheet(inputStyle);
+
+    passwordForm->addRow("Текущий пароль", m_oldPasswordEdit);
+    passwordForm->addRow("Новый пароль", m_newPasswordEdit);
+    passwordForm->addRow("Повтор", m_repeatPasswordEdit);
+
+    auto *passwordActions = new QHBoxLayout();
+    passwordActions->setSpacing(10);
+    m_changePasswordButton = new QPushButton("Сменить пароль", passwordCard);
+    m_changePasswordButton->setObjectName("cardAccentButton");
+    m_passwordStatusLabel = new QLabel(passwordCard);
+    m_passwordStatusLabel->setObjectName("sectionHintLabel");
+    m_passwordStatusLabel->setWordWrap(true);
+    m_passwordStatusLabel->hide();
+
+    passwordActions->addWidget(m_changePasswordButton);
+    passwordActions->addWidget(m_passwordStatusLabel, 1);
+
+    passwordLayout->addWidget(passwordTitleLabel);
+    passwordLayout->addWidget(passwordHintLabel);
+    passwordLayout->addLayout(passwordForm);
+    passwordLayout->addLayout(passwordActions);
 
     pageLayout->addWidget(titleLabel);
     pageLayout->addWidget(hintLabel);
@@ -129,6 +199,7 @@ ProfilePage::ProfilePage(QWidget *parent)
     pageLayout->addWidget(m_introTitleLabel);
     pageLayout->addWidget(m_introTextLabel);
     pageLayout->addWidget(infoCard);
+    pageLayout->addWidget(passwordCard);
 
     rootLayout->addWidget(pageCard);
 
@@ -138,19 +209,44 @@ ProfilePage::ProfilePage(QWidget *parent)
     m_summaryTwoValueLabel->setText("Активна");
     m_introTitleLabel->setText("Текущий режим");
     m_introTextLabel->setText("После входа здесь отображаются базовые сведения об активной сессии пользователя.");
+
+    connect(m_changePasswordButton, &QPushButton::clicked, this, [this]() {
+        const QString oldPassword = m_oldPasswordEdit->text();
+        const QString newPassword = m_newPasswordEdit->text();
+        const QString repeatPassword = m_repeatPasswordEdit->text();
+
+        if (oldPassword.isEmpty() || newPassword.isEmpty() || repeatPassword.isEmpty()) {
+            showPasswordMessage("Заполните все поля для смены пароля.", true);
+            return;
+        }
+
+        if (newPassword != repeatPassword) {
+            showPasswordMessage("Новый пароль и повтор не совпадают.", true);
+            return;
+        }
+
+        if (newPassword.size() < 6) {
+            showPasswordMessage("Новый пароль должен содержать минимум 6 символов.", true);
+            return;
+        }
+
+        emit changePasswordRequested(oldPassword, newPassword);
+    });
 }
 
 void ProfilePage::setSession(const SessionData &session)
 {
     m_session = session;
-    const QString displayName = session.login.isEmpty()
-        ? QString("Пользователь #%1").arg(session.userId)
-        : session.login;
+    const QString displayName = session.fullName.trimmed().isEmpty()
+        ? (session.login.isEmpty() ? "Пользователь" : session.login)
+        : session.fullName.trimmed();
 
     m_nameValueLabel->setText(displayName);
     m_roleValueLabel->setText(session.role);
-    m_userIdValueLabel->setText(QString::number(session.userId));
-    m_tokenValueLabel->setText(session.token.left(24) + (session.token.size() > 24 ? "..." : ""));
+    m_loginValueLabel->setText(session.login.isEmpty() ? "-" : session.login);
+    m_groupValueLabel->setText(session.groupName.isEmpty() ? "-" : session.groupName);
+    m_emailValueLabel->setText(session.email.isEmpty() ? "-" : session.email);
+    m_phoneValueLabel->setText(session.phone.isEmpty() ? "-" : session.phone);
 
     if (session.role == "Teacher") {
         m_summaryOneTitleLabel->setText("Роль");
@@ -159,7 +255,7 @@ void ProfilePage::setSession(const SessionData &session)
         m_summaryTwoValueLabel->setText("Управление курсами");
         m_introTitleLabel->setText("Кабинет преподавателя");
         m_introTextLabel->setText(
-            "Здесь начинается teacher-flow: создание курсов, управление материалами, тестами, студентами и аналитикой.");
+            "Здесь начинается рабочее пространство преподавателя: создание курсов, управление материалами, тестами, студентами и аналитикой.");
     } else if (session.role == "Admin") {
         m_summaryOneTitleLabel->setText("Роль");
         m_summaryOneValueLabel->setText("Admin");
@@ -173,10 +269,35 @@ void ProfilePage::setSession(const SessionData &session)
         m_summaryTwoTitleLabel->setText("Средний балл");
         m_introTitleLabel->setText("Учебный профиль");
         m_introTextLabel->setText(
-            "Используй этот кабинет как опорную точку: отсюда видно, под какой ролью открыт доступ и какой пользователь сейчас работает с платформой.");
+            "Кабинет показывает учебный статус, контактные данные и параметры безопасности активной учётной записи.");
     }
 
     refreshLearningSummary();
+}
+
+void ProfilePage::showPasswordMessage(const QString &message, bool isError)
+{
+    m_passwordStatusLabel->setText(message);
+    m_passwordStatusLabel->setStyleSheet(QString("color: %1; font-size: 13px; font-weight: 700;")
+        .arg(isError ? "#b91c1c" : "#047857"));
+    m_passwordStatusLabel->show();
+}
+
+void ProfilePage::setPasswordBusy(bool busy)
+{
+    m_oldPasswordEdit->setEnabled(!busy);
+    m_newPasswordEdit->setEnabled(!busy);
+    m_repeatPasswordEdit->setEnabled(!busy);
+    m_changePasswordButton->setEnabled(!busy);
+
+    if (busy) {
+        showPasswordMessage("Обновляем пароль...", false);
+        return;
+    }
+
+    m_oldPasswordEdit->clear();
+    m_newPasswordEdit->clear();
+    m_repeatPasswordEdit->clear();
 }
 
 void ProfilePage::setCourses(const QVector<CourseData> &courses)
@@ -221,11 +342,11 @@ void ProfilePage::refreshLearningSummary()
 
     if (attemptsCount == 0) {
         m_introTextLabel->setText(
-            QString("Сейчас у тебя %1 доступных курсов. Начни с материалов и первого теста — после этого здесь появится учебная динамика.")
+            QString("Сейчас доступно %1 курсов. После изучения материалов и первого теста здесь появится учебная динамика.")
                 .arg(coursesCount));
     } else {
         m_introTextLabel->setText(
-            QString("У тебя уже %1 попыток, из них успешно: %2. Продолжай обучение и улучшай средний результат по тестам.")
+            QString("Всего попыток: %1, успешных: %2. Продолжение обучения улучшит средний результат по тестам.")
                 .arg(attemptsCount)
                 .arg(passedCount));
     }

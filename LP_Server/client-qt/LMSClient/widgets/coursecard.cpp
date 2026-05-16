@@ -5,6 +5,7 @@
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QProgressBar>
 #include <QSizePolicy>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -94,9 +95,13 @@ CourseCard::CourseCard(
         QString("Тестов %1").arg(course.testsCount),
         "#eff6ff",
         "#2563eb"));
+    const QString teacherName = course.teacherName.trimmed().isEmpty()
+        ? QString("Преподаватель")
+        : course.teacherName.trimmed();
+
     statsRow->addWidget(createStatBadge(
         isStudent
-            ? QString("Преподаватель #%1").arg(course.teacherId)
+            ? QString("Преподаватель: %1").arg(teacherName)
             : QString("Студентов %1").arg(course.studentsCount),
         isStudent ? "#f8fafc" : "#ecfeff",
         isStudent ? "#475569" : "#0f766e"));
@@ -104,10 +109,14 @@ CourseCard::CourseCard(
 
     auto *metaLabel = new QLabel(
         isStudent
-            ? "Открой курс, чтобы посмотреть программу, материалы и доступные тесты."
+            ? (course.testsCount > 0
+                ? QString("Прогресс по тестам: %1 из %2 зачтено. Открытие курса покажет следующий шаг.")
+                    .arg(course.passedTestsCount)
+                    .arg(course.testsCount)
+                : "В курсе пока нет тестов. Открытие курса покажет уроки и материалы.")
             : isAdmin
-                ? "Административный режим: проверь структуру курса и переходи к управлению, если нужна системная правка."
-                : "Режим преподавателя: открой обзор курса или переходи в конструктор, чтобы управлять контентом и тестами.",
+                ? "Административный режим: проверка структуры курса и переход к управлению, если нужна системная правка."
+                : "Режим преподавателя: обзор курса или переход в конструктор для управления контентом и тестами.",
         card);
     metaLabel->setObjectName("sectionHintLabel");
     metaLabel->setWordWrap(true);
@@ -157,6 +166,29 @@ CourseCard::CourseCard(
     cardLayout->addWidget(titleLabel);
     cardLayout->addWidget(descriptionLabel);
     cardLayout->addLayout(statsRow);
+    if (isStudent) {
+        auto *progressBar = new QProgressBar(card);
+        progressBar->setRange(0, 100);
+        progressBar->setValue(course.progressPercent);
+        progressBar->setTextVisible(true);
+        progressBar->setFormat(QString("Прогресс: %1%").arg(course.progressPercent));
+        progressBar->setFixedHeight(16);
+        progressBar->setStyleSheet(
+            "QProgressBar {"
+            " background: #e2e8f0;"
+            " border: none;"
+            " border-radius: 8px;"
+            " color: #0f172a;"
+            " font-size: 11px;"
+            " font-weight: 700;"
+            " text-align: center;"
+            "}"
+            "QProgressBar::chunk {"
+            " background: #2563eb;"
+            " border-radius: 8px;"
+            "}");
+        cardLayout->addWidget(progressBar);
+    }
     cardLayout->addWidget(metaLabel);
     cardLayout->addLayout(actionsLayout);
 

@@ -59,14 +59,19 @@ AttemptsPage::AttemptsPage(QWidget *parent)
 
     statsLayout->addWidget(createStatCard("Попытки", &m_attemptsStatLabel));
     statsLayout->addWidget(createStatCard("Средний результат", &m_averageStatLabel));
+    statsLayout->addWidget(createStatCard("Лучший результат", &m_bestStatLabel));
     statsLayout->addWidget(createStatCard("Успешно", &m_passedStatLabel));
+
+    m_insightLabel = new QLabel(pageCard);
+    m_insightLabel->setObjectName("sectionHintLabel");
+    m_insightLabel->setWordWrap(true);
 
     m_emptyStateLabel = new QLabel(pageCard);
     m_emptyStateLabel->setObjectName("sectionHintLabel");
     m_emptyStateLabel->setWordWrap(true);
 
     m_table = new QTableWidget(pageCard);
-    m_table->setColumnCount(6);
+    m_table->setColumnCount(7);
     updateTableHeaders();
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
@@ -101,6 +106,7 @@ AttemptsPage::AttemptsPage(QWidget *parent)
     pageLayout->addWidget(m_titleLabel);
     pageLayout->addWidget(m_summaryLabel);
     pageLayout->addLayout(statsLayout);
+    pageLayout->addWidget(m_insightLabel);
     pageLayout->addWidget(m_emptyStateLabel);
     pageLayout->addWidget(m_table);
 
@@ -145,11 +151,27 @@ void AttemptsPage::setAttempts(const QVector<AttemptData> &attempts)
     int totalScore = 0;
     int totalPossible = 0;
     int passedCount = 0;
+    double bestPercentage = 0.0;
+    QString bestTestTitle;
+    QString latestSubmittedAt;
+    QString latestTestTitle;
     for (const AttemptData &attempt : attempts) {
         totalScore += attempt.score;
         totalPossible += attempt.total;
         if (attempt.passed) {
             ++passedCount;
+        }
+        if (attempt.percentage >= bestPercentage) {
+            bestPercentage = attempt.percentage;
+            bestTestTitle = attempt.testTitle.isEmpty()
+                ? QString("Тест #%1").arg(attempt.testId)
+                : attempt.testTitle;
+        }
+        if (attempt.submittedAt >= latestSubmittedAt) {
+            latestSubmittedAt = attempt.submittedAt;
+            latestTestTitle = attempt.testTitle.isEmpty()
+                ? QString("Тест #%1").arg(attempt.testId)
+                : attempt.testTitle;
         }
     }
 
@@ -160,7 +182,14 @@ void AttemptsPage::setAttempts(const QVector<AttemptData> &attempts)
     m_summaryLabel->setText(QString("Всего попыток: %1").arg(attempts.size()));
     m_attemptsStatLabel->setText(QString::number(attempts.size()));
     m_averageStatLabel->setText(QString("%1%").arg(QString::number(averagePercentage, 'f', 1)));
+    m_bestStatLabel->setText(QString("%1%").arg(QString::number(bestPercentage, 'f', 1)));
     m_passedStatLabel->setText(QString("%1 из %2").arg(passedCount).arg(attempts.size()));
+    m_insightLabel->setText(
+        QString("Лучший тест: %1. Последняя активность: %2%3.")
+            .arg(bestTestTitle)
+            .arg(latestTestTitle)
+            .arg(latestSubmittedAt.isEmpty() ? QString() : QString(" (%1)").arg(latestSubmittedAt)));
+    m_insightLabel->show();
     m_emptyStateLabel->hide();
     m_table->show();
     m_table->setRowCount(attempts.size());
@@ -177,7 +206,9 @@ void AttemptsPage::setAttempts(const QVector<AttemptData> &attempts)
         auto *percentItem = new QTableWidgetItem(QString::number(attempt.percentage, 'f', 1) + "%");
         auto *statusItem = new QTableWidgetItem(attempt.passed ? "Пройден" : "Не пройден");
         auto *timeItem = new QTableWidgetItem(attempt.submittedAt.isEmpty() ? "—" : attempt.submittedAt);
+        auto *recommendationItem = new QTableWidgetItem(attemptRecommendation(attempt));
         statusItem->setForeground(attempt.passed ? QColor("#15803d") : QColor("#b91c1c"));
+        recommendationItem->setForeground(attempt.passed ? QColor("#0f766e") : QColor("#b45309"));
 
         m_table->setItem(row, 0, testItem);
         m_table->setItem(row, 1, scoreItem);
@@ -185,6 +216,7 @@ void AttemptsPage::setAttempts(const QVector<AttemptData> &attempts)
         m_table->setItem(row, 3, percentItem);
         m_table->setItem(row, 4, statusItem);
         m_table->setItem(row, 5, timeItem);
+        m_table->setItem(row, 6, recommendationItem);
     }
 
     m_table->resizeRowsToContents();
@@ -195,7 +227,10 @@ void AttemptsPage::showPlaceholder(const QString &message)
     m_summaryLabel->setText(message);
     m_attemptsStatLabel->setText("0");
     m_averageStatLabel->setText("0.0%");
+    m_bestStatLabel->setText("0.0%");
     m_passedStatLabel->setText("0");
+    m_insightLabel->setText("Пока нет данных для анализа. После теста здесь появится лучший результат и последняя активность.");
+    m_insightLabel->show();
     m_emptyStateLabel->setText(message);
     m_emptyStateLabel->show();
     m_table->hide();
@@ -209,5 +244,19 @@ void AttemptsPage::showError(const QString &error)
 
 void AttemptsPage::updateTableHeaders()
 {
-    m_table->setHorizontalHeaderLabels({"Тест", "Баллы", "Всего", "Процент", "Статус", "Когда"});
+    m_table->setHorizontalHeaderLabels({"Тест", "Баллы", "Всего", "Процент", "Статус", "Когда", "Что дальше"});
+}
+
+QString AttemptsPage::attemptRecommendation(const AttemptData &attempt) const
+{
+    if (attempt.percentage >= 90.0) {
+        return "Отлично: можно переходить к следующей теме";
+    }
+    if (attempt.passed) {
+        return "Пройдено: стоит закрепить слабые вопросы";
+    }
+    if (attempt.percentage >= 50.0) {
+        return "Почти: стоит повторить материалы и пройти тест ещё раз";
+    }
+    return "Нужно повторить уроки перед следующей попыткой";
 }

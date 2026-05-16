@@ -17,4 +17,10 @@ struct AuthResult {
     int userId; // идентификатор пользователя
     UserRole role; // роль пользователя;
     std::string errorMessage; // сообщение об ошибке
+    std::string login;
+    std::string firstName;
+    std::string lastName;
+    std::string groupName;
+    std::string email;
+    std::string phone;
 };

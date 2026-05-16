@@ -2,7 +2,60 @@
 #include <libpq-fe.h>
 #include <stdexcept>
 
-PostgresUserRepository::PostgresUserRepository(PostgresConnection& conn) : connection(conn) {}
+namespace {
+
+const char* kUserSelectColumns =
+    "id, login, password_hash, role, first_name, last_name, group_name, email, phone";
+
+std::string roleToString(UserRole role)
+{
+    if (role == UserRole::Student) return "Student";
+    if (role == UserRole::Teacher) return "Teacher";
+    if (role == UserRole::Admin) return "Admin";
+    return "Student";
+}
+
+UserRole roleFromString(const std::string& role)
+{
+    if (role == "Teacher") return UserRole::Teacher;
+    if (role == "Admin") return UserRole::Admin;
+    return UserRole::Student;
+}
+
+void fillUserFromResult(User& user, PGresult* res, int row)
+{
+    user.id = std::stoi(PQgetvalue(res, row, 0));
+    user.login = PQgetvalue(res, row, 1);
+    user.passwordHash = PQgetvalue(res, row, 2);
+    user.role = roleFromString(PQgetvalue(res, row, 3));
+    user.firstName = PQgetvalue(res, row, 4);
+    user.lastName = PQgetvalue(res, row, 5);
+    user.groupName = PQgetvalue(res, row, 6);
+    user.email = PQgetvalue(res, row, 7);
+    user.phone = PQgetvalue(res, row, 8);
+}
+
+}
+
+PostgresUserRepository::PostgresUserRepository(PostgresConnection& conn) : connection(conn) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
+
+    PGresult* res = PQexec(
+        connection.get(),
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT '';"
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT '';"
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS group_name TEXT NOT NULL DEFAULT '';"
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT NOT NULL DEFAULT '';"
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';");
+
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::string error = PQerrorMessage(connection.get());
+        PQclear(res);
+        throw std::runtime_error("User profile migration failed: " + error);
+    }
+
+    PQclear(res);
+}
 
 std::optional<User> PostgresUserRepository::findByLogin(
     const std::string& login) {
@@ -13,7 +66,8 @@ std::optional<User> PostgresUserRepository::findByLogin(
 
     PGresult* res = PQexecParams(
         connection.get(),
-        "SELECT id, login, password_hash, role FROM users WHERE login=$1",
+        "SELECT id, login, password_hash, role, first_name, last_name, group_name, email, phone "
+        "FROM users WHERE login=$1",
         1,
         NULL,
         paramValues,
@@ -34,28 +88,60 @@ std::optional<User> PostgresUserRepository::findByLogin(
     }
 
     User user;
-
-    user.id = std::stoi(PQgetvalue(res,0,0));
-    user.login = PQgetvalue(res,0,1);
-    user.passwordHash = PQgetvalue(res,0,2);
-
-    std::string role = PQgetvalue(res,0,3);
-
-    if(role == "Student") user.role = UserRole::Student;
-    if(role == "Teacher") user.role = UserRole::Teacher;
-    if(role == "Admin") user.role = UserRole::Admin;
+    fillUserFromResult(user, res, 0);
 
     PQclear(res);
 
     return user;
 }
 
+std::optional<User> PostgresUserRepository::findById(int userId) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
+
+    std::string userIdValue = std::to_string(userId);
+    const char* paramValues[1] = {userIdValue.c_str()};
+
+    PGresult* res = PQexecParams(
+        connection.get(),
+        "SELECT id, login, password_hash, role, first_name, last_name, group_name, email, phone "
+        "FROM users WHERE id=$1",
+        1,
+        nullptr,
+        paramValues,
+        nullptr,
+        nullptr,
+        0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::string error = PQerrorMessage(connection.get());
+        PQclear(res);
+        throw std::runtime_error("User select by id failed: " + error);
+    }
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        return std::nullopt;
+    }
+
+    User user;
+    fillUserFromResult(user, res, 0);
+    PQclear(res);
+    return user;
+}
+
 bool PostgresUserRepository::exists(const std::string& login) {
     std::lock_guard<std::mutex> lock(connection.mutex());
-    std::string query =
-        "SELECT 1 FROM users WHERE login='" + login + "' LIMIT 1";
+    const char* paramValues[1] = {login.c_str()};
 
-    PGresult* res = PQexec(connection.get(), query.c_str());
+    PGresult* res = PQexecParams(
+        connection.get(),
+        "SELECT 1 FROM users WHERE login=$1 LIMIT 1",
+        1,
+        nullptr,
+        paramValues,
+        nullptr,
+        nullptr,
+        0);
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
         PQclear(res);
         return false;
@@ -72,19 +158,26 @@ User PostgresUserRepository::createUser(
     UserRole role) {
     std::lock_guard<std::mutex> lock(connection.mutex());
 
-    std::string roleStr;
+    const std::string roleStr = roleToString(role);
+    const std::string firstName = login;
+    const char* params[] = {
+        login.c_str(),
+        passwordHash.c_str(),
+        roleStr.c_str(),
+        firstName.c_str()
+    };
 
-    if(role == UserRole::Student) roleStr = "Student";
-    if(role == UserRole::Teacher) roleStr = "Teacher";
-    if(role == UserRole::Admin) roleStr = "Admin";
-
-    std::string query =
-        "INSERT INTO users(login,password_hash,role) VALUES('" +
-        login + "','" +
-        passwordHash + "','" +
-        roleStr + "') RETURNING id";
-
-    PGresult* res = PQexec(connection.get(), query.c_str());
+    PGresult* res = PQexecParams(
+        connection.get(),
+        "INSERT INTO users(login, password_hash, role, first_name) "
+        "VALUES($1, $2, $3, $4) "
+        "RETURNING id, login, password_hash, role, first_name, last_name, group_name, email, phone",
+        4,
+        nullptr,
+        params,
+        nullptr,
+        nullptr,
+        0);
 
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
         PQclear(res);
@@ -92,11 +185,7 @@ User PostgresUserRepository::createUser(
     }
 
     User user;
-
-    user.id = std::stoi(PQgetvalue(res,0,0));
-    user.login = login;
-    user.passwordHash = passwordHash;
-    user.role = role;
+    fillUserFromResult(user, res, 0);
 
     PQclear(res);
 
@@ -109,7 +198,8 @@ std::vector<User> PostgresUserRepository::getAllUsers()
 
     PGresult* res = PQexec(
         connection.get(),
-        "SELECT id, login, password_hash, role FROM users ORDER BY id");
+        "SELECT id, login, password_hash, role, first_name, last_name, group_name, email, phone "
+        "FROM users ORDER BY id");
 
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
         std::string error = PQerrorMessage(connection.get());
@@ -123,15 +213,7 @@ std::vector<User> PostgresUserRepository::getAllUsers()
 
     for (int i = 0; i < rows; ++i) {
         User user;
-        user.id = std::stoi(PQgetvalue(res, i, 0));
-        user.login = PQgetvalue(res, i, 1);
-        user.passwordHash = PQgetvalue(res, i, 2);
-
-        const std::string role = PQgetvalue(res, i, 3);
-        if (role == "Student") user.role = UserRole::Student;
-        if (role == "Teacher") user.role = UserRole::Teacher;
-        if (role == "Admin") user.role = UserRole::Admin;
-
+        fillUserFromResult(user, res, i);
         users.push_back(user);
     }
 
@@ -143,17 +225,21 @@ User PostgresUserRepository::updateUserRole(int userId, UserRole role)
 {
     std::lock_guard<std::mutex> lock(connection.mutex());
 
-    std::string roleStr;
-    if (role == UserRole::Student) roleStr = "Student";
-    if (role == UserRole::Teacher) roleStr = "Teacher";
-    if (role == UserRole::Admin) roleStr = "Admin";
+    const std::string roleStr = roleToString(role);
+    const std::string userIdValue = std::to_string(userId);
+    const char* params[] = {roleStr.c_str(), userIdValue.c_str()};
 
-    std::string query =
-        "UPDATE users SET role='" + roleStr + "' "
-        "WHERE id=" + std::to_string(userId) +
-        " RETURNING id, login, password_hash, role";
-
-    PGresult* res = PQexec(connection.get(), query.c_str());
+    PGresult* res = PQexecParams(
+        connection.get(),
+        "UPDATE users SET role=$1 "
+        "WHERE id=$2 "
+        "RETURNING id, login, password_hash, role, first_name, last_name, group_name, email, phone",
+        2,
+        nullptr,
+        params,
+        nullptr,
+        nullptr,
+        0);
 
     if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) == 0) {
         std::string error = PQerrorMessage(connection.get());
@@ -162,13 +248,36 @@ User PostgresUserRepository::updateUserRole(int userId, UserRole role)
     }
 
     User user;
-    user.id = std::stoi(PQgetvalue(res, 0, 0));
-    user.login = PQgetvalue(res, 0, 1);
-    user.passwordHash = PQgetvalue(res, 0, 2);
-    user.role = role;
+    fillUserFromResult(user, res, 0);
 
     PQclear(res);
     return user;
+}
+
+void PostgresUserRepository::updatePasswordHash(int userId, const std::string& passwordHash)
+{
+    std::lock_guard<std::mutex> lock(connection.mutex());
+
+    const std::string userIdValue = std::to_string(userId);
+    const char* params[] = {passwordHash.c_str(), userIdValue.c_str()};
+
+    PGresult* res = PQexecParams(
+        connection.get(),
+        "UPDATE users SET password_hash=$1 WHERE id=$2",
+        2,
+        nullptr,
+        params,
+        nullptr,
+        nullptr,
+        0);
+
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        std::string error = PQerrorMessage(connection.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to update password: " + error);
+    }
+
+    PQclear(res);
 }
 
 void PostgresUserRepository::deleteUser(int userId)
@@ -197,11 +306,17 @@ std::vector<CourseStudent> PostgresUserRepository::getStudentsForCourse(int cour
     PGresult* res = PQexecParams(
         connection.get(),
         "SELECT u.id, u.login, "
-        "COALESCE(ROUND(AVG(a.percentage)), 0) AS progress "
+        "COALESCE(ROUND(AVG(a.percentage)), 0) AS test_progress, "
+        "CASE "
+        "  WHEN COUNT(DISTINCT l.id) = 0 THEN 0 "
+        "  ELSE ROUND(100.0 * COUNT(DISTINCT lp.lesson_id) / COUNT(DISTINCT l.id)) "
+        "END AS lesson_progress "
         "FROM users u "
         "JOIN enrollments e ON e.student_id = u.id "
         "LEFT JOIN tests t ON t.course_id = e.course_id "
         "LEFT JOIN attempts a ON a.user_id = u.id AND a.test_id = t.id "
+        "LEFT JOIN lessons l ON l.course_id = e.course_id "
+        "LEFT JOIN lesson_progress lp ON lp.user_id = u.id AND lp.lesson_id = l.id "
         "WHERE e.course_id = $1 AND u.role = 'Student' "
         "GROUP BY u.id, u.login "
         "ORDER BY u.id",
@@ -225,7 +340,9 @@ std::vector<CourseStudent> PostgresUserRepository::getStudentsForCourse(int cour
         CourseStudent student;
         student.id = std::stoi(PQgetvalue(res, i, 0));
         student.login = PQgetvalue(res, i, 1);
-        student.progress = std::stoi(PQgetvalue(res, i, 2));
+        student.testProgress = std::stoi(PQgetvalue(res, i, 2));
+        student.lessonProgress = std::stoi(PQgetvalue(res, i, 3));
+        student.progress = (student.lessonProgress + student.testProgress) / 2;
         students.push_back(student);
     }
 

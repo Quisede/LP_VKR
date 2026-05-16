@@ -55,7 +55,7 @@ TeacherStudentsPage::TeacherStudentsPage(QWidget *parent)
     titleLabel->setObjectName("sectionTitleLabel");
 
     auto *hintLabel = new QLabel(
-        "Выбери курс преподавателя и посмотри, кто записан на него и какой у студентов текущий прогресс.",
+        "Выбор курса преподавателя покажет, кто записан на него и какой у студентов текущий прогресс.",
         pageCard);
     hintLabel->setObjectName("sectionHintLabel");
     hintLabel->setWordWrap(true);
@@ -84,11 +84,13 @@ TeacherStudentsPage::TeacherStudentsPage(QWidget *parent)
     m_emptyStateLabel->setWordWrap(true);
 
     m_studentsTable = new QTableWidget(pageCard);
-    m_studentsTable->setColumnCount(3);
-    m_studentsTable->setHorizontalHeaderLabels({"ID", "Логин", "Прогресс"});
+    m_studentsTable->setColumnCount(5);
+    m_studentsTable->setHorizontalHeaderLabels({"ID", "Логин", "Общий", "Уроки", "Тесты"});
     m_studentsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     m_studentsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
     m_studentsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    m_studentsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    m_studentsTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
     m_studentsTable->verticalHeader()->setVisible(false);
     m_studentsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_studentsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -117,7 +119,7 @@ TeacherStudentsPage::TeacherStudentsPage(QWidget *parent)
     m_attemptsTitleLabel = new QLabel("Попытки выбранного студента", pageCard);
     m_attemptsTitleLabel->setObjectName("moduleTitleLabel");
 
-    m_attemptsSummaryLabel = new QLabel("Выбери студента в таблице выше, чтобы посмотреть его попытки по тестам курса.", pageCard);
+    m_attemptsSummaryLabel = new QLabel("Выберите студента в таблице выше, чтобы посмотреть его попытки по тестам курса.", pageCard);
     m_attemptsSummaryLabel->setObjectName("sectionHintLabel");
     m_attemptsSummaryLabel->setWordWrap(true);
 
@@ -226,7 +228,7 @@ void TeacherStudentsPage::setCourses(const QVector<CourseData> &courses)
     if (m_courseCombo->count() > 0) {
         emit courseSelected(selectedCourseId());
     } else {
-        showMessage("У преподавателя пока нет курсов. Сначала создай курс.", false);
+        showMessage("У преподавателя пока нет курсов. Сначала нужно создать курс.", false);
     }
 }
 
@@ -242,14 +244,22 @@ void TeacherStudentsPage::setStudents(const QVector<CourseStudentData> &students
         auto *idItem = new QTableWidgetItem(QString::number(student.id));
         auto *loginItem = new QTableWidgetItem(student.login);
         auto *progressItem = new QTableWidgetItem(QString("%1%").arg(student.progress));
+        auto *lessonProgressItem = new QTableWidgetItem(QString("%1%").arg(student.lessonProgress));
+        auto *testProgressItem = new QTableWidgetItem(QString("%1%").arg(student.testProgress));
 
         idItem->setTextAlignment(Qt::AlignCenter);
         progressItem->setTextAlignment(Qt::AlignCenter);
+        lessonProgressItem->setTextAlignment(Qt::AlignCenter);
+        testProgressItem->setTextAlignment(Qt::AlignCenter);
         progressItem->setForeground(student.progress >= 70 ? QColor("#15803d") : QColor("#334155"));
+        lessonProgressItem->setForeground(student.lessonProgress >= 70 ? QColor("#15803d") : QColor("#334155"));
+        testProgressItem->setForeground(student.testProgress >= 70 ? QColor("#15803d") : QColor("#334155"));
 
         m_studentsTable->setItem(row, 0, idItem);
         m_studentsTable->setItem(row, 1, loginItem);
         m_studentsTable->setItem(row, 2, progressItem);
+        m_studentsTable->setItem(row, 3, lessonProgressItem);
+        m_studentsTable->setItem(row, 4, testProgressItem);
     }
 
     m_studentsCountLabel->setText(QString::number(students.size()));
@@ -268,7 +278,7 @@ void TeacherStudentsPage::setStudents(const QVector<CourseStudentData> &students
     } else {
         showMessage(QString("Найдено студентов: %1").arg(students.size()), false);
         m_focusLabel->setText(
-            QString("Средний прогресс группы сейчас %1%. Используй эту страницу вместе с аналитикой, чтобы отслеживать активность по курсу.")
+            QString("Средний прогресс группы сейчас %1%. Колонки \"Уроки\" и \"Тесты\" помогают понять, где именно проседает обучение.")
                 .arg(QString::number(averageProgress, 'f', 1)));
         m_emptyStateLabel->hide();
         m_studentsTable->show();
@@ -316,7 +326,7 @@ void TeacherStudentsPage::setStudentAttempts(const QString &studentLogin, const 
 void TeacherStudentsPage::clearStudentAttempts()
 {
     m_attemptsTitleLabel->setText("Попытки выбранного студента");
-    m_attemptsSummaryLabel->setText("Выбери студента в таблице выше, чтобы посмотреть его попытки по тестам курса.");
+    m_attemptsSummaryLabel->setText("Выберите студента в таблице выше, чтобы посмотреть его попытки по тестам курса.");
     m_attemptsEmptyStateLabel->setText("После выбора студента здесь появится таблица его результатов.");
     m_attemptsEmptyStateLabel->show();
     m_attemptsTable->hide();
@@ -327,7 +337,7 @@ void TeacherStudentsPage::clearStudents()
 {
     m_studentsCountLabel->setText("0");
     m_averageProgressLabel->setText("0.0%");
-    m_focusLabel->setText("Выбери курс преподавателя, чтобы увидеть, кто уже записан и как продвигается группа.");
+    m_focusLabel->setText("Выберите курс преподавателя, чтобы увидеть, кто уже записан и как продвигается группа.");
     m_emptyStateLabel->setText("После выбора курса здесь появится таблица записанных студентов.");
     m_emptyStateLabel->show();
     m_studentsTable->hide();

@@ -22,4 +22,9 @@ struct User {
     std::string login; // логин
     std::string passwordHash; // пароль (хэш)
     UserRole role; // роль
+    std::string firstName;
+    std::string lastName;
+    std::string groupName;
+    std::string email;
+    std::string phone;
 };

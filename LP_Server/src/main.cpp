@@ -49,6 +49,7 @@
 
 #include "repositories/PostgresUserRepository.h"
 #include "repositories/PostgresCourseRepository.h"
+#include "repositories/PostgresAdminAuditRepository.h"
 
 #include "services/JwtService.h"
 #include "services/AdminService.h"
@@ -79,11 +80,12 @@ int main() {
     JwtService jwtService;
 
     PostgresUserRepository userRepo(conn);
+    PostgresAdminAuditRepository auditRepo(conn);
     
     SimplePasswordHasher hasher; // хэшер паролей
     AuthService authService(userRepo, hasher); // сервис аутентификации, принимает зависимости через конструктор
     PostgresCourseRepository courseRepo(conn); // хранилище курсов в памяти
-    AdminService adminService(userRepo, courseRepo);
+    AdminService adminService(userRepo, courseRepo, auditRepo);
     // InMemoryEnrollmentRepository enrollRepo; // хранилище связей
     PostgresEnrollmentRepository enrollRepo(conn);
     CourseService courseService(courseRepo, enrollRepo, userRepo); // сервис курсов
@@ -127,6 +129,15 @@ int main() {
     
     // создание http сервера
     httplib::Server server;
+
+    server.Get("/api/health", [](const httplib::Request&, httplib::Response& res) {
+        nlohmann::json body = {
+            {"status", "ok"},
+            {"service", "lms"},
+            {"version", "1.0.0"}
+        };
+        res.set_content(body.dump(), "application/json");
+    });
     
     // создается контроллер аутентификации
     AuthController authController(authService, jwtService);

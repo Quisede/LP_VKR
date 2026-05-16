@@ -6,6 +6,7 @@ struct Attempt {
     int id;
     int userId;
     int testId;
+    int courseId = -1;
     int score;
     int total;
     double percentage;

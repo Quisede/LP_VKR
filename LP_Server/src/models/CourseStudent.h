@@ -6,4 +6,6 @@ struct CourseStudent {
     int id;
     std::string login;
     int progress;
+    int lessonProgress = 0;
+    int testProgress = 0;
 };

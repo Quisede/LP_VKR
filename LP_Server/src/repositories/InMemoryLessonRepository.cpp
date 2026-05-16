@@ -20,6 +20,14 @@ std::vector<Lesson> InMemoryLessonRepository::getLessonsForCourse(int courseId) 
     return result;
 }
 
+std::vector<Lesson> InMemoryLessonRepository::getLessonsForCourseWithProgress(int courseId, int userId) {
+    std::vector<Lesson> result = getLessonsForCourse(courseId);
+    for (auto& lesson : result) {
+        lesson.completed = completedLessons.count({userId, lesson.id}) > 0;
+    }
+    return result;
+}
+
 std::optional<Lesson> InMemoryLessonRepository::getLessonById(int lessonId) {
     for (const auto& lesson : lessons) {
         if (lesson.id == lessonId) {
@@ -28,6 +36,10 @@ std::optional<Lesson> InMemoryLessonRepository::getLessonById(int lessonId) {
     }
 
     return std::nullopt;
+}
+
+void InMemoryLessonRepository::markLessonCompleted(int lessonId, int userId) {
+    completedLessons.insert({userId, lessonId});
 }
 
 Lesson InMemoryLessonRepository::createLesson(

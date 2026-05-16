@@ -34,17 +34,28 @@ signals:
     void openResultsRequested();
     void openTestsRequested();
     void openUsersRequested();
+    void openProfileRequested();
+    void openCourseBuilderRequested();
+    void openAuditRequested();
+    void openCourseRequested(int courseId);
 
 private:
     QString m_role = "Student";
     QVector<CourseData> m_courses;
     QVector<AttemptData> m_attempts;
     AdminOverviewData m_adminOverview;
+    int m_nextActionCourseId = -1;
     void refreshSummary();
+    void refreshNextAction();
     void refreshRecentCourses();
     void refreshFocus();
     QLabel *m_welcomeLabel;
     QLabel *m_hintLabel;
+    QFrame *m_nextActionCard;
+    QLabel *m_nextActionEyebrowLabel;
+    QLabel *m_nextActionTitleLabel;
+    QLabel *m_nextActionDescriptionLabel;
+    QPushButton *m_nextActionButton;
     QLabel *m_recentCoursesTitleLabel;
     QLabel *m_focusTitleLabel;
     QLabel *m_coursesTitleLabel;

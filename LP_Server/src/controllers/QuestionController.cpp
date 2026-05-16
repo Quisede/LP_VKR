@@ -219,6 +219,7 @@ void QuestionController::registerRoutes(httplib::Server& server) {
 
             json response;
             response["testId"] = testId;
+            response["courseId"] = result.courseId;
             response["score"] = result.score;
             response["total"] = result.total;
             response["percentage"] = result.percentage;

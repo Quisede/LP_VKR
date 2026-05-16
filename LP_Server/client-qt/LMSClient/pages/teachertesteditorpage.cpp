@@ -112,7 +112,7 @@ TeacherTestEditorPage::TeacherTestEditorPage(QWidget *parent)
     m_courseDescriptionLabel->setObjectName("sectionHintLabel");
     m_courseDescriptionLabel->setWordWrap(true);
 
-    m_messageLabel = new QLabel("Сначала выбери курс в конструкторе и открой редактор тестов.", pageCard);
+    m_messageLabel = new QLabel("Сначала нужно выбрать курс в конструкторе и открыть редактор тестов.", pageCard);
     m_messageLabel->setObjectName("sectionHintLabel");
     m_messageLabel->setWordWrap(true);
 
@@ -193,7 +193,7 @@ TeacherTestEditorPage::TeacherTestEditorPage(QWidget *parent)
     QVBoxLayout *testFormLayout = nullptr;
     auto *testFormCard = createSectionCard("1. Управление тестом", pageCard, &testFormLayout);
     auto *testHint = new QLabel(
-        "Слева выбери тест курса. Здесь можно быстро создать новый тест, переименовать выбранный или удалить его.",
+        "Слева нужно выбрать тест курса. Здесь можно быстро создать новый тест, переименовать выбранный или удалить его.",
         testFormCard);
     testHint->setObjectName("sectionHintLabel");
     testHint->setWordWrap(true);
@@ -232,7 +232,7 @@ TeacherTestEditorPage::TeacherTestEditorPage(QWidget *parent)
     QVBoxLayout *questionFormLayout = nullptr;
     auto *questionFormCard = createSectionCard("2. Формулировка вопроса", pageCard, &questionFormLayout);
     auto *questionHint = new QLabel(
-        "Выбери тест, к которому относится вопрос, и задай понятную формулировку. Варианты ответа настраиваются следующим шагом.",
+        "Выберите тест, к которому относится вопрос, и задайте понятную формулировку. Варианты ответа настраиваются следующим шагом.",
         questionFormCard);
     questionHint->setObjectName("sectionHintLabel");
     questionHint->setWordWrap(true);
@@ -269,7 +269,7 @@ TeacherTestEditorPage::TeacherTestEditorPage(QWidget *parent)
     QVBoxLayout *optionsFormLayout = nullptr;
     auto *optionsFormCard = createSectionCard("3. Варианты ответа", pageCard, &optionsFormLayout);
     auto *optionsHint = new QLabel(
-        "Заполни четыре варианта, отметь правильный ответ и при необходимости переставь варианты местами.",
+        "Нужно заполнить четыре варианта, отметить правильный ответ и при необходимости изменить порядок вариантов.",
         optionsFormCard);
     optionsHint->setObjectName("sectionHintLabel");
     optionsHint->setWordWrap(true);
@@ -307,7 +307,7 @@ TeacherTestEditorPage::TeacherTestEditorPage(QWidget *parent)
     QVBoxLayout *reviewFormLayout = nullptr;
     auto *reviewFormCard = createSectionCard("4. Проверка и сохранение", pageCard, &reviewFormLayout);
     auto *reviewHint = new QLabel(
-        "Проверь, как вопрос будет выглядеть для студента. После этого сохрани новый вопрос или обнови выбранный.",
+        "Здесь показано, как вопрос будет выглядеть для студента. После проверки можно сохранить новый вопрос или обновить выбранный.",
         reviewFormCard);
     reviewHint->setObjectName("sectionHintLabel");
     reviewHint->setWordWrap(true);
@@ -612,8 +612,8 @@ void TeacherTestEditorPage::clearEditor()
     m_editingQuestionId = -1;
 
     m_courseTitleLabel->setText("Редактор тестов");
-    m_courseDescriptionLabel->setText("Выбери курс в конструкторе, чтобы открыть отдельный редактор тестов.");
-    showMessage("Шаг 1: выбери курс. Шаг 2: выбери тест. Шаг 3: редактируй вопросы и варианты ответа.", false);
+    m_courseDescriptionLabel->setText("Выберите курс в конструкторе, чтобы открыть отдельный редактор тестов.");
+    showMessage("Шаг 1: выбрать курс. Шаг 2: выбрать тест. Шаг 3: редактировать вопросы и варианты ответа.", false);
     m_editorTabs->setCurrentIndex(0);
 
     clearTestDraft();
@@ -631,7 +631,7 @@ void TeacherTestEditorPage::setCourse(const CourseData &course)
     m_courseTitleLabel->setText(course.title.isEmpty() ? "Курс без названия" : course.title);
     m_courseDescriptionLabel->setText(
         course.description.isEmpty()
-            ? "У курса пока нет описания. Используй редактор ниже, чтобы управлять тестами и вопросами."
+            ? "У курса пока нет описания. Редактор ниже помогает управлять тестами и вопросами."
             : course.description);
     showMessage("Сначала кликни по тесту слева, потом по вопросу. Форма справа будет заполняться автоматически.", false);
     refreshSummary();
@@ -730,7 +730,7 @@ void TeacherTestEditorPage::refreshTestsList()
     m_testsList->clear();
 
     if (m_tests.isEmpty()) {
-        appendEditorCard(m_testsList, "Тестов пока нет", "Создай первый тест курса, чтобы потом наполнять его вопросами.");
+        appendEditorCard(m_testsList, "Тестов пока нет", "Сначала нужно создать первый тест курса, чтобы потом наполнять его вопросами.");
         return;
     }
 
@@ -746,12 +746,12 @@ void TeacherTestEditorPage::refreshQuestionsList()
 
     const int testId = selectedManagedTestId();
     if (testId < 0) {
-        appendEditorCard(m_questionsList, "Сначала выбери тест", "После этого справа можно будет создавать и обновлять вопросы.");
+        appendEditorCard(m_questionsList, "Сначала нужен тест", "После этого справа можно будет создавать и обновлять вопросы.");
         return;
     }
 
     if (m_questions.isEmpty()) {
-        appendEditorCard(m_questionsList, "Вопросов пока нет", "Добавь первый вопрос и четыре варианта ответа.");
+        appendEditorCard(m_questionsList, "Вопросов пока нет", "Сначала нужно добавить первый вопрос и четыре варианта ответа.");
         return;
     }
 

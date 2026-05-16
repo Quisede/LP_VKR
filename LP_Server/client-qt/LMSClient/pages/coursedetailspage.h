@@ -31,6 +31,12 @@ signals:
     void backRequested();
     void enrollRequested();
     void testSelected(int testId, const QString &title);
+    void materialDownloadRequested(int materialId);
+    void materialOpenExternalRequested(int materialId);
+    void materialLinkOpenRequested(const QString &url);
+    void materialTextPreviewRequested(const QString &title, const QString &content);
+    void lessonCompletedRequested(int lessonId);
+    void lessonPreviewRequested(const QString &title, const QString &content);
 
 private:
     QString m_role = "Student";

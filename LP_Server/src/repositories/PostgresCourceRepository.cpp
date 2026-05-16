@@ -8,7 +8,9 @@ const char *kCourseSelectWithStats =
     "SELECT c.id, c.title, c.description, c.teacher_id, "
     "       (SELECT COUNT(*) FROM lessons l WHERE l.course_id = c.id) AS lessons_count, "
     "       (SELECT COUNT(*) FROM tests t WHERE t.course_id = c.id) AS tests_count, "
-    "       (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id) AS students_count ";
+    "       (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id) AS students_count, "
+    "       (SELECT COALESCE(NULLIF(TRIM(CONCAT(u.last_name, ' ', u.first_name)), ''), u.login) "
+    "        FROM users u WHERE u.id = c.teacher_id) AS teacher_name ";
 
 void fillCourseFromResult(Course &course, PGresult *res, int row)
 {
@@ -19,6 +21,7 @@ void fillCourseFromResult(Course &course, PGresult *res, int row)
     course.lessonsCount = std::stoi(PQgetvalue(res, row, 4));
     course.testsCount = std::stoi(PQgetvalue(res, row, 5));
     course.studentsCount = std::stoi(PQgetvalue(res, row, 6));
+    course.teacherName = PQgetvalue(res, row, 7);
 }
 
 }
@@ -137,7 +140,9 @@ std::optional<Course> PostgresCourseRepository::getCourseById(int courseId) {
         "SELECT c.id, c.title, c.description, c.teacher_id, "
         "       (SELECT COUNT(*) FROM lessons l WHERE l.course_id = c.id) AS lessons_count, "
         "       (SELECT COUNT(*) FROM tests t WHERE t.course_id = c.id) AS tests_count, "
-        "       (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id) AS students_count "
+        "       (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id) AS students_count, "
+        "       (SELECT COALESCE(NULLIF(TRIM(CONCAT(u.last_name, ' ', u.first_name)), ''), u.login) "
+        "        FROM users u WHERE u.id = c.teacher_id) AS teacher_name "
         "FROM courses c WHERE c.id = $1",
         1,
         nullptr,
@@ -205,7 +210,9 @@ Course PostgresCourseRepository::createCourse(
         connection.get(),
         "INSERT INTO courses (title, description, teacher_id) "
         "VALUES ($1, $2, $3) "
-        "RETURNING id, title, description, teacher_id, 0, 0, 0",
+        "RETURNING id, title, description, teacher_id, 0, 0, 0, "
+        "(SELECT COALESCE(NULLIF(TRIM(CONCAT(u.last_name, ' ', u.first_name)), ''), u.login) "
+        " FROM users u WHERE u.id = teacher_id)",
         3,
         nullptr,
         params,
@@ -247,7 +254,9 @@ Course PostgresCourseRepository::updateCourse(
         "RETURNING c.id, c.title, c.description, c.teacher_id, "
         "          (SELECT COUNT(*) FROM lessons l WHERE l.course_id = c.id), "
         "          (SELECT COUNT(*) FROM tests t WHERE t.course_id = c.id), "
-        "          (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id)",
+        "          (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id), "
+        "          (SELECT COALESCE(NULLIF(TRIM(CONCAT(u.last_name, ' ', u.first_name)), ''), u.login) "
+        "           FROM users u WHERE u.id = c.teacher_id)",
         3,
         nullptr,
         params,

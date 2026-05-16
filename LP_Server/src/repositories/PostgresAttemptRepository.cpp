@@ -55,7 +55,8 @@ std::vector<Attempt> PostgresAttemptRepository::getAttemptsForUser(int userId) {
     std::string query = 
         "SELECT a.id, a.user_id, a.test_id, a.score, a.total, a.percentage, a.passed, "
         "COALESCE(t.title, ''), "
-        "COALESCE(TO_CHAR(a.created_at, 'DD.MM.YYYY HH24:MI'), '') "
+        "COALESCE(TO_CHAR(a.created_at, 'DD.MM.YYYY HH24:MI'), ''), "
+        "COALESCE(t.course_id, -1) "
         "FROM attempts a "
         "LEFT JOIN tests t ON t.id = a.test_id "
         "WHERE a.user_id = " + std::to_string(userId) +
@@ -83,6 +84,7 @@ std::vector<Attempt> PostgresAttemptRepository::getAttemptsForUser(int userId) {
         attempt.passed = (std::string(PQgetvalue(res, i, 6)) == "t");
         attempt.testTitle = PQgetvalue(res, i, 7);
         attempt.submittedAt = PQgetvalue(res, i, 8);
+        attempt.courseId = std::stoi(PQgetvalue(res, i, 9));
         attempts.push_back(attempt);
     }
     PQclear(res);
@@ -101,7 +103,21 @@ CourseAnalytics PostgresAttemptRepository::getCourseAnalytics(int courseId) {
         "SELECT "
         "  (SELECT COUNT(DISTINCT e.student_id) FROM enrollments e WHERE e.course_id = $1) AS students_count, "
         "  COUNT(a.id) AS attempts_count, "
-        "  COALESCE(AVG(a.percentage), 0) AS average_percentage "
+        "  COALESCE(AVG(a.percentage), 0) AS average_percentage, "
+        "  COALESCE(( "
+        "    SELECT AVG(student_lesson_progress.progress) "
+        "    FROM ( "
+        "      SELECT CASE "
+        "        WHEN COUNT(DISTINCT l.id) = 0 THEN 0 "
+        "        ELSE 100.0 * COUNT(DISTINCT lp.lesson_id) / COUNT(DISTINCT l.id) "
+        "      END AS progress "
+        "      FROM enrollments e "
+        "      LEFT JOIN lessons l ON l.course_id = e.course_id "
+        "      LEFT JOIN lesson_progress lp ON lp.user_id = e.student_id AND lp.lesson_id = l.id "
+        "      WHERE e.course_id = $1 "
+        "      GROUP BY e.student_id "
+        "    ) student_lesson_progress "
+        "  ), 0) AS average_lesson_progress "
         "FROM attempts a "
         "JOIN tests t ON t.id = a.test_id "
         "WHERE t.course_id = $1",
@@ -122,6 +138,7 @@ CourseAnalytics PostgresAttemptRepository::getCourseAnalytics(int courseId) {
         analytics.studentsCount = std::stoi(PQgetvalue(summaryRes, 0, 0));
         analytics.attemptsCount = std::stoi(PQgetvalue(summaryRes, 0, 1));
         analytics.averagePercentage = std::stod(PQgetvalue(summaryRes, 0, 2));
+        analytics.averageLessonProgress = std::stod(PQgetvalue(summaryRes, 0, 3));
     }
     PQclear(summaryRes);
 

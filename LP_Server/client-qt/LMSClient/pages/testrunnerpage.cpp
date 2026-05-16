@@ -137,7 +137,7 @@ TestRunnerPage::TestRunnerPage(QWidget *parent)
             QMessageBox::information(
                 this,
                 "Нужно завершить тест",
-                "Ответь на все вопросы, и только после этого отправляй тест на проверку.");
+                "Ответьте на все вопросы, и только после этого отправьте тест на проверку.");
             return;
         }
 
@@ -163,7 +163,7 @@ void TestRunnerPage::setTest(const TestData &test)
     m_emptyTitle = test.title.isEmpty() ? "Тест" : test.title;
     m_emptyMessage = "Загружаем вопросы теста...";
     m_titleLabel->setText(test.title.isEmpty() ? "Тест" : test.title);
-    m_hintLabel->setText("Сначала прочитай вопрос, затем выбери один правильный вариант и переходи дальше.");
+    m_hintLabel->setText("Сначала нужно прочитать вопрос, затем выбрать один правильный вариант и перейти дальше.");
     m_resultLabel->hide();
 }
 
@@ -259,7 +259,7 @@ void TestRunnerPage::renderCurrentQuestion()
     m_hintLabel->setText(
         question.options.isEmpty()
             ? "У этого вопроса нет вариантов ответа, поэтому тест нельзя корректно отправить."
-            : QString("Выбери один вариант ответа. Отвечено: %1 из %2.")
+            : QString("Выберите один вариант ответа. Отвечено: %1 из %2.")
                   .arg(m_selectedAnswers.size())
                   .arg(m_questions.size()));
     m_questionLabel->setText(question.text);
@@ -278,6 +278,7 @@ void TestRunnerPage::renderCurrentQuestion()
         connect(radio, &QRadioButton::toggled, this, [this, question, option](bool checked) {
             if (checked) {
                 m_selectedAnswers[question.id] = option.id;
+                refreshActionState();
             }
         });
 
@@ -294,9 +295,28 @@ void TestRunnerPage::renderCurrentQuestion()
         m_answersLayout->addWidget(emptyLabel);
     }
 
+    refreshActionState();
+}
+
+void TestRunnerPage::refreshActionState()
+{
+    if (m_hasResult || m_questions.isEmpty()) {
+        m_prevButton->setEnabled(false);
+        m_nextButton->setEnabled(false);
+        m_submitButton->setEnabled(false);
+        return;
+    }
+
+    const QuestionData &question = m_questions[m_currentIndex];
     m_prevButton->setEnabled(m_currentIndex > 0);
     m_nextButton->setEnabled(m_currentIndex + 1 < m_questions.size());
-    m_submitButton->setEnabled(!m_questions.isEmpty() && !question.options.isEmpty() && allQuestionsAnswered());
+    m_submitButton->setEnabled(!question.options.isEmpty() && allQuestionsAnswered());
+    m_hintLabel->setText(
+        question.options.isEmpty()
+            ? "У этого вопроса нет вариантов ответа, поэтому тест нельзя корректно отправить."
+            : QString("Выберите один вариант ответа. Отвечено: %1 из %2.")
+                  .arg(m_selectedAnswers.size())
+                  .arg(m_questions.size()));
 }
 
 QVector<QPair<int, int>> TestRunnerPage::selectedAnswers() const

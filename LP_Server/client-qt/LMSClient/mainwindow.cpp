@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 
 #include "api/apiclient.h"
+#include "pages/adminauditpage.h"
 #include "pages/adminuserspage.h"
 #include "pages/attemptspage.h"
 #include "pages/coursedetailspage.h"
@@ -16,25 +17,37 @@
 #include "pages/testrunnerpage.h"
 
 #include <algorithm>
+#include <QDesktopServices>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QDir>
+#include <QFile>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QFrame>
 #include <QFormLayout>
 #include <QDebug>
 #include <QDateTime>
 #include <QHeaderView>
+#include <QHash>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <memory>
 #include <QPlainTextEdit>
+#include <QSet>
+#include <QStandardPaths>
 #include <QTableWidget>
 #include <QTextEdit>
 #include <QTabWidget>
 #include <QTimer>
+#include <QUrl>
 #include <utility>
 #include <QVBoxLayout>
 
 namespace {
 constexpr int kInvalidId = -1;
+constexpr auto kAppVersion = "1.0.0";
 
 bool confirmDangerAction(
     QWidget *parent,
@@ -47,6 +60,129 @@ bool confirmDangerAction(
                text,
                QMessageBox::Yes | QMessageBox::No,
                QMessageBox::No) == QMessageBox::Yes;
+}
+
+QString normalizedExternalUrl(const QString &rawUrl)
+{
+    const QString trimmed = rawUrl.trimmed();
+    if (trimmed.isEmpty()) {
+        return {};
+    }
+
+    const QUrl url(trimmed);
+    if (url.scheme().isEmpty()) {
+        return "https://" + trimmed;
+    }
+    return trimmed;
+}
+
+QString safeLocalFileName(QString fileName, int fallbackId)
+{
+    if (fileName.trimmed().isEmpty()) {
+        fileName = QString("material-%1").arg(fallbackId);
+    }
+
+    fileName.replace('\\', '_');
+    fileName.replace('/', '_');
+    fileName.replace(':', '_');
+    return fileName;
+}
+
+bool saveDownloadedMaterial(QWidget *parent, const MaterialFileData &fileData)
+{
+    const QString fileName = fileData.fileName.isEmpty()
+        ? QString("material-%1").arg(fileData.materialId)
+        : fileData.fileName;
+    const QString targetPath = QFileDialog::getSaveFileName(
+        parent,
+        "Сохранить материал",
+        fileName);
+    if (targetPath.isEmpty()) {
+        return false;
+    }
+
+    QFile file(targetPath);
+    if (!file.open(QIODevice::WriteOnly)) {
+        QMessageBox::warning(parent, "Материал", "Не удалось сохранить файл.");
+        return false;
+    }
+
+    file.write(fileData.bytes);
+    file.close();
+    QMessageBox::information(parent, "Материал", "Файл сохранён.");
+    return true;
+}
+
+bool openDownloadedMaterial(QWidget *parent, const MaterialFileData &fileData)
+{
+    const QString tempRoot = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    QDir dir(tempRoot + "/lms-materials");
+    if (!dir.exists() && !QDir().mkpath(dir.absolutePath())) {
+        QMessageBox::warning(parent, "Материал", "Не удалось подготовить временную папку для открытия файла.");
+        return false;
+    }
+
+    const QString targetPath = dir.filePath(safeLocalFileName(fileData.fileName, fileData.materialId));
+    QFile file(targetPath);
+    if (!file.open(QIODevice::WriteOnly)) {
+        QMessageBox::warning(parent, "Материал", "Не удалось подготовить файл для открытия.");
+        return false;
+    }
+
+    file.write(fileData.bytes);
+    file.close();
+
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(targetPath))) {
+        QMessageBox::warning(parent, "Материал", "Системе не удалось открыть файл во внешнем приложении.");
+        return false;
+    }
+
+    return true;
+}
+
+void showScrollableTextDialog(
+    QWidget *parent,
+    const QString &windowTitle,
+    const QString &title,
+    const QString &content)
+{
+    QDialog dialog(parent);
+    dialog.setWindowTitle(windowTitle);
+    dialog.resize(760, 620);
+
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->setContentsMargins(22, 22, 22, 18);
+    layout->setSpacing(14);
+
+    auto *titleLabel = new QLabel(title.isEmpty() ? windowTitle : title, &dialog);
+    titleLabel->setStyleSheet("color: #0f172a; font-size: 22px; font-weight: 800;");
+    titleLabel->setWordWrap(true);
+
+    auto *reader = new QTextEdit(&dialog);
+    reader->setReadOnly(true);
+    reader->setPlainText(content.trimmed().isEmpty()
+        ? "Содержимое пока не добавлено."
+        : content);
+    reader->setStyleSheet(
+        "QTextEdit {"
+        " background: #ffffff;"
+        " border: 1px solid #dbe4f0;"
+        " border-radius: 16px;"
+        " color: #0f172a;"
+        " font-size: 15px;"
+        " padding: 14px;"
+        "}"
+        "QScrollBar:vertical { background: #f1f5f9; width: 10px; border-radius: 5px; }"
+        "QScrollBar::handle:vertical { background: #94a3b8; border-radius: 5px; }");
+
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    layout->addWidget(titleLabel);
+    layout->addWidget(reader, 1);
+    layout->addWidget(buttons);
+
+    dialog.exec();
 }
 
 QPushButton *createSidebarButton(const QString &text, QWidget *parent)
@@ -81,6 +217,7 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
     , ui(new Ui::MainWindow)
     , m_apiClient(apiClient)
     , m_adminUsersPage(new AdminUsersPage(this))
+    , m_adminAuditPage(new AdminAuditPage(this))
     , m_dashboardPage(new DashboardPage(this))
     , m_coursesPage(new CoursesPage(this))
     , m_teacherCreateCoursePage(new TeacherCreateCoursePage(this))
@@ -92,9 +229,13 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
     , m_teacherStudentsPage(new TeacherStudentsPage(this))
     , m_teacherAnalyticsPage(new TeacherAnalyticsPage(this))
     , m_profilePage(new ProfilePage(this))
+    , m_connectionTimer(new QTimer(this))
 {
     ui->setupUi(this);
     setWindowTitle("LMS Client");
+    ui->appVersionLabel->setText(QString("LMS Client v%1").arg(kAppVersion));
+    ui->apiEndpointLabel->setText(QString("API: %1").arg(qEnvironmentVariable("LMS_API_BASE_URL", "http://localhost:8080")));
+    updateFooterStatus("Подключение: ожидание авторизации", false);
 
     m_createCourseButton = createSidebarButton("Создать курс", ui->sidebarFrame);
     m_studentsButton = createSidebarButton("Студенты", ui->sidebarFrame);
@@ -106,6 +247,7 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
 
     ui->stackedWidget->addWidget(m_dashboardPage);
     ui->stackedWidget->addWidget(m_adminUsersPage);
+    ui->stackedWidget->addWidget(m_adminAuditPage);
     ui->stackedWidget->addWidget(m_coursesPage);
     ui->stackedWidget->addWidget(m_teacherCreateCoursePage);
     ui->stackedWidget->addWidget(m_courseDetailsPage);
@@ -133,6 +275,47 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
     connect(m_dashboardPage, &DashboardPage::openAnalyticsRequested, this, &MainWindow::showResultsPage);
     connect(m_dashboardPage, &DashboardPage::openResultsRequested, this, &MainWindow::showResultsPage);
     connect(m_dashboardPage, &DashboardPage::openTestsRequested, this, &MainWindow::showTestPage);
+    connect(m_dashboardPage, &DashboardPage::openProfileRequested, this, &MainWindow::showProfilePage);
+    connect(m_dashboardPage, &DashboardPage::openAuditRequested, this, &MainWindow::showStudentsPage);
+    connect(m_dashboardPage, &DashboardPage::openCourseRequested, this, [this](int courseId) {
+        const auto it = std::find_if(m_courses.cbegin(), m_courses.cend(), [courseId](const CourseData &course) {
+            return course.id == courseId;
+        });
+        if (it == m_courses.cend()) {
+            showStatus("Курс больше не найден в локальном списке. Обновляем каталог.");
+            loadCourses();
+            return;
+        }
+
+        if (isTeacherMode()) {
+            onCourseBuilderRequested(*it);
+        } else {
+            onCourseOpened(*it);
+        }
+    });
+    connect(m_dashboardPage, &DashboardPage::openCourseBuilderRequested, this, [this]() {
+        if (!isTeacherMode() && !isAdminMode()) {
+            return;
+        }
+
+        if (m_selectedCourse.id != kInvalidId) {
+            onCourseBuilderRequested(m_selectedCourse);
+            return;
+        }
+
+        if (!m_courses.isEmpty()) {
+            onCourseBuilderRequested(m_courses.first());
+            return;
+        }
+
+        showCoursesPage();
+        showStatus("Сначала создайте или выберите курс для открытия конструктора");
+    });
+
+    m_connectionTimer->setInterval(15000);
+    connect(m_connectionTimer, &QTimer::timeout, this, &MainWindow::checkBackendHealth);
+    m_connectionTimer->start();
+    QTimer::singleShot(0, this, &MainWindow::checkBackendHealth);
     connect(m_dashboardPage, &DashboardPage::openUsersRequested, this, [this]() {
         if (!isAdminMode()) {
             return;
@@ -207,6 +390,67 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
         onEnrollRequested(m_selectedCourse.id);
     });
     connect(m_courseDetailsPage, &CourseDetailsPage::testSelected, this, &MainWindow::onTestSelected);
+    connect(m_courseDetailsPage, &CourseDetailsPage::materialDownloadRequested, this, [this](int materialId) {
+        showStatus("Скачиваем материал...");
+        m_apiClient->downloadMaterialFile(
+            materialId,
+            this,
+            [this](const MaterialFileData &fileData) {
+                if (saveDownloadedMaterial(this, fileData)) {
+                    showStatus(QString("Материал \"%1\" сохранён").arg(fileData.fileName));
+                } else {
+                    showStatus("Сохранение материала отменено");
+                }
+            },
+            [this](const QString &error) {
+                QMessageBox::warning(this, "Материал", error);
+                showStatus(error);
+            });
+    });
+    connect(m_courseDetailsPage, &CourseDetailsPage::materialOpenExternalRequested, this, [this](int materialId) {
+        showStatus("Открываем материал...");
+        m_apiClient->downloadMaterialFile(
+            materialId,
+            this,
+            [this](const MaterialFileData &fileData) {
+                if (openDownloadedMaterial(this, fileData)) {
+                    showStatus(QString("Материал \"%1\" открыт во внешнем приложении").arg(fileData.fileName));
+                }
+            },
+            [this](const QString &error) {
+                QMessageBox::warning(this, "Материал", error);
+                showStatus(error);
+            });
+    });
+    connect(m_courseDetailsPage, &CourseDetailsPage::materialLinkOpenRequested, this, [this](const QString &url) {
+        const QString normalizedUrl = normalizedExternalUrl(url);
+        if (normalizedUrl.isEmpty() || !QDesktopServices::openUrl(QUrl(normalizedUrl))) {
+            QMessageBox::warning(this, "Материал", "Не удалось открыть ссылку.");
+            showStatus("Не удалось открыть ссылку");
+            return;
+        }
+        showStatus("Ссылка материала открыта");
+    });
+    connect(m_courseDetailsPage, &CourseDetailsPage::materialTextPreviewRequested, this, [this](const QString &title, const QString &content) {
+        showScrollableTextDialog(this, "Материал", title.isEmpty() ? "Текстовый материал" : title, content);
+    });
+    connect(m_courseDetailsPage, &CourseDetailsPage::lessonPreviewRequested, this, [this](const QString &title, const QString &content) {
+        showScrollableTextDialog(this, "Урок", title.isEmpty() ? "Урок" : title, content);
+    });
+    connect(m_courseDetailsPage, &CourseDetailsPage::lessonCompletedRequested, this, [this](int lessonId) {
+        showStatus("Отмечаем урок как изученный...");
+        m_apiClient->markLessonCompleted(
+            lessonId,
+            this,
+            [this]() {
+                showStatus("Урок отмечен как изученный");
+                loadCourseLessonsAndMaterials(m_selectedCourse.id);
+            },
+            [this](const QString &error) {
+                QMessageBox::warning(this, "Урок", error);
+                showStatus(error);
+            });
+    });
     connect(m_testRunnerPage, &TestRunnerPage::backRequested, this, &MainWindow::onBackFromTestRequested);
     connect(m_testRunnerPage, &TestRunnerPage::submitRequested, this, &MainWindow::onSubmitTestRequested);
     connect(m_teacherCreateCoursePage, &TeacherCreateCoursePage::createCourseRequested, this,
@@ -431,6 +675,55 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
                     showStatus(error);
                 });
         });
+    connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::materialDownloadRequested, this, [this](int materialId) {
+        showStatus("Скачиваем материал...");
+        m_apiClient->downloadMaterialFile(
+            materialId,
+            this,
+            [this](const MaterialFileData &fileData) {
+                if (saveDownloadedMaterial(this, fileData)) {
+                    showStatus(QString("Материал \"%1\" сохранён").arg(fileData.fileName));
+                } else {
+                    showStatus("Сохранение материала отменено");
+                }
+            },
+            [this](const QString &error) {
+                QMessageBox::warning(this, "Материал", error);
+                showStatus(error);
+            });
+    });
+    connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::materialOpenExternalRequested, this, [this](int materialId) {
+        showStatus("Открываем материал...");
+        m_apiClient->downloadMaterialFile(
+            materialId,
+            this,
+            [this](const MaterialFileData &fileData) {
+                if (openDownloadedMaterial(this, fileData)) {
+                    showStatus(QString("Материал \"%1\" открыт во внешнем приложении").arg(fileData.fileName));
+                }
+            },
+            [this](const QString &error) {
+                QMessageBox::warning(this, "Материал", error);
+                showStatus(error);
+            });
+    });
+    connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::materialLinkOpenRequested, this, [this](const QString &url) {
+        const QString normalizedUrl = normalizedExternalUrl(url);
+        if (normalizedUrl.isEmpty() || !QDesktopServices::openUrl(QUrl(normalizedUrl))) {
+            QMessageBox::warning(this, "Материал", "Не удалось открыть ссылку.");
+            showStatus("Не удалось открыть ссылку");
+            return;
+        }
+        showStatus("Ссылка материала открыта");
+    });
+    connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::materialTextPreviewRequested, this, [this](const QString &title, const QString &content) {
+        QMessageBox preview(this);
+        preview.setWindowTitle(title.isEmpty() ? "Материал" : title);
+        preview.setText(title.isEmpty() ? "Текстовый материал" : title);
+        preview.setInformativeText(content);
+        preview.setStandardButtons(QMessageBox::Ok);
+        preview.exec();
+    });
     connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::createTestRequested, this,
         [this](int courseId, const QString &title) {
             showStatus("Создаём тест...");
@@ -736,7 +1029,7 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
         }
 
         if (login.isEmpty() || password.isEmpty()) {
-            m_adminUsersPage->showMessage("Заполни логин и пароль для нового пользователя.", true);
+            m_adminUsersPage->showMessage("Нужно заполнить логин и пароль для нового пользователя.", true);
             showStatus("Нужно заполнить логин и пароль");
             return;
         }
@@ -758,6 +1051,7 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
                     false);
                 showStatus(QString("Создан пользователь %1").arg(user.login));
                 loadAdminUsers();
+                loadAdminAudit();
                 loadCourses();
             },
             [this](const QString &error) {
@@ -786,6 +1080,7 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
                     false);
                 showStatus(QString("Роль обновлена для %1").arg(user.login));
                 loadAdminUsers();
+                loadAdminAudit();
             },
             [this](const QString &error) {
                 m_adminUsersPage->setBusy(false);
@@ -810,10 +1105,29 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
                 m_adminUsersPage->showMessage("Пользователь удалён.", false);
                 showStatus("Пользователь удалён");
                 loadAdminUsers();
+                loadAdminAudit();
             },
             [this](const QString &error) {
                 m_adminUsersPage->setBusy(false);
                 m_adminUsersPage->showMessage(error, true);
+                showStatus(error);
+            });
+    });
+    connect(m_profilePage, &ProfilePage::changePasswordRequested, this, [this](const QString &oldPassword, const QString &newPassword) {
+        m_profilePage->setPasswordBusy(true);
+        showStatus("Обновляем пароль...");
+        m_apiClient->changePassword(
+            oldPassword,
+            newPassword,
+            this,
+            [this]() {
+                m_profilePage->setPasswordBusy(false);
+                m_profilePage->showPasswordMessage("Пароль успешно обновлён.", false);
+                showStatus("Пароль обновлён");
+            },
+            [this](const QString &error) {
+                m_profilePage->setPasswordBusy(false);
+                m_profilePage->showPasswordMessage(error, true);
                 showStatus(error);
             });
     });
@@ -822,7 +1136,7 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
     setActiveSection(ui->homeButton);
     m_testRunnerPage->showPlaceholder(
         "Тест не выбран",
-        "Открой курс, затем выбери нужный тест кнопкой \"Начать тест\".");
+        "Сначала нужно открыть курс, затем выбрать нужный тест кнопкой \"Начать тест\".");
     m_teacherCourseBuilderPage->clearBuilder();
     setHeader(
         "Учебная панель",
@@ -846,7 +1160,20 @@ void MainWindow::setSession(const SessionData &session)
     m_dashboardPage->setAdminOverview(m_adminOverview);
     m_profilePage->setSession(session);
 
-    showStatus("Ты в системе. Подгружаем курсы и историю попыток");
+    m_apiClient->getCurrentProfile(
+        this,
+        [this](SessionData profileSession) {
+            profileSession.token = m_session.token;
+            m_session = profileSession;
+            m_dashboardPage->setSession(m_session);
+            m_profilePage->setSession(m_session);
+        },
+        [this](const QString &error) {
+            qDebug() << "Profile load error:" << error;
+        });
+
+    updateFooterStatus("Подключение: активно", true);
+    showStatus("Пользователь в системе. Загружаем курсы и историю попыток");
     loadCourses();
     if (isAdminMode()) {
         loadAdminOverview();
@@ -903,6 +1230,13 @@ void MainWindow::automationOpenPage(const QString &pageKey, const QString &cours
 
     if (key == "analytics") {
         showResultsPage();
+        return;
+    }
+
+    if (key == "audit" || key == "admin-audit" || key == "journal") {
+        if (isAdminMode()) {
+            showStudentsPage();
+        }
         return;
     }
 
@@ -971,11 +1305,11 @@ void MainWindow::showCoursesPage()
     ui->stackedWidget->setCurrentWidget(m_coursesPage);
     setActiveSection(ui->coursesButton);
     if (isTeacherMode()) {
-        setHeader("Мои курсы", "Курсы преподавателя. Открой курс, чтобы перейти к структуре, урокам и тестам.");
+        setHeader("Мои курсы", "Курсы преподавателя. Открытие курса ведёт к структуре, урокам и тестам.");
     } else if (isAdminMode()) {
         setHeader("Курсы системы", "Полный список курсов платформы. Здесь администратор видит общую структуру без student-flow.");
     } else {
-        setHeader("Курсы", "Каталог курсов. Открой карточку курса, чтобы перейти к урокам, материалам и тестам.");
+        setHeader("Курсы", "Каталог курсов. Открытие карточки курса ведёт к урокам, материалам и тестам.");
     }
     showStatus("Раздел курсов открыт");
 
@@ -994,7 +1328,7 @@ void MainWindow::showCreateCoursePage()
     m_teacherCreateCoursePage->setCreateMode();
     ui->stackedWidget->setCurrentWidget(m_teacherCreateCoursePage);
     setActiveSection(isAdminMode() ? ui->coursesButton : m_createCourseButton);
-    setHeader("Создать курс", "Оформи новый курс и сразу переходи в конструктор, чтобы наполнить его уроками, материалами и тестами.");
+    setHeader("Создать курс", "После оформления нового курса можно сразу перейти в конструктор и наполнить его уроками, материалами и тестами.");
     m_teacherCreateCoursePage->showMessage(
         "Курс после создания сразу появится в разделе \"Мои курсы\".",
         false);
@@ -1016,7 +1350,7 @@ void MainWindow::showTestPage()
         if (m_selectedCourse.id == kInvalidId) {
             m_teacherCourseBuilderPage->clearBuilder();
             showTeacherCourseBuilderPage();
-            showStatus("Сначала выбери курс во вкладке \"Мои курсы\", чтобы открыть конструктор");
+            showStatus("Сначала нужно выбрать курс во вкладке \"Мои курсы\", чтобы открыть конструктор");
         } else {
             showTeacherCourseBuilderPage();
             showStatus("Открыт конструктор выбранного курса");
@@ -1029,11 +1363,11 @@ void MainWindow::showTestPage()
     if (m_selectedTest.id == kInvalidId) {
         m_testRunnerPage->showPlaceholder(
             "Тест не выбран",
-            "Сначала открой курс и нажми \"Начать тест\" на карточке нужного теста.");
+            "Сначала нужно открыть курс и нажать \"Начать тест\" на карточке нужного теста.");
         if (isTeacherMode()) {
-            showStatus("В teacher-режиме это пока просмотрщик тестов. Открой курс и выбери тест.");
+            showStatus("В teacher-режиме это пока просмотрщик тестов. Сначала нужно открыть курс и выбрать тест.");
         } else {
-            showStatus("Выбери тест внутри курса, чтобы начать прохождение");
+            showStatus("Сначала нужно выбрать тест внутри курса, чтобы начать прохождение");
         }
     } else {
         showStatus("Открыт экран прохождения теста");
@@ -1048,8 +1382,8 @@ void MainWindow::showResultsPage()
         setHeader(
             "Аналитика",
             isAdminMode()
-                ? "Выбирай любой курс системы и смотри попытки, средний результат и активность по тестам."
-                : "Выбирай курс преподавателя и смотри студентов, попытки и средний результат по тестам.");
+                ? "Здесь можно выбрать любой курс системы и посмотреть попытки, средний результат и активность по тестам."
+                : "Здесь можно выбрать курс преподавателя и посмотреть студентов, попытки и средний результат по тестам.");
         if (m_courses.isEmpty()) {
             m_teacherAnalyticsPage->showMessage(
                 isAdminMode()
@@ -1072,6 +1406,16 @@ void MainWindow::showResultsPage()
 
 void MainWindow::showStudentsPage()
 {
+    if (isAdminMode()) {
+        ui->stackedWidget->setCurrentWidget(m_adminAuditPage);
+        setActiveSection(m_studentsButton);
+        setHeader("Журнал действий", "Backend-аудит административных операций: кто, когда и что изменил в системе.");
+        m_adminAuditPage->showMessage("Загружаем backend-журнал действий...", false);
+        loadAdminAudit();
+        showStatus("Открыт admin-журнал действий");
+        return;
+    }
+
     if (!isTeacherMode()) {
         showStatus("Эта страница доступна только преподавателю");
         return;
@@ -1079,7 +1423,7 @@ void MainWindow::showStudentsPage()
 
     ui->stackedWidget->setCurrentWidget(m_teacherStudentsPage);
     setActiveSection(m_studentsButton);
-    setHeader("Студенты", "Выбери курс преподавателя и посмотри список записанных студентов и их прогресс.");
+    setHeader("Студенты", "Выбор курса преподавателя покажет список записанных студентов и их прогресс.");
     if (m_courses.isEmpty()) {
         m_teacherStudentsPage->showMessage("Сначала нужен хотя бы один курс преподавателя.", false);
     } else if (m_teacherStudentsPage->selectedCourseId() >= 0) {
@@ -1103,6 +1447,7 @@ void MainWindow::showProfilePage()
 void MainWindow::onLogoutClicked()
 {
     m_apiClient->setToken(QString());
+    updateFooterStatus("Подключение: завершение сессии", false);
     m_session = SessionData{};
     m_adminOverview = AdminOverviewData{};
     m_courses.clear();
@@ -1176,7 +1521,7 @@ void MainWindow::onEnrollRequested(int courseId)
     }
 
     if (courseId < 0) {
-        showStatus("Сначала выбери корректный курс");
+        showStatus("Сначала нужно выбрать корректный курс");
         return;
     }
 
@@ -1264,12 +1609,12 @@ void MainWindow::onBackFromTestRequested()
 void MainWindow::onSubmitTestRequested(int testId, const QVector<QPair<int, int>> &answers)
 {
     if (testId < 0) {
-        showStatus("Сначала открой тест");
+        showStatus("Сначала нужно открыть тест");
         return;
     }
 
     if (answers.isEmpty()) {
-        showStatus("Выбери хотя бы один ответ перед отправкой");
+        showStatus("Перед отправкой нужно выбрать хотя бы один ответ");
         return;
     }
 
@@ -1286,6 +1631,9 @@ void MainWindow::onSubmitTestRequested(int testId, const QVector<QPair<int, int>
 
             AttemptData normalizedResult = result;
             normalizedResult.testId = testId;
+            if (normalizedResult.courseId < 0) {
+                normalizedResult.courseId = m_selectedCourse.id;
+            }
             normalizedResult.testTitle = m_selectedTest.title;
             normalizedResult.submittedAt = QDateTime::currentDateTime().toString("dd.MM.yyyy HH:mm");
             m_testRunnerPage->showResult(normalizedResult);
@@ -1328,6 +1676,29 @@ void MainWindow::showStatus(const QString &status)
     ui->statusLabel->setText(status);
 }
 
+void MainWindow::updateFooterStatus(const QString &status, bool connected)
+{
+    ui->connectionStatusLabel->setText(status);
+    ui->connectionDotLabel->setStyleSheet(QString("color: %1; font-size: 14px; font-weight: 700;")
+        .arg(connected ? "#22c55e" : "#f97316"));
+}
+
+void MainWindow::checkBackendHealth()
+{
+    m_apiClient->checkHealth(
+        this,
+        [this](const QString &) {
+            updateFooterStatus(
+                QString("Подключение: активно • %1").arg(QDateTime::currentDateTime().toString("HH:mm")),
+                true);
+        },
+        [this](const QString &) {
+            updateFooterStatus(
+                QString("Подключение: нет ответа • %1").arg(QDateTime::currentDateTime().toString("HH:mm")),
+                false);
+        });
+}
+
 void MainWindow::showCourseDetailsPage()
 {
     if (isTeacherMode()) {
@@ -1353,7 +1724,7 @@ void MainWindow::showTeacherCourseBuilderPage()
         "Конструктор курса",
         isAdminMode()
             ? "Административный конструктор курса: уроки, материалы и тесты с системным уровнем доступа."
-            : "Собирай курс по шагам: уроки, материалы и тесты внутри teacher-кабинета.");
+            : "Курс собирается по шагам: уроки, материалы и тесты внутри teacher-кабинета.");
 }
 
 void MainWindow::showTeacherTestEditorPage()
@@ -1374,7 +1745,7 @@ void MainWindow::showTestRunnerPage()
     if (isTeacherMode()) {
         setHeader("Тесты", "Пока это режим просмотра теста. Позже здесь появится полноценный teacher test editor.");
     } else {
-        setHeader("Тесты", "Проходи тест шаг за шагом и сразу отправляй ответы на проверку.");
+        setHeader("Тесты", "Прохождение теста идёт шаг за шагом с отправкой ответов на проверку.");
     }
 }
 
@@ -1389,6 +1760,7 @@ void MainWindow::loadCourses()
         this,
         [this](const QVector<CourseData> &courses) {
             m_courses = visibleCoursesForCurrentRole(courses);
+            applyStudentProgressToCourses();
             m_dashboardPage->setCourses(m_courses);
             m_profilePage->setCourses(m_courses);
 
@@ -1402,11 +1774,12 @@ void MainWindow::loadCourses()
                 m_coursesPage->showPlaceholder(
                     isTeacherMode() ? "У преподавателя пока нет курсов" : isAdminMode() ? "В системе пока нет курсов" : "Курсов пока нет",
                     isTeacherMode()
-                        ? "Создай первый курс во вкладке \"Создать курс\", и он сразу появится здесь."
+                        ? "После создания первого курса во вкладке \"Создать курс\" он сразу появится здесь."
                         : isAdminMode()
                             ? "Когда в системе появятся курсы, администратор увидит их здесь вместе с общей аналитикой."
                         : "Сервер пока не вернул ни одного курса. Позже здесь появятся учебные карточки.");
                 showStatus("Каталог курсов пока пуст");
+                updateFooterStatus("Подключение: активно", true);
                 return;
             }
 
@@ -1432,6 +1805,7 @@ void MainWindow::loadCourses()
             }
 
             showStatus("Курсы загружены");
+            updateFooterStatus("Подключение: активно", true);
         },
         [this](const QString &error) {
             if (isTeacherMode()) {
@@ -1448,6 +1822,7 @@ void MainWindow::loadCourses()
                 "Не удалось загрузить курсы",
                 error);
             showStatus(error);
+            updateFooterStatus("Подключение: ошибка API", false);
             qDebug() << "Load courses error:" << error;
         });
 }
@@ -1476,13 +1851,23 @@ void MainWindow::loadAttempts()
         this,
         [this](const QVector<AttemptData> &attempts) {
             m_attempts = attempts;
+            applyStudentProgressToCourses();
+            m_dashboardPage->setCourses(m_courses);
+            m_coursesPage->setCourses(m_courses);
+            m_profilePage->setCourses(m_courses);
+            refreshSelectedCourseFromCache();
+            if (m_selectedCourse.id != kInvalidId) {
+                m_courseDetailsPage->setCourse(m_selectedCourse);
+            }
             m_dashboardPage->setAttempts(attempts);
             m_attemptsPage->setAttempts(attempts);
             m_profilePage->setAttempts(attempts);
+            updateFooterStatus("Подключение: активно", true);
         },
         [this](const QString &error) {
             m_attemptsPage->showError(error);
             showStatus(error);
+            updateFooterStatus("Подключение: ошибка API", false);
             qDebug() << "Load attempts error:" << error;
         });
 }
@@ -1506,6 +1891,7 @@ void MainWindow::loadAdminUsers()
 
             m_adminUsersPage->setUsers(visibleUsers);
             loadAdminOverview();
+            loadAdminAudit();
             m_adminUsersPage->showMessage(QString("Найдено пользователей: %1").arg(visibleUsers.size()), false);
             showStatus("Список пользователей обновлён");
         },
@@ -1514,6 +1900,23 @@ void MainWindow::loadAdminUsers()
             m_adminUsersPage->showMessage(error, true);
             showStatus(error);
             qDebug() << "Load admin users error:" << error;
+        });
+}
+
+void MainWindow::loadAdminAudit()
+{
+    if (!isAdminMode()) {
+        return;
+    }
+
+    m_apiClient->getAdminAudit(
+        this,
+        [this](const QVector<AdminAuditEventData> &events) {
+            m_adminAuditPage->setEvents(events);
+        },
+        [this](const QString &error) {
+            m_adminAuditPage->showMessage(QString("Не удалось загрузить backend-журнал: %1").arg(error), true);
+            qDebug() << "Load admin audit error:" << error;
         });
 }
 
@@ -1571,8 +1974,10 @@ void MainWindow::loadManagedQuestions(int testId)
             m_teacherTestEditorPage->setQuestions(questions);
 
             if (questions.isEmpty()) {
+                m_teacherCourseBuilderPage->showMessage("У выбранного теста пока нет вопросов", false);
                 showStatus("У выбранного теста пока нет вопросов");
             } else {
+                m_teacherCourseBuilderPage->showMessage("Вопросы теста загружены", false);
                 showStatus("Вопросы теста загружены");
             }
         },
@@ -1599,17 +2004,15 @@ void MainWindow::loadCourseLessonsAndMaterials(int courseId)
             m_selectedLessons = lessons;
             if (isTeacherMode() || isAdminMode()) {
                 m_teacherCourseBuilderPage->setLessons(lessons);
-            } else {
-                m_courseDetailsPage->setLessons(lessons);
             }
+            m_courseDetailsPage->setLessons(lessons);
 
             if (lessons.isEmpty()) {
                 m_selectedMaterials.clear();
                 if (isTeacherMode() || isAdminMode()) {
                     m_teacherCourseBuilderPage->setMaterials({});
-                } else {
-                    m_courseDetailsPage->setMaterials({}, {});
                 }
+                m_courseDetailsPage->setMaterials({}, {});
                 return;
             }
 
@@ -1638,9 +2041,8 @@ void MainWindow::loadCourseLessonsAndMaterials(int courseId)
 
                     if (isTeacherMode() || isAdminMode()) {
                         m_teacherCourseBuilderPage->setMaterials(m_selectedMaterials);
-                    } else {
-                        m_courseDetailsPage->setMaterials(materials, videos);
                     }
+                    m_courseDetailsPage->setMaterials(materials, videos);
 
                     showStatus("Материалы курса загружены");
                 },
@@ -1652,9 +2054,8 @@ void MainWindow::loadCourseLessonsAndMaterials(int courseId)
                     m_selectedMaterials.clear();
                     if (isTeacherMode() || isAdminMode()) {
                         m_teacherCourseBuilderPage->setMaterials({});
-                    } else {
-                        m_courseDetailsPage->setMaterials({}, {});
                     }
+                    m_courseDetailsPage->setMaterials({}, {});
 
                     showStatus(error);
                     qDebug() << "Load course materials error:" << error;
@@ -1670,10 +2071,9 @@ void MainWindow::loadCourseLessonsAndMaterials(int courseId)
             if (isTeacherMode() || isAdminMode()) {
                 m_teacherCourseBuilderPage->setLessons({});
                 m_teacherCourseBuilderPage->setMaterials({});
-            } else {
-                m_courseDetailsPage->setLessons({});
-                m_courseDetailsPage->setMaterials({}, {});
             }
+            m_courseDetailsPage->setLessons({});
+            m_courseDetailsPage->setMaterials({}, {});
             showStatus(error);
             qDebug() << "Load lessons error:" << error;
         });
@@ -1696,9 +2096,8 @@ void MainWindow::loadCourseTests(int courseId)
                 m_selectedQuestions.clear();
                 m_teacherCourseBuilderPage->setQuestions({});
                 m_teacherTestEditorPage->setQuestions({});
-            } else {
-                m_courseDetailsPage->setTests(tests);
             }
+            m_courseDetailsPage->setTests(tests);
             if (tests.isEmpty()) {
                 showStatus("Для этого курса тестов пока нет");
                 return;
@@ -1721,9 +2120,8 @@ void MainWindow::loadCourseTests(int courseId)
                 m_teacherCourseBuilderPage->setQuestions({});
                 m_teacherTestEditorPage->setTests({});
                 m_teacherTestEditorPage->setQuestions({});
-            } else {
-                m_courseDetailsPage->setTests({});
             }
+            m_courseDetailsPage->setTests({});
             showStatus(error);
             qDebug() << "Load tests error:" << error;
         });
@@ -1852,7 +2250,8 @@ void MainWindow::applyRoleMode()
         m_createCourseButton->hide();
         ui->testButton->setText("Пользователи");
         ui->resultsButton->setText("Аналитика");
-        m_studentsButton->hide();
+        m_studentsButton->setText("Журнал");
+        m_studentsButton->show();
         ui->profileButton->setText("Профиль");
     } else {
         ui->brandLabel->setText("LMS Client");
@@ -1864,6 +2263,35 @@ void MainWindow::applyRoleMode()
         ui->resultsButton->setText("Результаты");
         m_studentsButton->hide();
         ui->profileButton->setText("Личный кабинет");
+    }
+}
+
+void MainWindow::applyStudentProgressToCourses()
+{
+    if (isTeacherMode() || isAdminMode()) {
+        return;
+    }
+
+    QHash<int, QSet<int>> attemptedTestsByCourse;
+    QHash<int, QSet<int>> passedTestsByCourse;
+
+    for (const AttemptData &attempt : std::as_const(m_attempts)) {
+        if (attempt.courseId < 0 || attempt.testId < 0) {
+            continue;
+        }
+
+        attemptedTestsByCourse[attempt.courseId].insert(attempt.testId);
+        if (attempt.passed) {
+            passedTestsByCourse[attempt.courseId].insert(attempt.testId);
+        }
+    }
+
+    for (CourseData &course : m_courses) {
+        course.attemptedTestsCount = attemptedTestsByCourse.value(course.id).size();
+        course.passedTestsCount = passedTestsByCourse.value(course.id).size();
+        course.progressPercent = course.testsCount <= 0
+            ? 0
+            : qBound(0, course.passedTestsCount * 100 / course.testsCount, 100);
     }
 }
 

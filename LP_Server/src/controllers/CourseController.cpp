@@ -11,6 +11,24 @@
 
 using json = nlohmann::json;
 
+namespace {
+
+json courseToJson(const Course& c)
+{
+    return {
+        {"id", c.id},
+        {"title", c.title},
+        {"description", c.description},
+        {"teacherId", c.teacherId},
+        {"teacherName", c.teacherName},
+        {"lessonsCount", c.lessonsCount},
+        {"testsCount", c.testsCount},
+        {"studentsCount", c.studentsCount},
+    };
+}
+
+}
+
 CourseController::CourseController(CourseService& service, JwtService& jwtService):
     courseService(service),
     jwtService(jwtService) {}
@@ -39,15 +57,7 @@ void CourseController::registerRoutes(httplib::Server &server) {
             response["courses"] = json::array();
             
             for(const auto& c : courses) {
-                response["courses"].push_back({
-                    {"id", c.id},
-                    {"title", c.title},
-                    {"description", c.description},
-                    {"teacherId", c.teacherId},
-                    {"lessonsCount", c.lessonsCount},
-                    {"testsCount", c.testsCount},
-                    {"studentsCount", c.studentsCount},
-                });
+                response["courses"].push_back(courseToJson(c));
             }
 
             response["pagination"] = {
@@ -73,15 +83,7 @@ void CourseController::registerRoutes(httplib::Server &server) {
             response["courses"] = json::array();
 
             for (const auto& c : courses) {
-                response["courses"].push_back({
-                    {"id", c.id},
-                    {"title", c.title},
-                    {"description", c.description},
-                    {"teacherId", c.teacherId},
-                    {"lessonsCount", c.lessonsCount},
-                    {"testsCount", c.testsCount},
-                    {"studentsCount", c.studentsCount},
-                });
+                response["courses"].push_back(courseToJson(c));
             }
 
             res.set_content(response.dump(), "application/json");
@@ -138,7 +140,9 @@ void CourseController::registerRoutes(httplib::Server &server) {
                 response["students"].push_back({
                     {"id", student.id},
                     {"login", student.login},
-                    {"progress", student.progress}
+                    {"progress", student.progress},
+                    {"lessonProgress", student.lessonProgress},
+                    {"testProgress", student.testProgress}
                 });
             }
 
@@ -161,15 +165,7 @@ void CourseController::registerRoutes(httplib::Server &server) {
 
             Course course = courseService.createCourse(auth.userId, title, description);
 
-            json response{
-                {"id", course.id},
-                {"title", course.title},
-                {"description", course.description},
-                {"teacherId", course.teacherId},
-                {"lessonsCount", course.lessonsCount},
-                {"testsCount", course.testsCount},
-                {"studentsCount", course.studentsCount}
-            };
+            json response = courseToJson(course);
 
             res.status = 201;
             res.set_content(response.dump(), "application/json");
@@ -200,15 +196,7 @@ void CourseController::registerRoutes(httplib::Server &server) {
 
             Course course = courseService.updateCourse(courseId, title, description);
 
-            res.set_content(json{
-                {"id", course.id},
-                {"title", course.title},
-                {"description", course.description},
-                {"teacherId", course.teacherId},
-                {"lessonsCount", course.lessonsCount},
-                {"testsCount", course.testsCount},
-                {"studentsCount", course.studentsCount}
-            }.dump(), "application/json");
+            res.set_content(courseToJson(course).dump(), "application/json");
         } catch (const std::exception& ex) {
             controller_utils::handleRouteException(res, ex);
         }

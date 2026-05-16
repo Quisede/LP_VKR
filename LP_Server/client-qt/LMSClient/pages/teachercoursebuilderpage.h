@@ -48,6 +48,10 @@ signals:
     void createMaterialRequested(int lessonId, const QString &title, const QString &type, const QString &content);
     void updateMaterialRequested(int materialId, const QString &title, const QString &type, const QString &content);
     void deleteMaterialRequested(int materialId);
+    void materialDownloadRequested(int materialId);
+    void materialOpenExternalRequested(int materialId);
+    void materialLinkOpenRequested(const QString &url);
+    void materialTextPreviewRequested(const QString &title, const QString &content);
     void createTestRequested(int courseId, const QString &title);
     void updateTestRequested(int testId, const QString &title);
     void deleteTestRequested(int testId);
@@ -66,6 +70,8 @@ private:
     void refreshTestsList();
     void refreshQuestionsList();
     void refreshMaterialPreview();
+    void attachLocalMaterialFile();
+    QString materialContentForSubmit() const;
     QStringList questionOptionTexts() const;
     void setQuestionOptionTexts(const QStringList &options);
     int selectedLessonId() const;
@@ -80,6 +86,8 @@ private:
     QVector<MaterialData> m_materials;
     QVector<TestData> m_tests;
     QVector<QuestionData> m_questions;
+    QString m_embeddedMaterialPayload;
+    bool m_syncingMaterialContent = false;
 
     QLabel *m_courseTitleLabel;
     QLabel *m_courseDescriptionLabel;
@@ -110,7 +118,11 @@ private:
     QTextEdit *m_materialContentEdit;
     QTextEdit *m_materialPreviewEdit;
     QPushButton *m_addMaterialButton;
+    QPushButton *m_pickMaterialFileButton;
     QPushButton *m_loadMaterialButton;
+    QPushButton *m_previewMaterialButton;
+    QPushButton *m_openMaterialButton;
+    QPushButton *m_downloadMaterialButton;
     QPushButton *m_updateMaterialButton;
     QPushButton *m_deleteMaterialButton;
 

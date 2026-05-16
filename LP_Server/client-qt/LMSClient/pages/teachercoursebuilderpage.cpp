@@ -2,10 +2,15 @@
 #include "../ui/uistyles.h"
 
 #include <QComboBox>
+#include <QFile>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -19,6 +24,8 @@
 #include <utility>
 
 namespace {
+
+constexpr qint64 kMaxEmbeddedMaterialBytes = 5 * 1024 * 1024;
 
 void appendBuilderCard(QListWidget *list, const QString &title, const QString &subtitle)
 {
@@ -45,6 +52,78 @@ void appendBuilderCard(QListWidget *list, const QString &title, const QString &s
 
     list->addItem(item);
     list->setItemWidget(item, card);
+}
+
+QString materialTypeFromSuffix(const QString &suffix)
+{
+    const QString normalized = suffix.toLower();
+    if (normalized == "pdf") {
+        return "pdf";
+    }
+    if (normalized == "doc") {
+        return "doc";
+    }
+    if (normalized == "docx") {
+        return "docx";
+    }
+    if (normalized == "txt" || normalized == "md") {
+        return "text";
+    }
+    return "file";
+}
+
+QString materialMimeFromType(const QString &type)
+{
+    if (type == "pdf") {
+        return "application/pdf";
+    }
+    if (type == "doc") {
+        return "application/msword";
+    }
+    if (type == "docx") {
+        return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    }
+    if (type == "text") {
+        return "text/plain";
+    }
+    return "application/octet-stream";
+}
+
+bool parseEmbeddedFileMaterial(const QString &content, QJsonObject *payload)
+{
+    const QJsonDocument doc = QJsonDocument::fromJson(content.toUtf8());
+    if (!doc.isObject()) {
+        return false;
+    }
+
+    const QJsonObject object = doc.object();
+    if (object.value("kind").toString() != "embedded-file") {
+        return false;
+    }
+
+    if (payload != nullptr) {
+        *payload = object;
+    }
+    return true;
+}
+
+QString materialPreviewText(const MaterialData &material)
+{
+    QJsonObject filePayload;
+    if (parseEmbeddedFileMaterial(material.content, &filePayload)) {
+        const QString fileName = filePayload.value("fileName").toString(material.title);
+        const QString mime = filePayload.value("mimeType").toString("application/octet-stream");
+        const int size = filePayload.value("size").toInt(0);
+        return QString("Тип: %1\nФайл: %2\nMIME: %3\nРазмер: %4 КБ\n\nФайл встроен в материал и будет доступен студенту после загрузки курса.")
+            .arg(material.type)
+            .arg(fileName)
+            .arg(mime)
+            .arg((size + 1023) / 1024);
+    }
+
+    return QString("Тип: %1\n\n%2")
+        .arg(material.type.isEmpty() ? "text" : material.type)
+        .arg(material.content.isEmpty() ? "Материал пока пуст." : material.content);
 }
 
 QFrame *createSectionCard(const QString &title, QWidget *parent, QVBoxLayout **contentLayout)
@@ -111,7 +190,7 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     m_courseTitleLabel->setObjectName("sectionTitleLabel");
 
     m_courseDescriptionLabel = new QLabel(
-        "Выбери курс во вкладке \"Мои курсы\", чтобы начать оформление структуры курса.",
+        "Выберите курс во вкладке \"Мои курсы\", чтобы начать оформление структуры курса.",
         pageCard);
     m_courseDescriptionLabel->setObjectName("sectionHintLabel");
     m_courseDescriptionLabel->setWordWrap(true);
@@ -186,7 +265,7 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     summaryLayout->addWidget(createSummaryCard("Тесты", &m_testsSummaryLabel));
 
     auto *overviewNote = new QLabel(
-        "Собери структуру курса по шагам: сначала уроки, затем привяжи к ним материалы и после этого добавь тесты.",
+        "Структура курса собирается по шагам: сначала уроки, затем привязка материалов и после этого тесты.",
         overviewTab);
     overviewNote->setObjectName("sectionHintLabel");
     overviewNote->setWordWrap(true);
@@ -224,7 +303,7 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     QVBoxLayout *lessonFormLayout = nullptr;
     auto *lessonFormCard = createSectionCard("Добавить урок", lessonsTab, &lessonFormLayout);
     auto *lessonFormHint = new QLabel(
-        "Сначала задай понятное название урока, затем добавь краткое содержание или основной учебный текст.",
+        "Сначала нужно задать понятное название урока, затем добавить краткое содержание или основной учебный текст.",
         lessonFormCard);
     lessonFormHint->setObjectName("sectionHintLabel");
     lessonFormHint->setWordWrap(true);
@@ -292,7 +371,7 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     QVBoxLayout *materialFormLayout = nullptr;
     auto *materialFormCard = createSectionCard("Добавить материал", materialsTab, &materialFormLayout);
     auto *materialFormHint = new QLabel(
-        "Материал всегда привязан к уроку. Для video добавляй ссылку, для text — краткий учебный контент.",
+        "Материал всегда привязан к уроку. Можно добавить текст, ссылку, видео или прикрепить PDF/DOC/DOCX/TXT файл с компьютера.",
         materialFormCard);
     materialFormHint->setObjectName("sectionHintLabel");
     materialFormHint->setWordWrap(true);
@@ -317,7 +396,7 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     m_materialTitleEdit->setMinimumHeight(48);
 
     m_materialTypeCombo = ui_styles::createComboBox(materialFormCard);
-    m_materialTypeCombo->addItems({"text", "video", "link"});
+    m_materialTypeCombo->addItems({"text", "video", "link", "pdf", "doc", "docx", "file"});
     ui_styles::applyComboBoxStyle(m_materialTypeCombo);
 
     m_materialContentEdit = new QTextEdit(materialFormCard);
@@ -333,8 +412,16 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
 
     m_addMaterialButton = new QPushButton("Добавить материал", materialFormCard);
     m_addMaterialButton->setObjectName("cardAccentButton");
+    m_pickMaterialFileButton = new QPushButton("Выбрать файл", materialFormCard);
+    m_pickMaterialFileButton->setObjectName("cardGhostButton");
     m_loadMaterialButton = new QPushButton("Загрузить материал в форму", materialFormCard);
     m_loadMaterialButton->setObjectName("cardGhostButton");
+    m_previewMaterialButton = new QPushButton("Предпросмотр", materialFormCard);
+    m_previewMaterialButton->setObjectName("cardGhostButton");
+    m_openMaterialButton = new QPushButton("Открыть", materialFormCard);
+    m_openMaterialButton->setObjectName("cardGhostButton");
+    m_downloadMaterialButton = new QPushButton("Скачать", materialFormCard);
+    m_downloadMaterialButton->setObjectName("cardGhostButton");
     m_updateMaterialButton = new QPushButton("Сохранить изменения материала", materialFormCard);
     m_updateMaterialButton->setObjectName("cardAccentButton");
     m_deleteMaterialButton = new QPushButton("Удалить материал", materialFormCard);
@@ -343,8 +430,16 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     auto *materialPrimaryRow = new QHBoxLayout();
     materialPrimaryRow->setSpacing(10);
     materialPrimaryRow->addWidget(m_addMaterialButton);
+    materialPrimaryRow->addWidget(m_pickMaterialFileButton);
     materialPrimaryRow->addWidget(m_loadMaterialButton);
     materialPrimaryRow->addStretch();
+
+    auto *materialPreviewActionsRow = new QHBoxLayout();
+    materialPreviewActionsRow->setSpacing(10);
+    materialPreviewActionsRow->addWidget(m_previewMaterialButton);
+    materialPreviewActionsRow->addWidget(m_openMaterialButton);
+    materialPreviewActionsRow->addWidget(m_downloadMaterialButton);
+    materialPreviewActionsRow->addStretch();
 
     auto *materialDangerRow = new QHBoxLayout();
     materialDangerRow->setSpacing(10);
@@ -361,6 +456,7 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     materialForm->addRow("Предпросмотр", m_materialPreviewEdit);
     materialFormLayout->addLayout(materialForm);
     materialFormLayout->addLayout(materialPrimaryRow);
+    materialFormLayout->addLayout(materialPreviewActionsRow);
     materialFormLayout->addLayout(materialDangerRow);
     materialFormLayout->addStretch();
 
@@ -655,7 +751,12 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
         updateActionState();
     });
     connect(m_materialTitleEdit, &QLineEdit::textChanged, this, [this]() { updateActionState(); });
-    connect(m_materialContentEdit, &QTextEdit::textChanged, this, [this]() { updateActionState(); });
+    connect(m_materialContentEdit, &QTextEdit::textChanged, this, [this]() {
+        if (!m_syncingMaterialContent && !m_materialContentEdit->toPlainText().startsWith("Встроенный файл:")) {
+            m_embeddedMaterialPayload.clear();
+        }
+        updateActionState();
+    });
     connect(m_testTitleEdit, &QLineEdit::textChanged, this, [this]() { updateActionState(); });
     connect(m_questionTextEdit, &QTextEdit::textChanged, this, [this]() { updateActionState(); });
     connect(m_optionOneEdit, &QLineEdit::textChanged, this, [this]() { updateActionState(); });
@@ -734,7 +835,10 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
             selectedLessonId(),
             m_materialTitleEdit->text().trimmed(),
             m_materialTypeCombo->currentText(),
-            m_materialContentEdit->toPlainText().trimmed());
+            materialContentForSubmit());
+    });
+    connect(m_pickMaterialFileButton, &QPushButton::clicked, this, [this]() {
+        attachLocalMaterialFile();
     });
     connect(m_loadMaterialButton, &QPushButton::clicked, this, [this]() {
         const int materialId = selectedMaterialId();
@@ -746,12 +850,52 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
             }
         }
     });
+    connect(m_previewMaterialButton, &QPushButton::clicked, this, [this]() {
+        const int materialId = selectedMaterialId();
+        for (const MaterialData &material : std::as_const(m_materials)) {
+            if (material.id != materialId) {
+                continue;
+            }
+
+            QJsonObject payload;
+            if (parseEmbeddedFileMaterial(material.content, &payload)) {
+                emit materialOpenExternalRequested(material.id);
+            } else if (material.type == "link" || material.type == "video") {
+                emit materialLinkOpenRequested(material.content);
+            } else {
+                emit materialTextPreviewRequested(material.title, material.content);
+            }
+            return;
+        }
+    });
+    connect(m_openMaterialButton, &QPushButton::clicked, this, [this]() {
+        const int materialId = selectedMaterialId();
+        for (const MaterialData &material : std::as_const(m_materials)) {
+            if (material.id != materialId) {
+                continue;
+            }
+
+            if (material.type == "link" || material.type == "video") {
+                emit materialLinkOpenRequested(material.content);
+            } else if (parseEmbeddedFileMaterial(material.content, nullptr)) {
+                emit materialOpenExternalRequested(material.id);
+            } else {
+                emit materialTextPreviewRequested(material.title, material.content);
+            }
+            return;
+        }
+    });
+    connect(m_downloadMaterialButton, &QPushButton::clicked, this, [this]() {
+        if (selectedMaterialId() >= 0) {
+            emit materialDownloadRequested(selectedMaterialId());
+        }
+    });
     connect(m_updateMaterialButton, &QPushButton::clicked, this, [this]() {
         emit updateMaterialRequested(
             m_editingMaterialId,
             m_materialTitleEdit->text().trimmed(),
             m_materialTypeCombo->currentText(),
-            m_materialContentEdit->toPlainText().trimmed());
+            materialContentForSubmit());
     });
     connect(m_deleteMaterialButton, &QPushButton::clicked, this, [this]() {
         emit deleteMaterialRequested(m_editingMaterialId);
@@ -834,7 +978,7 @@ void TeacherCourseBuilderPage::clearBuilder()
     m_editingQuestionId = -1;
 
     m_courseTitleLabel->setText("Конструктор курса");
-    m_courseDescriptionLabel->setText("Выбери курс во вкладке \"Мои курсы\", чтобы начать оформление структуры курса.");
+    m_courseDescriptionLabel->setText("Выберите курс во вкладке \"Мои курсы\", чтобы начать оформление структуры курса.");
     showMessage("Сейчас конструктор ждёт выбранный курс.", false);
 
     clearLessonDraft();
@@ -857,7 +1001,7 @@ void TeacherCourseBuilderPage::setCourse(const CourseData &course)
     m_courseTitleLabel->setText(course.title.isEmpty() ? "Курс без названия" : course.title);
     m_courseDescriptionLabel->setText(
         course.description.isEmpty()
-            ? "У курса пока нет описания. Добавь структуру ниже."
+            ? "У курса пока нет описания. Структуру можно добавить ниже."
             : course.description);
     refreshOverview();
     updateActionState();
@@ -917,6 +1061,7 @@ void TeacherCourseBuilderPage::clearLessonDraft()
 void TeacherCourseBuilderPage::clearMaterialDraft()
 {
     m_editingMaterialId = -1;
+    m_embeddedMaterialPayload.clear();
     m_materialTitleEdit->clear();
     m_materialContentEdit->clear();
     m_materialTypeCombo->setCurrentIndex(0);
@@ -996,7 +1141,18 @@ void TeacherCourseBuilderPage::populateMaterialDraft(const MaterialData &materia
     m_materialTitleEdit->setText(material.title);
     const int typeIndex = m_materialTypeCombo->findText(material.type);
     m_materialTypeCombo->setCurrentIndex(typeIndex >= 0 ? typeIndex : 0);
-    m_materialContentEdit->setText(material.content);
+    QJsonObject filePayload;
+    if (parseEmbeddedFileMaterial(material.content, &filePayload)) {
+        m_embeddedMaterialPayload = material.content;
+        m_syncingMaterialContent = true;
+        m_materialContentEdit->setText(QString("Встроенный файл: %1\nРазмер: %2 КБ")
+            .arg(filePayload.value("fileName").toString(material.title))
+            .arg((filePayload.value("size").toInt(0) + 1023) / 1024));
+        m_syncingMaterialContent = false;
+    } else {
+        m_embeddedMaterialPayload.clear();
+        m_materialContentEdit->setText(material.content);
+    }
     refreshMaterialPreview();
     updateActionState();
 }
@@ -1015,9 +1171,9 @@ void TeacherCourseBuilderPage::refreshOverview()
 
     if (!hasCourse) {
         m_stageChecklistLabel->setText(
-            "Шаг 1. Выбери курс во вкладке \"Мои курсы\".\n"
-            "Шаг 2. Добавь уроки, затем привяжи материалы.\n"
-            "Шаг 3. Настрой тесты и только после этого переходи к полноценной проверке курса.");
+            "Шаг 1. Выбрать курс во вкладке \"Мои курсы\".\n"
+            "Шаг 2. Добавление уроков и привязка материалов.\n"
+            "Шаг 3. Настройка тестов завершает базовую проверку структуры курса.");
         return;
     }
 
@@ -1027,14 +1183,14 @@ void TeacherCourseBuilderPage::refreshOverview()
         "Шаг 3. Тесты — %5 (%6)\n"
         "Итог: %7")
         .arg(statusWord(lessonsReady))
-        .arg(lessonsReady ? QString("создано %1").arg(m_lessons.size()) : QString("сначала добавь первый урок"))
+        .arg(lessonsReady ? QString("создано %1").arg(m_lessons.size()) : QString("сначала нужен первый урок"))
         .arg(statusWord(materialsReady))
         .arg(materialsReady ? QString("добавлено %1").arg(m_materials.size()) : QString("привяжи материалы к урокам"))
         .arg(statusWord(testsReady))
         .arg(testsReady ? QString("создано %1").arg(m_tests.size()) : QString("настрой хотя бы один тест"))
         .arg(builderReady
             ? "структура курса уже выглядит полной, можно идти в студентов и аналитику."
-            : "конструктор ещё не завершён: добавь недостающие блоки, чтобы курс стал рабочим."));
+            : "конструктор ещё не завершён: нужны недостающие блоки, чтобы курс стал рабочим."));
 }
 
 void TeacherCourseBuilderPage::refreshLessonsList()
@@ -1045,7 +1201,7 @@ void TeacherCourseBuilderPage::refreshLessonsList()
         appendBuilderCard(
             m_lessonsList,
             "Уроков пока нет",
-            "Добавь первый урок через форму справа, и он сразу появится в структуре курса.");
+            "Первый урок можно добавить через форму справа, и он сразу появится в структуре курса.");
         return;
     }
 
@@ -1091,8 +1247,8 @@ void TeacherCourseBuilderPage::refreshMaterialsList()
     if (lessonId < 0) {
         appendBuilderCard(
             m_materialsList,
-            "Сначала добавь урок",
-            "Материалы привязываются к урокам, поэтому сначала создай хотя бы один урок.");
+            "Сначала нужен урок",
+            "Материалы привязываются к урокам, поэтому сначала нужно создать хотя бы один урок.");
         return;
     }
 
@@ -1114,7 +1270,7 @@ void TeacherCourseBuilderPage::refreshMaterialsList()
         appendBuilderCard(
             m_materialsList,
             "Материалов для этого урока пока нет",
-            "Выбери тип материала и добавь первый текст, ссылку или видео.");
+            "Нужно выбрать тип материала и добавить первый текст, ссылку или видео.");
     }
 
     refreshMaterialPreview();
@@ -1128,7 +1284,7 @@ void TeacherCourseBuilderPage::refreshTestsList()
         appendBuilderCard(
             m_testsList,
             "Тестов пока нет",
-            "Создай первый тест курса, чтобы позже перейти к редактору вопросов.");
+            "Сначала нужно создать первый тест курса, чтобы позже перейти к редактору вопросов.");
         return;
     }
 
@@ -1174,8 +1330,8 @@ void TeacherCourseBuilderPage::refreshQuestionsList()
     if (testId < 0) {
         appendBuilderCard(
             m_questionsList,
-            "Сначала создай тест",
-            "После этого выбери его в форме справа и начни добавлять вопросы.");
+            "Сначала нужен тест",
+            "После этого нужно выбрать его в форме справа и начать добавлять вопросы.");
         return;
     }
 
@@ -1183,7 +1339,7 @@ void TeacherCourseBuilderPage::refreshQuestionsList()
         appendBuilderCard(
             m_questionsList,
             "Вопросов пока нет",
-            "Добавь первый вопрос и четыре варианта ответа через форму справа.");
+            "Первый вопрос и четыре варианта ответа добавляются через форму справа.");
         return;
     }
 
@@ -1208,7 +1364,17 @@ void TeacherCourseBuilderPage::refreshMaterialPreview()
 {
     const int materialId = selectedMaterialId();
     if (materialId < 0) {
-        m_materialPreviewEdit->setPlainText("Выбери материал в списке слева, чтобы увидеть его содержимое.");
+        QJsonObject draftPayload;
+        if (parseEmbeddedFileMaterial(materialContentForSubmit(), &draftPayload)) {
+            MaterialData draft;
+            draft.title = m_materialTitleEdit->text();
+            draft.type = m_materialTypeCombo->currentText();
+            draft.content = materialContentForSubmit();
+            m_materialPreviewEdit->setPlainText(materialPreviewText(draft));
+            return;
+        }
+
+        m_materialPreviewEdit->setPlainText("Выберите материал в списке слева, чтобы увидеть его содержимое.");
         return;
     }
 
@@ -1217,14 +1383,82 @@ void TeacherCourseBuilderPage::refreshMaterialPreview()
             continue;
         }
 
-        const QString preview = QString("Тип: %1\n\n%2")
-                                    .arg(material.type.isEmpty() ? "text" : material.type)
-                                    .arg(material.content.isEmpty() ? "Материал пока пуст." : material.content);
-        m_materialPreviewEdit->setPlainText(preview);
+        m_materialPreviewEdit->setPlainText(materialPreviewText(material));
         return;
     }
 
     m_materialPreviewEdit->setPlainText("Предпросмотр материала недоступен.");
+}
+
+void TeacherCourseBuilderPage::attachLocalMaterialFile()
+{
+    const QString path = QFileDialog::getOpenFileName(
+        this,
+        "Выбрать материал",
+        QString(),
+        "Учебные материалы (*.pdf *.doc *.docx *.txt *.md);;PDF (*.pdf);;Word (*.doc *.docx);;Текст (*.txt *.md);;Все файлы (*)");
+
+    if (path.isEmpty()) {
+        return;
+    }
+
+    QFileInfo fileInfo(path);
+    if (!fileInfo.exists() || !fileInfo.isFile()) {
+        showMessage("Выбранный файл недоступен.", true);
+        return;
+    }
+
+    if (fileInfo.size() > kMaxEmbeddedMaterialBytes) {
+        showMessage("Файл слишком большой. Сейчас поддерживаются материалы до 5 МБ.", true);
+        return;
+    }
+
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        showMessage("Не удалось открыть файл для чтения.", true);
+        return;
+    }
+
+    const QByteArray bytes = file.readAll();
+    const QString type = materialTypeFromSuffix(fileInfo.suffix());
+    const QJsonObject payload{
+        {"kind", "embedded-file"},
+        {"fileName", fileInfo.fileName()},
+        {"mimeType", materialMimeFromType(type)},
+        {"size", static_cast<int>(bytes.size())},
+        {"data", QString::fromLatin1(bytes.toBase64())}
+    };
+
+    const int typeIndex = m_materialTypeCombo->findText(type);
+    m_materialTypeCombo->setCurrentIndex(typeIndex >= 0 ? typeIndex : m_materialTypeCombo->findText("file"));
+    if (m_materialTitleEdit->text().trimmed().isEmpty()) {
+        m_materialTitleEdit->setText(fileInfo.completeBaseName());
+    }
+    m_embeddedMaterialPayload = QString::fromUtf8(QJsonDocument(payload).toJson(QJsonDocument::Compact));
+    m_syncingMaterialContent = true;
+    m_materialContentEdit->setPlainText(QString("Встроенный файл: %1\nРазмер: %2 КБ")
+        .arg(fileInfo.fileName())
+        .arg((bytes.size() + 1023) / 1024));
+    m_syncingMaterialContent = false;
+    m_materialPreviewEdit->setPlainText(materialPreviewText(MaterialData{
+        -1,
+        selectedLessonId(),
+        m_materialTitleEdit->text().trimmed(),
+        m_materialTypeCombo->currentText(),
+        m_embeddedMaterialPayload
+    }));
+    showMessage(QString("Файл \"%1\" прикреплён к форме материала. Теперь можно сохранить материал.").arg(fileInfo.fileName()), false);
+    updateActionState();
+}
+
+QString TeacherCourseBuilderPage::materialContentForSubmit() const
+{
+    if (!m_embeddedMaterialPayload.isEmpty()
+        && m_materialContentEdit->toPlainText().startsWith("Встроенный файл:")) {
+        return m_embeddedMaterialPayload;
+    }
+
+    return m_materialContentEdit->toPlainText().trimmed();
 }
 
 QStringList TeacherCourseBuilderPage::questionOptionTexts() const
@@ -1315,6 +1549,19 @@ void TeacherCourseBuilderPage::updateActionState()
     const bool hasTests = !m_tests.isEmpty();
     const bool hasSelectedLesson = selectedLessonId() >= 0;
     const bool hasSelectedTest = selectedManagedTestId() >= 0;
+    const int currentMaterialId = selectedMaterialId();
+    bool selectedMaterialIsFile = false;
+    bool selectedMaterialIsLink = false;
+    bool selectedMaterialIsVideo = false;
+    for (const MaterialData &material : std::as_const(m_materials)) {
+        if (material.id != currentMaterialId) {
+            continue;
+        }
+        selectedMaterialIsFile = parseEmbeddedFileMaterial(material.content, nullptr);
+        selectedMaterialIsLink = material.type == "link";
+        selectedMaterialIsVideo = material.type == "video";
+        break;
+    }
     const bool materialFormEnabled = hasCourse && hasLessons;
     const bool questionFormEnabled = hasCourse && hasTests && hasSelectedTest;
 
@@ -1335,15 +1582,33 @@ void TeacherCourseBuilderPage::updateActionState()
         && hasLessons
         && hasSelectedLesson
         && !m_materialTitleEdit->text().trimmed().isEmpty()
-        && !m_materialContentEdit->toPlainText().trimmed().isEmpty());
-    m_loadMaterialButton->setEnabled(selectedMaterialId() >= 0);
+        && !materialContentForSubmit().trimmed().isEmpty());
+    m_loadMaterialButton->setEnabled(currentMaterialId >= 0);
+    m_pickMaterialFileButton->setEnabled(materialFormEnabled && hasSelectedLesson);
+    m_previewMaterialButton->setEnabled(currentMaterialId >= 0);
+    m_previewMaterialButton->setText(selectedMaterialIsFile
+        ? "Открыть во внешнем приложении"
+        : selectedMaterialIsVideo
+            ? "Открыть видео"
+            : selectedMaterialIsLink
+                ? "Открыть ссылку"
+                : "Предпросмотр");
+    m_openMaterialButton->setEnabled(currentMaterialId >= 0);
+    m_openMaterialButton->setText(selectedMaterialIsFile
+        ? "Открыть файл"
+        : selectedMaterialIsVideo
+            ? "Открыть видео"
+            : selectedMaterialIsLink
+                ? "Открыть ссылку"
+                : "Открыть текст");
+    m_downloadMaterialButton->setEnabled(currentMaterialId >= 0 && selectedMaterialIsFile);
     m_updateMaterialButton->setEnabled(
         hasCourse
         && hasLessons
         && m_editingMaterialId >= 0
         && hasSelectedLesson
         && !m_materialTitleEdit->text().trimmed().isEmpty()
-        && !m_materialContentEdit->toPlainText().trimmed().isEmpty());
+        && !materialContentForSubmit().trimmed().isEmpty());
     m_deleteMaterialButton->setEnabled(m_editingMaterialId >= 0);
 
     m_addTestButton->setEnabled(
@@ -1387,11 +1652,11 @@ void TeacherCourseBuilderPage::updateActionState()
     m_materialPreviewEdit->setEnabled(true);
     m_materialsGuardLabel->setVisible(!materialFormEnabled || !hasSelectedLesson);
     if (!hasCourse) {
-        m_materialsGuardLabel->setText("Сначала выбери курс, а затем переходи к наполнению уроков материалами.");
+        m_materialsGuardLabel->setText("Сначала нужно выбрать курс, а затем перейти к наполнению уроков материалами.");
     } else if (!hasLessons) {
-        m_materialsGuardLabel->setText("Сначала создай хотя бы один урок. После этого здесь станет доступно добавление материалов.");
+        m_materialsGuardLabel->setText("Сначала нужно создать хотя бы один урок. После этого здесь станет доступно добавление материалов.");
     } else if (!hasSelectedLesson) {
-        m_materialsGuardLabel->setText("Выбери урок в выпадающем списке, чтобы привязать к нему материал.");
+        m_materialsGuardLabel->setText("Выберите урок в выпадающем списке, чтобы привязать к нему материал.");
     }
 
     m_questionTestCombo->setEnabled(hasCourse && hasTests);
@@ -1404,24 +1669,24 @@ void TeacherCourseBuilderPage::updateActionState()
     m_optionOrderCombo->setEnabled(questionFormEnabled);
     m_questionsGuardLabel->setVisible(!questionFormEnabled);
     if (!hasCourse) {
-        m_questionsGuardLabel->setText("Сначала выбери курс, затем настрой тесты и только после этого переходи к вопросам.");
+        m_questionsGuardLabel->setText("Сначала нужно выбрать курс, затем настроить тесты и только после этого перейти к вопросам.");
     } else if (!hasTests) {
-        m_questionsGuardLabel->setText("Сначала создай хотя бы один тест. После этого здесь можно будет собирать вопросы и правильные ответы.");
+        m_questionsGuardLabel->setText("Сначала нужно создать хотя бы один тест. После этого здесь можно будет собирать вопросы и правильные ответы.");
     } else if (!hasSelectedTest) {
-        m_questionsGuardLabel->setText("Выбери тест в списке или в выпадающем поле, чтобы начать наполнять его вопросами.");
+        m_questionsGuardLabel->setText("Выберите тест в списке или в выпадающем поле, чтобы начать наполнять его вопросами.");
     }
 
     if (!hasCourse) {
-        m_questionEditorSummaryLabel->setText("Сначала выбери курс. После этого здесь появится краткая сводка по выбранному тесту и переход к отдельному редактору.");
+        m_questionEditorSummaryLabel->setText("Сначала нужно выбрать курс. После этого здесь появится краткая сводка по выбранному тесту и переход к отдельному редактору.");
     } else if (!hasTests) {
-        m_questionEditorSummaryLabel->setText("У курса пока нет тестов. Создай хотя бы один тест в верхнем блоке, и тогда можно будет переходить к вопросам.");
+        m_questionEditorSummaryLabel->setText("У курса пока нет тестов. После создания хотя бы одного теста в верхнем блоке можно будет переходить к вопросам.");
     } else if (!hasSelectedTest) {
-        m_questionEditorSummaryLabel->setText("Выбери тест в списке слева. Здесь появится краткая сводка, а полное редактирование вопросов откроется в отдельном окне.");
+        m_questionEditorSummaryLabel->setText("Выберите тест в списке слева. Здесь появится краткая сводка, а полное редактирование вопросов откроется в отдельном окне.");
     } else {
         const int questionCount = m_questions.size();
         m_questionEditorSummaryLabel->setText(
             questionCount == 0
-                ? "У выбранного теста пока нет вопросов. Открой отдельный редактор и создай первый вопрос там."
+                ? "У выбранного теста пока нет вопросов. Отдельный редактор поможет создать первый вопрос."
                 : QString("У выбранного теста сейчас %1 вопросов. В builder оставляем только обзор, а глубокое редактирование ведём в отдельном редакторе.")
                     .arg(questionCount));
     }

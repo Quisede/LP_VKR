@@ -7,6 +7,7 @@
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QPushButton>
+#include <QVariant>
 #include <QVBoxLayout>
 
 namespace {
@@ -37,6 +38,19 @@ int totalStudents(const QVector<CourseData> &courses)
     return sum;
 }
 
+int averageProgress(const QVector<CourseData> &courses)
+{
+    if (courses.isEmpty()) {
+        return 0;
+    }
+
+    int sum = 0;
+    for (const auto &course : courses) {
+        sum += course.progressPercent;
+    }
+    return sum / courses.size();
+}
+
 QString teacherCourseStatsLine(const CourseData &course)
 {
     return QString("Уроков: %1  •  Тестов: %2  •  Студентов: %3")
@@ -61,13 +75,54 @@ const AttemptData *latestAttemptPtr(const QVector<AttemptData> &attempts)
     return &attempts.last();
 }
 
-void appendInfoCard(QListWidget *list, const QString &title, const QString &subtitle)
+const CourseData *recommendedStudentCourse(const QVector<CourseData> &courses)
+{
+    const CourseData *fallback = nullptr;
+    for (const CourseData &course : courses) {
+        if (fallback == nullptr) {
+            fallback = &course;
+        }
+
+        if (course.progressPercent > 0 && course.progressPercent < 100) {
+            return &course;
+        }
+    }
+
+    for (const CourseData &course : courses) {
+        if (course.progressPercent == 0) {
+            return &course;
+        }
+    }
+
+    return fallback;
+}
+
+const CourseData *teacherPriorityCourse(const QVector<CourseData> &courses)
+{
+    const CourseData *fallback = nullptr;
+    for (const CourseData &course : courses) {
+        if (fallback == nullptr) {
+            fallback = &course;
+        }
+
+        if (course.lessonsCount == 0 || course.testsCount == 0) {
+            return &course;
+        }
+    }
+    return fallback;
+}
+
+void appendInfoCard(QListWidget *list, const QString &title, const QString &subtitle, int courseId = -1)
 {
     auto *item = new QListWidgetItem();
     item->setSizeHint(QSize(0, 104));
+    item->setData(Qt::UserRole, courseId);
 
     auto *card = new QFrame(list);
     card->setObjectName("courseCard");
+    if (courseId >= 0) {
+        card->setCursor(Qt::PointingHandCursor);
+    }
 
     auto *layout = new QVBoxLayout(card);
     layout->setContentsMargins(16, 14, 16, 14);
@@ -153,6 +208,37 @@ DashboardPage::DashboardPage(QWidget *parent)
     summaryLayout->addWidget(createSummaryCard("Тесты", &m_testsTitleLabel, &m_testsValueLabel, &m_testsCaptionLabel, pageCard));
     summaryLayout->addWidget(createSummaryCard("Попытки", &m_attemptsTitleLabel, &m_attemptsValueLabel, &m_attemptsCaptionLabel, pageCard));
 
+    m_nextActionCard = new QFrame(pageCard);
+    m_nextActionCard->setObjectName("moduleCard");
+    m_nextActionCard->setMinimumHeight(138);
+    m_nextActionCard->setMaximumHeight(168);
+    auto *nextActionLayout = new QHBoxLayout(m_nextActionCard);
+    nextActionLayout->setContentsMargins(20, 18, 20, 18);
+    nextActionLayout->setSpacing(18);
+
+    auto *nextActionTextLayout = new QVBoxLayout();
+    nextActionTextLayout->setSpacing(6);
+    m_nextActionEyebrowLabel = new QLabel("Продолжить обучение", m_nextActionCard);
+    m_nextActionEyebrowLabel->setObjectName("sectionHintLabel");
+    m_nextActionTitleLabel = new QLabel("Следующий шаг пока не выбран", m_nextActionCard);
+    m_nextActionTitleLabel->setObjectName("courseCardTitleLabel");
+    m_nextActionTitleLabel->setWordWrap(true);
+    m_nextActionDescriptionLabel = new QLabel("Когда появятся курсы, здесь будет предложено самое полезное действие.", m_nextActionCard);
+    m_nextActionDescriptionLabel->setObjectName("courseCardDescriptionLabel");
+    m_nextActionDescriptionLabel->setWordWrap(true);
+    nextActionTextLayout->addWidget(m_nextActionEyebrowLabel);
+    nextActionTextLayout->addWidget(m_nextActionTitleLabel);
+    nextActionTextLayout->addWidget(m_nextActionDescriptionLabel);
+    nextActionTextLayout->addStretch();
+
+    m_nextActionButton = new QPushButton("Открыть", m_nextActionCard);
+    m_nextActionButton->setObjectName("cardAccentButton");
+    m_nextActionButton->setMinimumHeight(46);
+    m_nextActionButton->setMinimumWidth(180);
+
+    nextActionLayout->addLayout(nextActionTextLayout, 1);
+    nextActionLayout->addWidget(m_nextActionButton, 0, Qt::AlignVCenter);
+
     auto *contentColumns = new QHBoxLayout();
     contentColumns->setSpacing(14);
 
@@ -219,13 +305,14 @@ DashboardPage::DashboardPage(QWidget *parent)
     pageLayout->addWidget(m_welcomeLabel);
     pageLayout->addWidget(m_hintLabel);
     pageLayout->addLayout(summaryLayout);
+    pageLayout->addWidget(m_nextActionCard);
     pageLayout->addLayout(contentColumns);
 
     rootLayout->addWidget(pageCard);
 
     connect(m_primaryActionButton, &QPushButton::clicked, this, [this]() {
         if (m_role == "Teacher") {
-            emit openCreateCourseRequested();
+            emit openCourseBuilderRequested();
         } else if (m_role == "Admin") {
             emit openUsersRequested();
         } else {
@@ -236,7 +323,7 @@ DashboardPage::DashboardPage(QWidget *parent)
         if (m_role == "Teacher") {
             emit openCoursesRequested();
         } else if (m_role == "Admin") {
-            emit openCoursesRequested();
+            emit openAuditRequested();
         } else {
             emit openResultsRequested();
         }
@@ -254,13 +341,39 @@ DashboardPage::DashboardPage(QWidget *parent)
         if (m_role == "Teacher") {
             emit openAnalyticsRequested();
         } else if (m_role == "Admin") {
+            emit openCoursesRequested();
+        } else {
+            emit openProfileRequested();
+        }
+    });
+    connect(m_recentCoursesList, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+        bool ok = false;
+        const int courseId = item->data(Qt::UserRole).toInt(&ok);
+        if (ok && courseId >= 0) {
+            emit openCourseRequested(courseId);
+        }
+    });
+    connect(m_nextActionButton, &QPushButton::clicked, this, [this]() {
+        if (m_nextActionCourseId >= 0) {
+            emit openCourseRequested(m_nextActionCourseId);
+            return;
+        }
+
+        if (m_role == "Teacher") {
             emit openCreateCourseRequested();
+        } else if (m_role == "Admin") {
+            if (m_nextActionButton->text().contains("журнал", Qt::CaseInsensitive)) {
+                emit openAuditRequested();
+            } else {
+                emit openUsersRequested();
+            }
         } else {
             emit openCoursesRequested();
         }
     });
 
     refreshSummary();
+    refreshNextAction();
     refreshRecentCourses();
     refreshFocus();
 }
@@ -278,7 +391,7 @@ void DashboardPage::setRoleMode(const QString &role)
         m_recentCoursesTitleLabel->setText("Последние курсы преподавателя");
         m_focusTitleLabel->setText("Что сделать дальше");
         m_actionsTitleLabel->setText("Быстрые teacher-действия");
-        m_primaryActionButton->setText("Создать курс");
+        m_primaryActionButton->setText("Открыть конструктор");
         m_secondaryActionButton->setText("Мои курсы");
         m_tertiaryActionButton->setText("Студенты");
         m_quaternaryActionButton->setText("Аналитика");
@@ -292,9 +405,9 @@ void DashboardPage::setRoleMode(const QString &role)
         m_focusTitleLabel->setText("Системный фокус");
         m_actionsTitleLabel->setText("Быстрые admin-действия");
         m_primaryActionButton->setText("Пользователи");
-        m_secondaryActionButton->setText("Курсы");
+        m_secondaryActionButton->setText("Журнал");
         m_tertiaryActionButton->setText("Аналитика");
-        m_quaternaryActionButton->setText("Создать курс");
+        m_quaternaryActionButton->setText("Курсы");
     } else {
         m_hintLabel->setText(
             "Это стартовый экран платформы. Здесь можно быстро увидеть прогресс, доступные курсы и ближайшие шаги.");
@@ -307,10 +420,11 @@ void DashboardPage::setRoleMode(const QString &role)
         m_primaryActionButton->setText("Открыть курсы");
         m_secondaryActionButton->setText("Результаты");
         m_tertiaryActionButton->setText("Тесты");
-        m_quaternaryActionButton->setText("Продолжить");
+        m_quaternaryActionButton->setText("Профиль");
     }
 
     refreshSummary();
+    refreshNextAction();
     refreshRecentCourses();
     refreshFocus();
 }
@@ -327,6 +441,7 @@ void DashboardPage::setCourses(const QVector<CourseData> &courses)
 {
     m_courses = courses;
     refreshSummary();
+    refreshNextAction();
     refreshRecentCourses();
     refreshFocus();
 }
@@ -335,6 +450,7 @@ void DashboardPage::setAttempts(const QVector<AttemptData> &attempts)
 {
     m_attempts = attempts;
     refreshSummary();
+    refreshNextAction();
     refreshFocus();
 }
 
@@ -343,6 +459,7 @@ void DashboardPage::setAdminOverview(const AdminOverviewData &overview)
     m_adminOverview = overview;
     if (m_role == "Admin") {
         refreshSummary();
+        refreshNextAction();
         refreshFocus();
     }
 }
@@ -357,15 +474,15 @@ void DashboardPage::refreshSummary()
         const int students = totalStudents(m_courses);
         m_coursesCaptionLabel->setText(m_courses.isEmpty()
             ? "Пока нет ни одного курса."
-            : "Курсы, где ты преподаватель.");
+            : "Курсы преподавателя.");
         m_testsValueLabel->setText(QString::number(tests));
         m_testsCaptionLabel->setText(m_courses.isEmpty()
-            ? "Сначала создай первый курс."
+            ? "Сначала нужно создать первый курс."
             : QString("Всего уроков в курсах: %1").arg(lessons));
         m_attemptsValueLabel->setText(QString::number(students));
         m_attemptsCaptionLabel->setText(m_courses.isEmpty()
             ? "Пока нет активных направлений."
-            : "Студенты, записанные на твои курсы.");
+            : "Студенты, записанные на курсы преподавателя.");
         return;
     } else if (m_role == "Admin") {
         m_coursesValueLabel->setText(QString::number(m_adminOverview.coursesCount));
@@ -399,15 +516,90 @@ void DashboardPage::refreshSummary()
 
     m_coursesCaptionLabel->setText(m_courses.isEmpty()
         ? "Курсы пока недоступны."
-        : QString("Доступно уроков: %1").arg(totalLessons(m_courses)));
+        : QString("Доступно уроков: %1  •  Средний прогресс: %2%")
+            .arg(totalLessons(m_courses))
+            .arg(averageProgress(m_courses)));
     m_testsValueLabel->setText(QString("%1%").arg(QString::number(average, 'f', 1)));
     m_testsCaptionLabel->setText(m_attempts.isEmpty()
         ? "Средний результат появится после первого теста."
         : "Средний процент по всем попыткам.");
     m_attemptsValueLabel->setText(QString::number(m_attempts.size()));
     m_attemptsCaptionLabel->setText(m_attempts.isEmpty()
-        ? "Ты ещё не проходил тесты."
+        ? "Тесты пока не проходились."
         : QString("Успешно пройдено: %1").arg(passedCount));
+}
+
+void DashboardPage::refreshNextAction()
+{
+    m_nextActionCourseId = -1;
+
+    if (m_role == "Teacher") {
+        m_nextActionEyebrowLabel->setText("Рабочий приоритет");
+        const CourseData *course = teacherPriorityCourse(m_courses);
+        if (course == nullptr) {
+            m_nextActionTitleLabel->setText("Создать первый курс");
+            m_nextActionDescriptionLabel->setText("После создания курса здесь появится быстрый переход к наполнению уроками, материалами и тестами.");
+            m_nextActionButton->setText("Создать курс");
+            return;
+        }
+
+        m_nextActionCourseId = course->id;
+        m_nextActionTitleLabel->setText(course->title);
+        if (course->lessonsCount == 0) {
+            m_nextActionDescriptionLabel->setText("В курсе пока нет уроков. Лучше начать с базовой структуры и первого учебного материала.");
+        } else if (course->testsCount == 0) {
+            m_nextActionDescriptionLabel->setText(QString("В курсе уже %1 уроков, но пока нет тестов. Следующий шаг — добавить проверку знаний.")
+                .arg(course->lessonsCount));
+        } else {
+            m_nextActionDescriptionLabel->setText(QString("Курс содержит %1 уроков, %2 тестов и %3 студентов. Можно открыть конструктор для точечной доработки.")
+                .arg(course->lessonsCount)
+                .arg(course->testsCount)
+                .arg(course->studentsCount));
+        }
+        m_nextActionButton->setText("Открыть конструктор");
+        return;
+    }
+
+    if (m_role == "Admin") {
+        m_nextActionEyebrowLabel->setText("Системный приоритет");
+        if (m_adminOverview.totalUsers == 0) {
+            m_nextActionTitleLabel->setText("Проверить пользователей");
+            m_nextActionDescriptionLabel->setText("Пользователи ещё не загружены в обзор. Раздел пользователей поможет проверить роли и состав системы.");
+            m_nextActionButton->setText("Пользователи");
+            return;
+        }
+
+        m_nextActionTitleLabel->setText("Контроль платформы");
+        m_nextActionDescriptionLabel->setText(QString("В системе %1 пользователей, %2 курсов и %3 записей на курсы. Журнал покажет последние административные изменения.")
+            .arg(m_adminOverview.totalUsers)
+            .arg(m_adminOverview.coursesCount)
+            .arg(m_adminOverview.enrollmentsCount));
+        m_nextActionButton->setText("Открыть журнал");
+        return;
+    }
+
+    m_nextActionEyebrowLabel->setText("Продолжить обучение");
+    const CourseData *course = recommendedStudentCourse(m_courses);
+    if (course == nullptr) {
+        m_nextActionTitleLabel->setText("Выбрать первый курс");
+        m_nextActionDescriptionLabel->setText("Каталог курсов поможет выбрать направление и перейти к урокам, материалам и тестам.");
+        m_nextActionButton->setText("Открыть курсы");
+        return;
+    }
+
+    m_nextActionCourseId = course->id;
+    m_nextActionTitleLabel->setText(course->title);
+    if (course->progressPercent >= 100) {
+        m_nextActionDescriptionLabel->setText(QString("Курс уже закрыт по тестовому прогрессу. Можно повторить материалы или улучшить результат в тестах."));
+    } else if (course->progressPercent == 0) {
+        m_nextActionDescriptionLabel->setText(QString("Начните с уроков и материалов. В курсе доступно уроков: %1, тестов: %2.")
+            .arg(course->lessonsCount)
+            .arg(course->testsCount));
+    } else {
+        m_nextActionDescriptionLabel->setText(QString("Прогресс курса сейчас %1%. Следующий шаг — открыть курс и продолжить с незавершённых материалов или тестов.")
+            .arg(course->progressPercent));
+    }
+    m_nextActionButton->setText("Продолжить");
 }
 
 void DashboardPage::refreshRecentCourses()
@@ -419,7 +611,7 @@ void DashboardPage::refreshRecentCourses()
             m_recentCoursesList,
             m_role == "Teacher" ? "Курсов пока нет" : m_role == "Admin" ? "Системных курсов пока нет" : "Курсы пока не найдены",
             m_role == "Teacher"
-                ? "Создай первый курс, чтобы он появился в рабочем кабинете."
+                ? "Создание первого курса откроет его в рабочем кабинете."
                 : m_role == "Admin"
                     ? "Когда в системе появятся курсы, они сразу станут видны и в административном каталоге."
                 : "Когда курсы станут доступны, они появятся здесь.");
@@ -444,13 +636,16 @@ void DashboardPage::refreshRecentCourses()
                             : m_courses[i].description)
                         .arg(adminCourseStatsLine(m_courses[i]))
                     : m_courses[i].description.isEmpty()
-                        ? QString("Открой курс, чтобы посмотреть уроки, материалы и тесты.\nУроков: %1  •  Тестов: %2")
+                        ? QString("В курсе доступны уроки, материалы и тесты.\nУроков: %1  •  Тестов: %2  •  Прогресс: %3%")
                             .arg(m_courses[i].lessonsCount)
                             .arg(m_courses[i].testsCount)
-                        : QString("%1\nУроков: %2  •  Тестов: %3")
+                            .arg(m_courses[i].progressPercent)
+                        : QString("%1\nУроков: %2  •  Тестов: %3  •  Прогресс: %4%")
                             .arg(m_courses[i].description)
                             .arg(m_courses[i].lessonsCount)
-                            .arg(m_courses[i].testsCount));
+                            .arg(m_courses[i].testsCount)
+                            .arg(m_courses[i].progressPercent),
+            m_courses[i].id);
     }
 }
 
@@ -460,8 +655,8 @@ void DashboardPage::refreshFocus()
 
     if (m_role == "Teacher") {
         if (m_courses.isEmpty()) {
-            appendInfoCard(m_focusList, "Создай первый курс", "Начни с карточки \"Создать курс\", чтобы собрать teacher-flow целиком.");
-            appendInfoCard(m_focusList, "Подготовь структуру", "После создания курса добавь уроки, материалы и тесты.");
+            appendInfoCard(m_focusList, "Создание первого курса", "Начните с раздела \"Создать курс\", чтобы собрать teacher-flow целиком.");
+            appendInfoCard(m_focusList, "Подготовка структуры", "После создания курса можно добавить уроки, материалы и тесты.");
             return;
         }
 
@@ -469,27 +664,27 @@ void DashboardPage::refreshFocus()
         const int lessons = totalLessons(m_courses);
         appendInfoCard(
             m_focusList,
-            tests == 0 ? "Добавь первый тест" : "Открой конструктор курса",
+            tests == 0 ? "Первый тест" : "Конструктор курса",
             tests == 0
-                ? "У тебя уже " + QString::number(lessons) + " уроков. Следующий сильный шаг — подготовить тесты и проверки знаний."
+                ? "В курсах уже " + QString::number(lessons) + " уроков. Следующий сильный шаг — подготовить тесты и проверки знаний."
                 : "Структура уже живая: можно уточнить уроки, материалы и сценарии проверки знаний.");
         appendInfoCard(
             m_focusList,
-            totalStudents(m_courses) == 0 ? "Пригласи первых студентов" : "Проверь студентов и аналитику",
+            totalStudents(m_courses) == 0 ? "Первые студенты" : "Студенты и аналитика",
             totalStudents(m_courses) == 0
                 ? "Когда появятся записи на курс, здесь начнут отражаться реальные метрики по аудитории."
-                : "Открой студентов и аналитику, чтобы посмотреть вовлечённость и результаты по курсам.");
+                : "Разделы студентов и аналитики показывают вовлечённость и результаты по курсам.");
         return;
     } else if (m_role == "Admin") {
         if (m_adminOverview.totalUsers == 0) {
-            appendInfoCard(m_focusList, "Засей систему пользователями", "Начни с администраторов, преподавателей и студентов, чтобы платформа перестала быть пустой.");
-            appendInfoCard(m_focusList, "Создай первый курс", "После этого можно будет перейти к структуре контента и системной аналитике.");
+            appendInfoCard(m_focusList, "Первичные пользователи", "Начать лучше с администраторов, преподавателей и студентов, чтобы платформа перестала быть пустой.");
+            appendInfoCard(m_focusList, "Первый курс", "После этого можно будет перейти к структуре контента и системной аналитике.");
             return;
         }
 
         if (m_adminOverview.teachersCount == 0) {
-            appendInfoCard(m_focusList, "Добавь преподавателей", "Сейчас в системе нет преподавателей, поэтому курсы некому вести и сопровождать.");
-            appendInfoCard(m_focusList, "Проверь роли пользователей", "Открой пользователей и перераспредели роли там, где это уже нужно.");
+            appendInfoCard(m_focusList, "Преподаватели", "Сейчас в системе нет преподавателей, поэтому курсы некому вести и сопровождать.");
+            appendInfoCard(m_focusList, "Роли пользователей", "Раздел пользователей помогает перераспределить роли там, где это уже нужно.");
             return;
         }
 
@@ -503,30 +698,30 @@ void DashboardPage::refreshFocus()
 
         appendInfoCard(
             m_focusList,
-            "Держи под контролем структуру",
-            QString("В системе уже %1 курсов, %2 уроков и %3 тестов. Открой курсы, чтобы посмотреть, где контент ещё неполный.")
+            "Контроль структуры",
+            QString("В системе уже %1 курсов, %2 уроков и %3 тестов. Раздел курсов покажет, где контент ещё неполный.")
                 .arg(m_adminOverview.coursesCount)
                 .arg(m_adminOverview.lessonsCount)
                 .arg(m_adminOverview.testsCount));
         appendInfoCard(
             m_focusList,
-            "Проверь людей и вовлечённость",
-            QString("Пользователей: %1. Записей на курсы: %2. Дальше смотри пользователей и аналитику по курсам.")
+            "Люди и вовлечённость",
+            QString("Пользователей: %1. Записей на курсы: %2. Дальше доступны пользователи и аналитика по курсам.")
                 .arg(m_adminOverview.totalUsers)
                 .arg(m_adminOverview.enrollmentsCount));
         return;
     }
 
     if (m_courses.isEmpty()) {
-        appendInfoCard(m_focusList, "Выбери курс", "Перейди в каталог, чтобы открыть доступные материалы и тесты.");
+        appendInfoCard(m_focusList, "Выбор курса", "Каталог открывает доступные материалы и тесты.");
         return;
     }
 
     if (m_attempts.isEmpty()) {
-        appendInfoCard(m_focusList, "Начни с материалов", "Открой курс с наибольшим числом уроков и сначала просмотри основное содержание.");
+        appendInfoCard(m_focusList, "Материалы", "Лучше начать с курса с наибольшим числом уроков и сначала посмотреть основное содержание.");
         appendInfoCard(
             m_focusList,
-            "Пройди первый тест",
+            "Первый тест",
             QString("Сейчас в доступных курсах %1 тестов. После первой попытки здесь появится реальная учебная динамика.")
                 .arg(totalTests(m_courses)));
         return;
@@ -540,7 +735,7 @@ void DashboardPage::refreshFocus()
             ? QString("Последний тест: %1 — %2%. %3")
                 .arg(latestAttempt->testTitle.isEmpty() ? "без названия" : latestAttempt->testTitle)
                 .arg(QString::number(latestAttempt->percentage, 'f', 1))
-                .arg(latestAttempt->passed ? "Можно улучшить результат или переходить к следующему курсу." : "Лучше сначала повторить материалы и попробовать снова.")
-            : "Открой раздел результатов и найди, какой тест стоит перепройти.");
+                .arg(latestAttempt->passed ? "Можно улучшить результат или перейти к следующему курсу." : "Лучше сначала повторить материалы и пройти тест снова.")
+            : "Раздел результатов покажет, какой тест стоит перепройти.");
     appendInfoCard(m_focusList, "Сверяй прогресс", "Раздел результатов теперь показывает средний балл, историю попыток и статус прохождения.");
 }

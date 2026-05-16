@@ -2,9 +2,25 @@
 
 #include <stdexcept>
 
-AdminService::AdminService(UserRepository& userRepository, CourseRepository& courseRepository)
+namespace {
+std::string roleToString(UserRole role)
+{
+    switch (role) {
+        case UserRole::Student: return "Student";
+        case UserRole::Teacher: return "Teacher";
+        case UserRole::Admin: return "Admin";
+    }
+    return "Unknown";
+}
+}
+
+AdminService::AdminService(
+    UserRepository& userRepository,
+    CourseRepository& courseRepository,
+    AdminAuditRepository& auditRepository)
     : userRepository(userRepository),
-      courseRepository(courseRepository) {}
+      courseRepository(courseRepository),
+      auditRepository(auditRepository) {}
 
 std::vector<User> AdminService::getAllUsers(int, UserRole role)
 {
@@ -51,6 +67,30 @@ AdminOverview AdminService::getOverview(int, UserRole role)
     return overview;
 }
 
+std::vector<AdminAuditEvent> AdminService::getAuditEvents(int, UserRole role, int limit)
+{
+    if (role != UserRole::Admin) {
+        throw std::invalid_argument("Only admins can view audit log");
+    }
+
+    return auditRepository.getRecentEvents(limit);
+}
+
+void AdminService::recordAuditEvent(
+    int currentUserId,
+    UserRole currentRole,
+    const std::string& action,
+    const std::string& targetType,
+    int targetId,
+    const std::string& details)
+{
+    if (currentRole != UserRole::Admin) {
+        throw std::invalid_argument("Only admins can record audit events");
+    }
+
+    auditRepository.recordEvent(currentUserId, action, targetType, targetId, details);
+}
+
 User AdminService::updateUserRole(int currentUserId, UserRole currentRole, int targetUserId, UserRole newRole)
 {
     if (currentRole != UserRole::Admin) {
@@ -61,7 +101,14 @@ User AdminService::updateUserRole(int currentUserId, UserRole currentRole, int t
         throw std::invalid_argument("Admin cannot change own role");
     }
 
-    return userRepository.updateUserRole(targetUserId, newRole);
+    User user = userRepository.updateUserRole(targetUserId, newRole);
+    auditRepository.recordEvent(
+        currentUserId,
+        "user.role_updated",
+        "user",
+        targetUserId,
+        "Role for " + user.login + " changed to " + roleToString(newRole));
+    return user;
 }
 
 void AdminService::deleteUser(int currentUserId, UserRole currentRole, int targetUserId)
@@ -74,5 +121,19 @@ void AdminService::deleteUser(int currentUserId, UserRole currentRole, int targe
         throw std::invalid_argument("Admin cannot delete own account");
     }
 
+    std::string targetLogin = "user #" + std::to_string(targetUserId);
+    for (const auto& user : userRepository.getAllUsers()) {
+        if (user.id == targetUserId) {
+            targetLogin = user.login;
+            break;
+        }
+    }
+
     userRepository.deleteUser(targetUserId);
+    auditRepository.recordEvent(
+        currentUserId,
+        "user.deleted",
+        "user",
+        targetUserId,
+        "Deleted user " + targetLogin);
 }

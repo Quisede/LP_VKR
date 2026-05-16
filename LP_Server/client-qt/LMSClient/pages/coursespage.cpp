@@ -58,7 +58,7 @@ CoursesPage::CoursesPage(QWidget *parent)
     m_titleLabel->setObjectName("sectionTitleLabel");
 
     m_hintLabel = new QLabel(
-        "Курсы подгружаются автоматически. Нажми на карточку курса, чтобы открыть его внутреннюю страницу.",
+        "Курсы подгружаются автоматически. Карточка курса открывает его внутреннюю страницу.",
         pageCard);
     m_hintLabel->setObjectName("sectionHintLabel");
     m_hintLabel->setWordWrap(true);
@@ -150,15 +150,15 @@ void CoursesPage::setRoleMode(const QString &role)
     if (role == "Teacher") {
         m_titleLabel->setText("Мои курсы");
         m_hintLabel->setText(
-            "Здесь отображаются курсы, где ты преподаватель. Открой курс, чтобы перейти к его внутренней структуре.");
+            "Здесь отображаются курсы преподавателя. Открытие курса показывает его внутреннюю структуру.");
         m_searchEdit->setPlaceholderText("Найти курс преподавателя по названию или описанию...");
         m_countTitleLabel->setText("Мои курсы");
         m_focusTitleLabel->setText("Студенты");
         m_focusValueLabel->setText(QString::number(totalStudents(m_allCourses)));
         m_infoLabel->setText(
             m_coursesCount == 0
-                ? "Сначала создай первый курс, после этого он появится здесь и его можно будет открыть или развивать в конструкторе."
-                : QString("Всего в твоих курсах: %1 уроков, %2 тестов и %3 записей студентов.")
+                ? "После создания первого курса он появится здесь, и его можно будет открыть или развивать в конструкторе."
+                : QString("Всего в курсах преподавателя: %1 уроков, %2 тестов и %3 записей студентов.")
                     .arg(totalLessons(m_allCourses))
                     .arg(totalTests(m_allCourses))
                     .arg(totalStudents(m_allCourses)));
@@ -173,13 +173,13 @@ void CoursesPage::setRoleMode(const QString &role)
         m_infoLabel->setText(
             m_coursesCount == 0
                 ? "Когда курсы появятся в системе, они будут собраны здесь вместе с дальнейшей административной аналитикой."
-                : QString("В системе уже %1 уроков и %2 тестов. Используй экран как каталог и быстрый контроль структуры.")
+                : QString("В системе уже %1 уроков и %2 тестов. Экран работает как каталог и быстрый контроль структуры.")
                     .arg(totalLessons(m_allCourses))
                     .arg(totalTests(m_allCourses)));
     } else {
         m_titleLabel->setText("Каталог курсов");
         m_hintLabel->setText(
-            "Курсы подгружаются автоматически. Нажми на карточку курса, чтобы открыть его внутреннюю страницу.");
+            "Курсы подгружаются автоматически. Карточка курса открывает его внутреннюю страницу.");
         m_searchEdit->setPlaceholderText("Поиск по доступным курсам...");
         m_countTitleLabel->setText("Доступно курсов");
         m_focusTitleLabel->setText("Тесты");
@@ -187,7 +187,7 @@ void CoursesPage::setRoleMode(const QString &role)
         m_infoLabel->setText(
             m_coursesCount == 0
                 ? "Когда курсы станут доступны, они появятся здесь. После записи можно переходить к урокам, материалам и тестам."
-                : QString("Сейчас доступны %1 уроков и %2 тестов. Начни с материалов, затем переходи к проверке знаний.")
+                : QString("Сейчас доступны %1 уроков и %2 тестов. Лучше начать с материалов, затем перейти к проверке знаний.")
                     .arg(totalLessons(m_allCourses))
                     .arg(totalTests(m_allCourses)));
     }
@@ -260,7 +260,7 @@ void CoursesPage::applyCourseFilter(const QString &query)
         titleLabel->setObjectName("courseCardTitleLabel");
 
         auto *messageLabel = new QLabel(
-            "Попробуй изменить запрос: поиск работает по названию и описанию курса.",
+            "Можно изменить запрос: поиск работает по названию и описанию курса.",
             card);
         messageLabel->setObjectName("courseCardDescriptionLabel");
         messageLabel->setWordWrap(true);

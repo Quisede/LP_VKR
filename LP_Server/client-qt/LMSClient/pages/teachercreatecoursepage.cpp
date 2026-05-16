@@ -28,7 +28,7 @@ TeacherCreateCoursePage::TeacherCreateCoursePage(QWidget *parent)
     m_titleLabel->setObjectName("sectionTitleLabel");
 
     m_hintLabel = new QLabel(
-        "Сформируй курс сразу в teacher-кабинете: сначала название и описание, потом мы откроем конструктор для уроков, материалов и тестов.",
+        "Курс оформляется сразу в teacher-кабинете: сначала название и описание, затем откроется конструктор уроков, материалов и тестов.",
         pageCard);
     m_hintLabel->setObjectName("sectionHintLabel");
     m_hintLabel->setWordWrap(true);
@@ -56,7 +56,7 @@ TeacherCreateCoursePage::TeacherCreateCoursePage(QWidget *parent)
     m_titleEdit->setMinimumHeight(48);
 
     m_descriptionEdit = new QTextEdit(formCard);
-    m_descriptionEdit->setPlaceholderText("Коротко опиши, чему научатся студенты и что входит в курс.");
+    m_descriptionEdit->setPlaceholderText("Краткое описание: чему научатся студенты и что входит в курс.");
     m_descriptionEdit->setMinimumHeight(220);
     m_descriptionEdit->setStyleSheet(inputStyle);
 
@@ -150,7 +150,7 @@ void TeacherCreateCoursePage::setCreateMode()
     m_editMode = false;
     m_editingCourseId = -1;
     m_titleLabel->setText("Создание курса");
-    m_hintLabel->setText("Сформируй курс сразу в teacher-кабинете: сначала название и описание, потом мы откроем конструктор для уроков, материалов и тестов.");
+    m_hintLabel->setText("Курс оформляется сразу в teacher-кабинете: сначала название и описание, затем откроется конструктор уроков, материалов и тестов.");
     m_submitButton->setText("Создать курс");
     m_deleteButton->hide();
     m_statusLabel->setText("После создания курс сразу появится в разделе \"Мои курсы\".");

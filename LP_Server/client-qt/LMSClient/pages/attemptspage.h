@@ -23,6 +23,7 @@ public:
 
 private:
     void updateTableHeaders();
+    QString attemptRecommendation(const AttemptData &attempt) const;
 
     QString m_role = "Student";
     QLabel *m_titleLabel;
@@ -30,6 +31,8 @@ private:
     QLabel *m_attemptsStatLabel;
     QLabel *m_averageStatLabel;
     QLabel *m_passedStatLabel;
+    QLabel *m_bestStatLabel;
+    QLabel *m_insightLabel;
     QLabel *m_emptyStateLabel;
     QTableWidget *m_table;
 };

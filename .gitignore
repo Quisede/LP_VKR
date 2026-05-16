@@ -12,18 +12,22 @@ DerivedData/
 
 # macOS
 .DS_Store
+**/.DS_Store
 
 # C++
 *.o
 *.out
+*.app/
 
 # Qt / Qt Creator
 .qtcreator/
+**/.qtcreator/
 *.pro.user
 *.pro.user.*
 *.qbs.user
 *.qmake.stash
 CMakeLists.txt.user
+**/CMakeLists.txt.user
 .qtc_clangd/
 
 # CMake local files
@@ -32,7 +36,24 @@ CMakeFiles/
 cmake_install.cmake
 compile_commands.json
 Makefile
+build/
+**/build/
+**/build-*/
 
 # Qt docker artifacts
-artifacts/qt-client/
+LP_Server/artifacts/qt-client/
+LP_Server/client-qt/LMSClient/build-docker/
 **/build-docker/
+
+# Runtime / logs
+*.log
+*.tmp
+.env
+.env.*
+*.sqlite
+*.db
+docker-data/
+postgres_data/
+LP_Server/artifacts/
+LP_Server/client-qt/LMSClient/build*/
+LP_Server/client-qt/LMSClient/*.user

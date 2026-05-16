@@ -1,6 +1,7 @@
 #include "LessonController.h"
 #include "ControllerUtils.h"
 #include "json.hpp"
+#include <optional>
 
 using json = nlohmann::json;
 
@@ -16,8 +17,16 @@ void LessonController::registerRoutes(httplib::Server& server) {
     server.Get(R"(/api/courses/(\d+)/lessons)", [this](const httplib::Request& req, httplib::Response& res) {
         try {
             int courseId = controller_utils::pathParamInt(req, 1, "courseId");
+            std::optional<controller_utils::AuthContext> auth;
+            try {
+                auth = controller_utils::requireAuth(req, jwtService);
+            } catch (const std::exception&) {
+                auth = std::nullopt;
+            }
 
-            auto lessons = lessonService.getLessonsForCourse(courseId);
+            auto lessons = auth.has_value() && auth->role == UserRole::Student
+                ? lessonService.getLessonsForCourseForUser(courseId, auth->userId)
+                : lessonService.getLessonsForCourse(courseId);
 
             json response;
             response["lessons"] = json::array();
@@ -27,11 +36,35 @@ void LessonController::registerRoutes(httplib::Server& server) {
                     {"id", lesson.id},
                     {"courseId", lesson.courseId},
                     {"title", lesson.title},
-                    {"content", lesson.content}
+                    {"content", lesson.content},
+                    {"completed", lesson.completed}
                 });
             }
 
             res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
+        }
+    });
+
+    server.Post(R"(/api/lessons/(\d+)/complete)", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto auth = controller_utils::requireAuth(req, jwtService);
+            if (auth.role != UserRole::Student) {
+                throw controller_utils::HttpError(403, "Only students can mark lessons as completed");
+            }
+
+            const int lessonId = controller_utils::pathParamInt(req, 1, "lessonId");
+            const auto lesson = lessonService.getLessonById(lessonId);
+            if (!lesson.has_value()) {
+                throw controller_utils::HttpError(404, "Lesson not found");
+            }
+
+            lessonService.markLessonCompleted(lessonId, auth.userId);
+            res.set_content(json{
+                {"lessonId", lessonId},
+                {"completed", true}
+            }.dump(), "application/json");
         } catch (const std::exception& ex) {
             controller_utils::handleRouteException(res, ex);
         }

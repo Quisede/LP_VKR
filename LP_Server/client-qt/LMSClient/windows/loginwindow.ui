@@ -152,7 +152,7 @@ QLabel#statusLabel {
       <item>
        <widget class="QLabel" name="subtitleLabel">
         <property name="text">
-         <string>Авторизуйся, чтобы открыть свои курсы, тесты и рабочую панель клиента.</string>
+         <string>Авторизация открывает курсы, тесты и рабочую панель клиента.</string>
         </property>
         <property name="wordWrap">
          <bool>true</bool>

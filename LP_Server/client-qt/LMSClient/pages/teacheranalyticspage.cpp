@@ -60,7 +60,7 @@ TeacherAnalyticsPage::TeacherAnalyticsPage(QWidget *parent)
     titleLabel->setObjectName("sectionTitleLabel");
 
     auto *hintLabel = new QLabel(
-        "Выбери курс преподавателя и посмотри количество студентов, попыток и сводную таблицу результатов по тестам.",
+        "Выбор курса преподавателя покажет количество студентов, попыток и сводную таблицу результатов по тестам.",
         pageCard);
     hintLabel->setObjectName("sectionHintLabel");
     hintLabel->setWordWrap(true);
@@ -71,7 +71,7 @@ TeacherAnalyticsPage::TeacherAnalyticsPage(QWidget *parent)
     m_overviewTitleLabel = new QLabel("Сводка по выбранному курсу", pageCard);
     m_overviewTitleLabel->setObjectName("moduleTitleLabel");
 
-    m_messageLabel = new QLabel("Выбери курс, чтобы загрузить аналитику.", pageCard);
+    m_messageLabel = new QLabel("Выберите курс, чтобы загрузить аналитику.", pageCard);
     m_messageLabel->setObjectName("sectionHintLabel");
     m_messageLabel->setWordWrap(true);
 
@@ -79,6 +79,7 @@ TeacherAnalyticsPage::TeacherAnalyticsPage(QWidget *parent)
     statsLayout->setSpacing(14);
     statsLayout->addWidget(createStatCard("Студенты", &m_studentsValueLabel, pageCard));
     statsLayout->addWidget(createStatCard("Попытки", &m_attemptsValueLabel, pageCard));
+    statsLayout->addWidget(createStatCard("Уроки изучены", &m_lessonAverageValueLabel, pageCard));
     statsLayout->addWidget(createStatCard("Средний балл", &m_averageValueLabel, pageCard));
 
     m_insightLabel = new QLabel(pageCard);
@@ -179,7 +180,7 @@ void TeacherAnalyticsPage::setCourses(const QVector<CourseData> &courses)
         showMessage(
             m_role == "Admin"
                 ? "В системе пока нет курсов. Как только они появятся, администратор увидит их здесь."
-                : "У преподавателя пока нет курсов. Сначала создай курс.",
+                : "У преподавателя пока нет курсов. Сначала нужно создать курс.",
             false);
     }
 }
@@ -188,6 +189,7 @@ void TeacherAnalyticsPage::setAnalytics(const TeacherCourseAnalyticsData &analyt
 {
     m_studentsValueLabel->setText(QString::number(analytics.studentsCount));
     m_attemptsValueLabel->setText(QString::number(analytics.attemptsCount));
+    m_lessonAverageValueLabel->setText(QString("%1%").arg(QString::number(analytics.averageLessonProgress, 'f', 1)));
     m_averageValueLabel->setText(QString("%1%").arg(QString::number(analytics.averagePercentage, 'f', 1)));
     m_resultsTable->show();
     m_emptyStateLabel->hide();
@@ -223,8 +225,9 @@ void TeacherAnalyticsPage::setAnalytics(const TeacherCourseAnalyticsData &analyt
         m_resultsTable->hide();
     } else {
         m_insightLabel->setText(
-            QString("На курсе уже есть %1 попыток. Средний результат сейчас составляет %2%.")
+            QString("На курсе уже есть %1 попыток. Уроки в среднем изучены на %2%, средний результат тестов — %3%.")
                 .arg(analytics.attemptsCount)
+                .arg(QString::number(analytics.averageLessonProgress, 'f', 1))
                 .arg(QString::number(analytics.averagePercentage, 'f', 1)));
         showMessage(QString("Найдено попыток: %1").arg(analytics.rows.size()), false);
     }
@@ -234,8 +237,9 @@ void TeacherAnalyticsPage::clearAnalytics()
 {
     m_studentsValueLabel->setText("0");
     m_attemptsValueLabel->setText("0");
+    m_lessonAverageValueLabel->setText("0.0%");
     m_averageValueLabel->setText("0.0%");
-    m_insightLabel->setText("Выбери курс, чтобы увидеть число студентов, попыток и общую картину по тестам.");
+    m_insightLabel->setText("Выберите курс, чтобы увидеть число студентов, попыток и общую картину по тестам.");
     m_emptyStateLabel->setText("После выбора курса здесь появится подробная таблица результатов.");
     m_emptyStateLabel->show();
     m_resultsTable->hide();

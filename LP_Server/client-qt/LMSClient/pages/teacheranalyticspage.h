@@ -37,6 +37,7 @@ private:
     QLabel *m_studentsValueLabel;
     QLabel *m_attemptsValueLabel;
     QLabel *m_averageValueLabel;
+    QLabel *m_lessonAverageValueLabel;
     QLabel *m_insightLabel;
     QLabel *m_emptyStateLabel;
     QTableWidget *m_resultsTable;

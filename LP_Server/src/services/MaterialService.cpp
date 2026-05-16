@@ -1,6 +1,20 @@
 #include "MaterialService.h"
 #include <stdexcept>
 
+namespace {
+
+bool isSupportedMaterialType(const std::string& type) {
+    return type == "text"
+        || type == "video"
+        || type == "link"
+        || type == "pdf"
+        || type == "doc"
+        || type == "docx"
+        || type == "file";
+}
+
+}
+
 MaterialService::MaterialService(MaterialRepository& repo)
     :materialRepository(repo) {}
 
@@ -25,8 +39,8 @@ Material MaterialService::createMaterial(
         throw std::invalid_argument("Material content must not be empty");
     }
 
-    if (type != "text" && type != "video" && type != "link") {
-        throw std::invalid_argument("Material type must be one of: text, video, link");
+    if (!isSupportedMaterialType(type)) {
+        throw std::invalid_argument("Material type must be one of: text, video, link, pdf, doc, docx, file");
     }
 
     return materialRepository.createMaterial(lessonId, title, type, content);
@@ -45,8 +59,8 @@ Material MaterialService::updateMaterial(
         throw std::invalid_argument("Material content must not be empty");
     }
 
-    if (type != "text" && type != "video" && type != "link") {
-        throw std::invalid_argument("Material type must be one of: text, video, link");
+    if (!isSupportedMaterialType(type)) {
+        throw std::invalid_argument("Material type must be one of: text, video, link, pdf, doc, docx, file");
     }
 
     return materialRepository.updateMaterial(materialId, title, type, content);

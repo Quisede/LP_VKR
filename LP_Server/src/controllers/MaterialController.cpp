@@ -1,8 +1,41 @@
 #include "MaterialController.h"
 #include "ControllerUtils.h"
 #include "json.hpp"
+#include "../utils/Base64.h"
 
 using json = nlohmann::json;
+
+namespace {
+
+bool parseEmbeddedFilePayload(
+    const std::string& content,
+    std::string& fileName,
+    std::string& mimeType,
+    std::string& encodedData) {
+    const json payload = json::parse(content, nullptr, false);
+    if (payload.is_discarded()) {
+        return false;
+    }
+    if (!payload.is_object() || payload.value("kind", "") != "embedded-file") {
+        return false;
+    }
+
+    fileName = payload.value("fileName", "material");
+    mimeType = payload.value("mimeType", "application/octet-stream");
+    encodedData = payload.value("data", "");
+    return !encodedData.empty();
+}
+
+std::string safeDownloadFileName(std::string fileName) {
+    for (char& ch : fileName) {
+        if (ch == '"' || ch == '\\' || ch == '\r' || ch == '\n') {
+            ch = '_';
+        }
+    }
+    return fileName.empty() ? "material" : fileName;
+}
+
+}
 
 MaterialController::MaterialController(
     MaterialService& service,
@@ -62,6 +95,33 @@ void MaterialController::registerRoutes(httplib::Server& server) {
             }
 
             res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
+        }
+    });
+
+    server.Get(R"(/api/materials/(\d+)/download)", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            controller_utils::requireAuth(req, jwtService);
+
+            const int materialId = controller_utils::pathParamInt(req, 1, "materialId");
+            const auto material = materialService.getMaterialById(materialId);
+            if (!material.has_value()) {
+                throw controller_utils::HttpError(404, "Material not found");
+            }
+
+            std::string fileName;
+            std::string mimeType;
+            std::string encodedData;
+            if (!parseEmbeddedFilePayload(material->content, fileName, mimeType, encodedData)) {
+                throw controller_utils::HttpError(400, "Material does not contain a downloadable file");
+            }
+
+            const std::string decoded = base64Decode(encodedData);
+            res.set_header(
+                "Content-Disposition",
+                "attachment; filename=\"" + safeDownloadFileName(fileName) + "\"");
+            res.set_content(decoded, mimeType.c_str());
         } catch (const std::exception& ex) {
             controller_utils::handleRouteException(res, ex);
         }

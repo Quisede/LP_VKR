@@ -7,4 +7,5 @@ struct LessonData {
     int courseId = -1;
     QString title;
     QString content;
+    bool completed = false;
 };

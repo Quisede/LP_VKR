@@ -213,13 +213,20 @@ TestResult QuestionService::submitTest(
     double percentage = total == 0 ? 0.0 : (double)score / total * 100.0;
     bool passed = percentage >= 60.0;
 
-    TestResult result {score, total, percentage, passed};
     auto test = testRepository.getTestById(testId);
+    TestResult result {
+        score,
+        total,
+        percentage,
+        passed,
+        test.has_value() ? test->courseId : -1
+    };
 
     Attempt attempt {
         nextId++,
         userId,
         testId,
+        result.courseId,
         result.score,
         result.total,
         result.percentage,

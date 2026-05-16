@@ -3,15 +3,63 @@
 #include <QAbstractItemView>
 #include <QFrame>
 #include <QHBoxLayout>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QPushButton>
 #include <QTabWidget>
 #include <QVBoxLayout>
+#include <algorithm>
 #include <functional>
 
 namespace {
+bool parseEmbeddedFileMaterial(const QString &content, QJsonObject *payload)
+{
+    const QJsonDocument doc = QJsonDocument::fromJson(content.toUtf8());
+    if (!doc.isObject()) {
+        return false;
+    }
+
+    const QJsonObject object = doc.object();
+    if (object.value("kind").toString() != "embedded-file") {
+        return false;
+    }
+
+    if (payload != nullptr) {
+        *payload = object;
+    }
+    return true;
+}
+
+QString materialSubtitle(const MaterialData &material)
+{
+    QJsonObject payload;
+    if (parseEmbeddedFileMaterial(material.content, &payload)) {
+        const QString fileName = payload.value("fileName").toString(material.title);
+        const QString mimeType = payload.value("mimeType").toString("application/octet-stream");
+        const int size = payload.value("size").toInt(0);
+        return QString("Файл: %1\nТип: %2  •  MIME: %3  •  Размер: %4 КБ")
+            .arg(fileName)
+            .arg(material.type)
+            .arg(mimeType)
+            .arg((size + 1023) / 1024);
+    }
+
+    return material.content;
+}
+
+bool isLinkLikeMaterial(const MaterialData &material)
+{
+    return material.type == "link" || material.type == "video";
+}
+
+bool isTextLikeMaterial(const MaterialData &material)
+{
+    return material.type == "text" && !parseEmbeddedFileMaterial(material.content, nullptr);
+}
+
 void appendCard(QListWidget *list, const QString &title, const QString &subtitle, const QVariant &payload = {})
 {
     auto *item = new QListWidgetItem();
@@ -37,6 +85,139 @@ void appendCard(QListWidget *list, const QString &title, const QString &subtitle
 
     layout->addWidget(titleLabel);
     layout->addWidget(subtitleLabel);
+
+    list->addItem(item);
+    list->setItemWidget(item, card);
+}
+
+void appendMaterialCard(QListWidget *list, const MaterialData &material, CourseDetailsPage *context)
+{
+    QJsonObject payload;
+    const bool isEmbeddedFile = parseEmbeddedFileMaterial(material.content, &payload);
+    const bool isLinkLike = isLinkLikeMaterial(material);
+    const bool isTextLike = isTextLikeMaterial(material);
+
+    auto *item = new QListWidgetItem();
+    item->setSizeHint(QSize(0, (isEmbeddedFile || isLinkLike || isTextLike) ? 142 : 96));
+    item->setData(Qt::UserRole, material.id);
+
+    auto *card = new QFrame(list);
+    card->setObjectName("courseCard");
+
+    auto *layout = new QVBoxLayout(card);
+    layout->setContentsMargins(16, 14, 16, 14);
+    layout->setSpacing(8);
+
+    const QString title = isEmbeddedFile
+        ? QString("%1 (%2)").arg(material.title, material.type.toUpper())
+        : material.title;
+
+    auto *titleLabel = new QLabel(title, card);
+    titleLabel->setObjectName("courseCardTitleLabel");
+    titleLabel->setWordWrap(true);
+
+    auto *subtitleLabel = new QLabel(materialSubtitle(material), card);
+    subtitleLabel->setObjectName("courseCardDescriptionLabel");
+    subtitleLabel->setWordWrap(true);
+
+    layout->addWidget(titleLabel);
+    layout->addWidget(subtitleLabel);
+
+    if (isEmbeddedFile || isLinkLike || isTextLike) {
+        auto *actionsLayout = new QHBoxLayout();
+        actionsLayout->setSpacing(10);
+
+        if (isTextLike) {
+            auto *previewButton = new QPushButton("Открыть предпросмотр", card);
+            previewButton->setObjectName("cardGhostButton");
+            actionsLayout->addWidget(previewButton);
+
+            QObject::connect(previewButton, &QPushButton::clicked, context, [context, material]() {
+                emit context->materialTextPreviewRequested(material.title, material.content);
+            });
+        }
+
+        if (isLinkLike) {
+            auto *openLinkButton = new QPushButton(material.type == "video" ? "Открыть видео" : "Открыть ссылку", card);
+            openLinkButton->setObjectName("cardGhostButton");
+            actionsLayout->addWidget(openLinkButton);
+
+            QObject::connect(openLinkButton, &QPushButton::clicked, context, [context, material]() {
+                emit context->materialLinkOpenRequested(material.content);
+            });
+        }
+
+        if (isEmbeddedFile) {
+            auto *saveButton = new QPushButton("Скачать файл", card);
+            saveButton->setObjectName("cardGhostButton");
+            actionsLayout->addWidget(saveButton);
+
+            auto *openExternalButton = new QPushButton("Открыть во внешнем приложении", card);
+            openExternalButton->setObjectName("cardAccentButton");
+            actionsLayout->addWidget(openExternalButton);
+
+            QObject::connect(saveButton, &QPushButton::clicked, context, [context, material]() {
+                emit context->materialDownloadRequested(material.id);
+            });
+            QObject::connect(openExternalButton, &QPushButton::clicked, context, [context, material]() {
+                emit context->materialOpenExternalRequested(material.id);
+            });
+        }
+
+        actionsLayout->addStretch();
+        layout->addLayout(actionsLayout);
+    }
+
+    list->addItem(item);
+    list->setItemWidget(item, card);
+}
+
+void appendLessonCard(QListWidget *list, const LessonData &lesson, CourseDetailsPage *context, bool studentMode)
+{
+    auto *item = new QListWidgetItem();
+    item->setSizeHint(QSize(0, studentMode ? 142 : 96));
+    item->setData(Qt::UserRole, lesson.id);
+
+    auto *card = new QFrame(list);
+    card->setObjectName("courseCard");
+
+    auto *layout = new QVBoxLayout(card);
+    layout->setContentsMargins(16, 14, 16, 14);
+    layout->setSpacing(8);
+
+    auto *titleLabel = new QLabel(lesson.completed ? QString("%1  •  изучено").arg(lesson.title) : lesson.title, card);
+    titleLabel->setObjectName("courseCardTitleLabel");
+    titleLabel->setWordWrap(true);
+
+    auto *subtitleLabel = new QLabel(lesson.content, card);
+    subtitleLabel->setObjectName("courseCardDescriptionLabel");
+    subtitleLabel->setWordWrap(true);
+
+    layout->addWidget(titleLabel);
+    layout->addWidget(subtitleLabel);
+
+    if (studentMode) {
+        auto *actionsLayout = new QHBoxLayout();
+        actionsLayout->setSpacing(10);
+
+        auto *previewButton = new QPushButton("Открыть урок", card);
+        previewButton->setObjectName("cardGhostButton");
+        actionsLayout->addWidget(previewButton);
+
+        auto *completeButton = new QPushButton(lesson.completed ? "Изучено" : "Отметить изученным", card);
+        completeButton->setObjectName(lesson.completed ? "cardGhostButton" : "cardAccentButton");
+        completeButton->setEnabled(!lesson.completed);
+        actionsLayout->addWidget(completeButton);
+        actionsLayout->addStretch();
+        layout->addLayout(actionsLayout);
+
+        QObject::connect(previewButton, &QPushButton::clicked, context, [context, lesson]() {
+            emit context->lessonPreviewRequested(lesson.title, lesson.content);
+        });
+        QObject::connect(completeButton, &QPushButton::clicked, context, [context, lesson]() {
+            emit context->lessonCompletedRequested(lesson.id);
+        });
+    }
 
     list->addItem(item);
     list->setItemWidget(item, card);
@@ -112,7 +293,7 @@ CourseDetailsPage::CourseDetailsPage(QWidget *parent)
     m_titleLabel->setWordWrap(true);
 
     m_descriptionLabel = new QLabel(
-        "Открой раздел курсов и нажми на карточку нужного курса.",
+        "Сначала нужно открыть раздел курсов и нажать на карточку нужного курса.",
         pageCard);
     m_descriptionLabel->setObjectName("courseDetailDescriptionLabel");
     m_descriptionLabel->setWordWrap(true);
@@ -268,7 +449,7 @@ void CourseDetailsPage::setCourse(const CourseData &course)
         m_titleLabel->setText((m_role == "Teacher" || m_role == "Admin") ? "Курс не выбран" : "Курс без названия");
         m_descriptionLabel->setText(
             (m_role == "Teacher" || m_role == "Admin")
-                ? "Выбери курс во вкладке \"Мои курсы\", чтобы открыть конструктор курса."
+                ? "Сначала нужно выбрать курс во вкладке \"Мои курсы\", чтобы открыть конструктор курса."
                 : "Для этого курса пока нет подробного описания.");
         refreshOverview();
         return;
@@ -285,11 +466,15 @@ void CourseDetailsPage::setCourse(const CourseData &course)
 void CourseDetailsPage::setLessons(const QVector<LessonData> &lessons)
 {
     m_lessons = lessons;
-    QVector<QPair<QString, QString>> items;
-    for (const auto &lesson : lessons) {
-        items.push_back({lesson.title, lesson.content});
+    m_lessonsList->clear();
+    if (lessons.isEmpty()) {
+        appendCard(m_lessonsList, "Уроков пока нет", "Для курса ещё не добавлены уроки.");
+    } else {
+        const bool studentMode = m_role == "Student";
+        for (const auto &lesson : lessons) {
+            appendLessonCard(m_lessonsList, lesson, this, studentMode);
+        }
     }
-    setListItems(m_lessonsList, items, "Уроков пока нет", "Для курса ещё не добавлены уроки.");
     m_lessonsSummaryLabel->setText(QString::number(lessons.size()));
     refreshOverview();
 }
@@ -298,17 +483,24 @@ void CourseDetailsPage::setMaterials(const QVector<MaterialData> &materials, con
 {
     m_materials = materials;
     m_videos = videos;
-    QVector<QPair<QString, QString>> materialItems;
-    for (const auto &material : materials) {
-        materialItems.push_back({material.title, material.content});
-    }
-    setListItems(m_materialsList, materialItems, "Материалов пока нет", "У этого курса нет обычных материалов.");
 
-    QVector<QPair<QString, QString>> videoItems;
-    for (const auto &video : videos) {
-        videoItems.push_back({video.title, video.content});
+    m_materialsList->clear();
+    if (materials.isEmpty()) {
+        appendCard(m_materialsList, "Материалов пока нет", "У этого курса нет обычных материалов.");
+    } else {
+        for (const auto &material : materials) {
+            appendMaterialCard(m_materialsList, material, this);
+        }
     }
-    setListItems(m_videosList, videoItems, "Видео пока нет", "У этого курса нет видеоматериалов.");
+
+    m_videosList->clear();
+    if (videos.isEmpty()) {
+        appendCard(m_videosList, "Видео пока нет", "У этого курса нет видеоматериалов.");
+    } else {
+        for (const auto &video : videos) {
+            appendMaterialCard(m_videosList, video, this);
+        }
+    }
     m_materialsSummaryLabel->setText(QString::number(materials.size()));
     m_videosSummaryLabel->setText(QString::number(videos.size()));
     refreshOverview();
@@ -400,33 +592,41 @@ void CourseDetailsPage::refreshOverview()
                 .arg(courseTitle));
     } else {
         m_overviewHintLabel->setText(
-            QString("Здесь собраны все элементы %1: сначала посмотри уроки и материалы, затем переходи к тестам.")
+            QString("Здесь собраны все элементы %1: сначала уроки и материалы, затем переход к тестам.")
                 .arg(courseTitle));
     }
 
     if (m_role == "Student") {
         if (m_course.id < 0) {
             m_progressHintLabel->setText(
-                "Открой конкретный курс, чтобы увидеть его учебный маршрут: сколько там уроков, материалов и когда логично переходить к тестам.");
+                "Конкретный курс покажет учебный маршрут: сколько там уроков, материалов и когда логично переходить к тестам.");
             return;
         }
 
         const bool hasLessons = !m_lessons.isEmpty();
         const bool hasResources = !m_materials.isEmpty() || !m_videos.isEmpty();
         const bool hasTests = !m_tests.isEmpty();
+        const int completedLessons = std::count_if(m_lessons.cbegin(), m_lessons.cend(), [](const LessonData &lesson) {
+            return lesson.completed;
+        });
 
         m_progressHintLabel->setText(QString(
             "Маршрут по курсу: уроки — %1, материалы и видео — %2, тесты — %3.\n"
-            "Следующий шаг: %4")
+            "Уроки изучены: %4 из %5. Тестовый прогресс: %6% (%7 из %8 тестов зачтено). Следующий шаг: %9")
             .arg(hasLessons ? QString("доступны (%1)").arg(m_lessons.size()) : "ещё не добавлены")
             .arg(hasResources ? QString("доступны (%1)").arg(m_materials.size() + m_videos.size()) : "пока мало контента")
             .arg(hasTests ? QString("готовы (%1)").arg(m_tests.size()) : "пока нет тестов")
+            .arg(completedLessons)
+            .arg(m_lessons.size())
+            .arg(m_course.progressPercent)
+            .arg(m_course.passedTestsCount)
+            .arg(m_course.testsCount)
             .arg(!hasLessons
-                ? "подожди, пока преподаватель наполнит курс уроками."
+                ? "курс ожидает наполнения уроками со стороны преподавателя."
                 : !hasResources
-                    ? "начни с уроков, а материалы появятся по мере наполнения курса."
+                    ? "начать лучше с уроков, а материалы появятся по мере наполнения курса."
                     : hasTests
-                        ? "посмотри уроки и материалы, затем переходи к тестам."
+                        ? "рекомендуется изучить уроки и материалы, затем перейти к тестам."
                         : "сейчас лучше изучить содержание курса, тесты появятся позже."));
         return;
     }

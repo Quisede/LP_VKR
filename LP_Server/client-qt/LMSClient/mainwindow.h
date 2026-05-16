@@ -24,6 +24,7 @@ class MainWindow;
 QT_END_NAMESPACE
 
 class ApiClient;
+class AdminAuditPage;
 class AdminUsersPage;
 class AttemptsPage;
 class CourseDetailsPage;
@@ -36,6 +37,7 @@ class TeacherAnalyticsPage;
 class TeacherStudentsPage;
 class TeacherTestEditorPage;
 class TestRunnerPage;
+class QTimer;
 
 class MainWindow : public QMainWindow
 {
@@ -76,15 +78,18 @@ private:
     void setActiveSection(QPushButton *button);
     void setHeader(const QString &title, const QString &subtitle);
     void showStatus(const QString &status);
+    void updateFooterStatus(const QString &status, bool connected);
     void showCourseDetailsPage();
     void showTeacherCourseBuilderPage();
     void showTeacherTestEditorPage();
     void showTestRunnerPage();
+    void checkBackendHealth();
 
     void loadCourses();
     void loadAttempts();
     void loadAdminOverview();
     void loadAdminUsers();
+    void loadAdminAudit();
     void loadCourseContent(int courseId);
     void loadCourseLessonsAndMaterials(int courseId);
     void loadCourseTests(int courseId);
@@ -93,6 +98,7 @@ private:
     void loadTeacherStudentAttempts(int courseId, int studentId, const QString &studentLogin);
     void loadTeacherAnalytics(int courseId);
     void refreshSelectedCourseFromCache();
+    void applyStudentProgressToCourses();
     QVector<CourseData> visibleCoursesForCurrentRole(const QVector<CourseData> &courses) const;
     CourseData automationCourseCandidate(const QString &courseTitle) const;
 
@@ -100,6 +106,7 @@ private:
     ApiClient *m_apiClient;
 
     AdminUsersPage *m_adminUsersPage;
+    AdminAuditPage *m_adminAuditPage;
     DashboardPage *m_dashboardPage;
     CoursesPage *m_coursesPage;
     TeacherCreateCoursePage *m_teacherCreateCoursePage;
@@ -114,6 +121,7 @@ private:
 
     QPushButton *m_createCourseButton = nullptr;
     QPushButton *m_studentsButton = nullptr;
+    QTimer *m_connectionTimer = nullptr;
 
     SessionData m_session;
     QVector<CourseData> m_courses;

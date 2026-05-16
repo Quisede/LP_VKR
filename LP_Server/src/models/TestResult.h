@@ -5,4 +5,5 @@ struct TestResult {
     int total;
     double percentage;
     bool passed;
+    int courseId = -1;
 };

@@ -56,7 +56,44 @@ void AdminController::registerRoutes(httplib::Server& server)
                 response["users"].push_back({
                     {"id", user.id},
                     {"login", user.login},
-                    {"role", roleToString(user.role)}
+                    {"role", roleToString(user.role)},
+                    {"firstName", user.firstName},
+                    {"lastName", user.lastName},
+                    {"groupName", user.groupName},
+                    {"email", user.email},
+                    {"phone", user.phone}
+                });
+            }
+
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
+        }
+    });
+
+    server.Get("/api/admin/audit", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto auth = controller_utils::requireAuth(req, jwtService);
+            int limit = 12;
+            if (req.has_param("limit")) {
+                limit = std::stoi(req.get_param_value("limit"));
+            }
+
+            const auto events = adminService.getAuditEvents(auth.userId, auth.role, limit);
+
+            json response;
+            response["events"] = json::array();
+
+            for (const auto& event : events) {
+                response["events"].push_back({
+                    {"id", event.id},
+                    {"adminId", event.adminId},
+                    {"adminLogin", event.adminLogin},
+                    {"action", event.action},
+                    {"targetType", event.targetType},
+                    {"targetId", event.targetId},
+                    {"details", event.details},
+                    {"createdAt", event.createdAt}
                 });
             }
 
@@ -83,6 +120,14 @@ void AdminController::registerRoutes(httplib::Server& server)
             if (!result.success) {
                 throw std::invalid_argument(result.errorMessage);
             }
+
+            adminService.recordAuditEvent(
+                auth.userId,
+                auth.role,
+                "user.created",
+                "user",
+                result.userId,
+                "Created user " + login + " with role " + roleToString(role));
 
             json response;
             response["success"] = true;
