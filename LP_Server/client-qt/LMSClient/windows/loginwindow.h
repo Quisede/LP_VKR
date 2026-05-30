@@ -24,6 +24,7 @@ signals:
 
 private slots:
     void onLoginClicked();
+    void onRegisterClicked();
 
 private:
     Ui::LoginWindow *ui;

@@ -7,6 +7,7 @@
 #include <QFrame>
 #include <QHeaderView>
 #include <QLabel>
+#include <QPushButton>
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QHBoxLayout>
@@ -68,6 +69,18 @@ TeacherAnalyticsPage::TeacherAnalyticsPage(QWidget *parent)
     m_courseCombo = ui_styles::createComboBox(pageCard);
     ui_styles::applyComboBoxStyle(m_courseCombo);
 
+    auto *topToolsLayout = new QHBoxLayout();
+    topToolsLayout->setSpacing(10);
+    topToolsLayout->addWidget(m_courseCombo, 1);
+    m_exportCsvButton = new QPushButton("Экспорт CSV", pageCard);
+    m_exportCsvButton->setObjectName("cardGhostButton");
+    m_exportPdfButton = new QPushButton("Экспорт PDF", pageCard);
+    m_exportPdfButton->setObjectName("cardAccentButton");
+    m_exportCsvButton->setMinimumHeight(44);
+    m_exportPdfButton->setMinimumHeight(44);
+    topToolsLayout->addWidget(m_exportCsvButton);
+    topToolsLayout->addWidget(m_exportPdfButton);
+
     m_overviewTitleLabel = new QLabel("Сводка по выбранному курсу", pageCard);
     m_overviewTitleLabel->setObjectName("moduleTitleLabel");
 
@@ -124,7 +137,7 @@ TeacherAnalyticsPage::TeacherAnalyticsPage(QWidget *parent)
 
     layout->addWidget(titleLabel);
     layout->addWidget(hintLabel);
-    layout->addWidget(m_courseCombo);
+    layout->addLayout(topToolsLayout);
     layout->addWidget(m_overviewTitleLabel);
     layout->addWidget(m_messageLabel);
     layout->addLayout(statsLayout);
@@ -140,6 +153,8 @@ TeacherAnalyticsPage::TeacherAnalyticsPage(QWidget *parent)
 
         emit courseSelected(m_courseCombo->currentData().toInt());
     });
+    connect(m_exportCsvButton, &QPushButton::clicked, this, &TeacherAnalyticsPage::exportCsvRequested);
+    connect(m_exportPdfButton, &QPushButton::clicked, this, &TeacherAnalyticsPage::exportPdfRequested);
 
     clearAnalytics();
 }
@@ -192,6 +207,8 @@ void TeacherAnalyticsPage::setAnalytics(const TeacherCourseAnalyticsData &analyt
     m_lessonAverageValueLabel->setText(QString("%1%").arg(QString::number(analytics.averageLessonProgress, 'f', 1)));
     m_averageValueLabel->setText(QString("%1%").arg(QString::number(analytics.averagePercentage, 'f', 1)));
     m_resultsTable->show();
+    m_exportCsvButton->setEnabled(!analytics.rows.isEmpty());
+    m_exportPdfButton->setEnabled(!analytics.rows.isEmpty());
     m_emptyStateLabel->hide();
 
     m_resultsTable->setRowCount(analytics.rows.size());
@@ -223,6 +240,8 @@ void TeacherAnalyticsPage::setAnalytics(const TeacherCourseAnalyticsData &analyt
         m_emptyStateLabel->setText("Когда студенты начнут проходить тесты, здесь появится подробная таблица результатов по каждому тесту.");
         m_emptyStateLabel->show();
         m_resultsTable->hide();
+        m_exportCsvButton->setEnabled(false);
+        m_exportPdfButton->setEnabled(false);
     } else {
         m_insightLabel->setText(
             QString("На курсе уже есть %1 попыток. Уроки в среднем изучены на %2%, средний результат тестов — %3%.")
@@ -244,6 +263,8 @@ void TeacherAnalyticsPage::clearAnalytics()
     m_emptyStateLabel->show();
     m_resultsTable->hide();
     m_resultsTable->setRowCount(0);
+    m_exportCsvButton->setEnabled(false);
+    m_exportPdfButton->setEnabled(false);
 }
 
 void TeacherAnalyticsPage::showMessage(const QString &message, bool error)

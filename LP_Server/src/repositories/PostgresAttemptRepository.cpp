@@ -91,6 +91,35 @@ std::vector<Attempt> PostgresAttemptRepository::getAttemptsForUser(int userId) {
     return attempts;
 }
 
+int PostgresAttemptRepository::countAttemptsForUserTest(int userId, int testId) {
+    std::lock_guard<std::mutex> lock(connection.mutex());
+    ensureSchema();
+
+    const std::string userIdValue = std::to_string(userId);
+    const std::string testIdValue = std::to_string(testId);
+    const char* params[] = {userIdValue.c_str(), testIdValue.c_str()};
+
+    PGresult* res = PQexecParams(
+        connection.get(),
+        "SELECT COUNT(*) FROM attempts WHERE user_id = $1 AND test_id = $2",
+        2,
+        nullptr,
+        params,
+        nullptr,
+        nullptr,
+        0);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        std::string error = PQerrorMessage(connection.get());
+        PQclear(res);
+        throw std::runtime_error("Failed to count attempts: " + error);
+    }
+
+    const int count = std::stoi(PQgetvalue(res, 0, 0));
+    PQclear(res);
+    return count;
+}
+
 CourseAnalytics PostgresAttemptRepository::getCourseAnalytics(int courseId) {
     std::lock_guard<std::mutex> lock(connection.mutex());
 

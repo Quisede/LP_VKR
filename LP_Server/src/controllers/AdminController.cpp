@@ -71,6 +71,69 @@ void AdminController::registerRoutes(httplib::Server& server)
         }
     });
 
+    server.Get("/api/admin/groups", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto auth = controller_utils::requireAuth(req, jwtService);
+            auto groups = adminService.getGroups(auth.userId, auth.role);
+
+            json response;
+            response["groups"] = json::array();
+            for (const auto& group : groups) {
+                response["groups"].push_back(group);
+            }
+
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
+        }
+    });
+
+    server.Post("/api/admin/groups", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto auth = controller_utils::requireAuth(req, jwtService);
+            auto body = json::parse(req.body);
+            const std::string groupName = controller_utils::requiredJsonString(body, "name");
+            const std::string created = adminService.createGroup(auth.userId, auth.role, groupName);
+
+            json response;
+            response["name"] = created;
+            response["success"] = true;
+            res.status = 201;
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
+        }
+    });
+
+    server.Put("/api/admin/groups", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto auth = controller_utils::requireAuth(req, jwtService);
+            auto body = json::parse(req.body);
+            const std::string oldName = controller_utils::requiredJsonString(body, "oldName");
+            const std::string newName = controller_utils::requiredJsonString(body, "newName");
+            const std::string renamed = adminService.renameGroup(auth.userId, auth.role, oldName, newName);
+
+            json response;
+            response["name"] = renamed;
+            response["success"] = true;
+            res.set_content(response.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
+        }
+    });
+
+    server.Delete("/api/admin/groups", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto auth = controller_utils::requireAuth(req, jwtService);
+            auto body = json::parse(req.body);
+            const std::string groupName = controller_utils::requiredJsonString(body, "name");
+            adminService.deleteGroup(auth.userId, auth.role, groupName);
+            res.status = 204;
+        } catch (const std::exception& ex) {
+            controller_utils::handleRouteException(res, ex);
+        }
+    });
+
     server.Get("/api/admin/audit", [this](const httplib::Request& req, httplib::Response& res) {
         try {
             auto auth = controller_utils::requireAuth(req, jwtService);
@@ -115,8 +178,21 @@ void AdminController::registerRoutes(httplib::Server& server)
             const std::string password = controller_utils::requiredJsonString(body, "password");
             const UserRole role = controller_utils::parseUserRole(
                 controller_utils::requiredJsonString(body, "role"));
+            const std::string firstName = body.value("firstName", "");
+            const std::string lastName = body.value("lastName", "");
+            const std::string groupName = body.value("groupName", "");
+            const std::string email = body.value("email", "");
+            const std::string phone = body.value("phone", "");
 
-            AuthResult result = authService.registerUser(login, password, role);
+            AuthResult result = authService.registerUser(
+                login,
+                password,
+                role,
+                firstName,
+                lastName,
+                groupName,
+                email,
+                phone);
             if (!result.success) {
                 throw std::invalid_argument(result.errorMessage);
             }
@@ -134,6 +210,11 @@ void AdminController::registerRoutes(httplib::Server& server)
             response["userId"] = result.userId;
             response["role"] = roleToString(result.role);
             response["login"] = login;
+            response["firstName"] = result.firstName;
+            response["lastName"] = result.lastName;
+            response["groupName"] = result.groupName;
+            response["email"] = result.email;
+            response["phone"] = result.phone;
             res.set_content(response.dump(), "application/json");
         } catch (const std::exception& ex) {
             controller_utils::handleRouteException(res, ex);

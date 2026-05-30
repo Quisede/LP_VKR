@@ -10,7 +10,10 @@ const char *kCourseSelectWithStats =
     "       (SELECT COUNT(*) FROM tests t WHERE t.course_id = c.id) AS tests_count, "
     "       (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id) AS students_count, "
     "       (SELECT COALESCE(NULLIF(TRIM(CONCAT(u.last_name, ' ', u.first_name)), ''), u.login) "
-    "        FROM users u WHERE u.id = c.teacher_id) AS teacher_name ";
+    "        FROM users u WHERE u.id = c.teacher_id) AS teacher_name, "
+    "       COALESCE((SELECT to_char(MIN(t.deadline_at), 'YYYY-MM-DD\"T\"HH24:MI:SS') "
+    "                 FROM tests t "
+    "                 WHERE t.course_id = c.id AND t.status = 'active' AND t.deadline_at IS NOT NULL AND t.deadline_at > CURRENT_TIMESTAMP), '') AS nearest_deadline_at ";
 
 void fillCourseFromResult(Course &course, PGresult *res, int row)
 {
@@ -22,6 +25,7 @@ void fillCourseFromResult(Course &course, PGresult *res, int row)
     course.testsCount = std::stoi(PQgetvalue(res, row, 5));
     course.studentsCount = std::stoi(PQgetvalue(res, row, 6));
     course.teacherName = PQgetvalue(res, row, 7);
+    course.nearestDeadlineAt = PQgetvalue(res, row, 8);
 }
 
 }
@@ -142,7 +146,10 @@ std::optional<Course> PostgresCourseRepository::getCourseById(int courseId) {
         "       (SELECT COUNT(*) FROM tests t WHERE t.course_id = c.id) AS tests_count, "
         "       (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id) AS students_count, "
         "       (SELECT COALESCE(NULLIF(TRIM(CONCAT(u.last_name, ' ', u.first_name)), ''), u.login) "
-        "        FROM users u WHERE u.id = c.teacher_id) AS teacher_name "
+        "        FROM users u WHERE u.id = c.teacher_id) AS teacher_name, "
+        "       COALESCE((SELECT to_char(MIN(t.deadline_at), 'YYYY-MM-DD\"T\"HH24:MI:SS') "
+        "                 FROM tests t "
+        "                 WHERE t.course_id = c.id AND t.status = 'active' AND t.deadline_at IS NOT NULL AND t.deadline_at > CURRENT_TIMESTAMP), '') AS nearest_deadline_at "
         "FROM courses c WHERE c.id = $1",
         1,
         nullptr,

@@ -34,6 +34,14 @@ int passedAttemptsCount(const QVector<AttemptData> &attempts)
     return count;
 }
 
+QLabel *formKeyLabel(const QString &text, QWidget *parent)
+{
+    auto *label = new QLabel(text, parent);
+    label->setObjectName("profileKeyLabel");
+    label->setStyleSheet("color: #334155; font-size: 13px; font-weight: 700;");
+    return label;
+}
+
 }
 
 ProfilePage::ProfilePage(QWidget *parent)
@@ -99,33 +107,27 @@ ProfilePage::ProfilePage(QWidget *parent)
     formLayout->setHorizontalSpacing(18);
     formLayout->setVerticalSpacing(14);
 
-    auto *nameLabel = new QLabel("Пользователь", infoCard);
-    nameLabel->setObjectName("profileKeyLabel");
+    auto *nameLabel = formKeyLabel("Пользователь", infoCard);
     m_nameValueLabel = new QLabel("Неизвестно", infoCard);
     m_nameValueLabel->setObjectName("profileNameValueLabel");
 
-    auto *roleLabel = new QLabel("Роль", infoCard);
-    roleLabel->setObjectName("profileKeyLabel");
+    auto *roleLabel = formKeyLabel("Роль", infoCard);
     m_roleValueLabel = new QLabel("Неизвестно", infoCard);
     m_roleValueLabel->setObjectName("profileRoleValueLabel");
 
-    auto *loginLabel = new QLabel("Логин", infoCard);
-    loginLabel->setObjectName("profileKeyLabel");
+    auto *loginLabel = formKeyLabel("Логин", infoCard);
     m_loginValueLabel = new QLabel("-", infoCard);
     m_loginValueLabel->setObjectName("profileNameValueLabel");
 
-    auto *groupLabel = new QLabel("Группа / подразделение", infoCard);
-    groupLabel->setObjectName("profileKeyLabel");
+    auto *groupLabel = formKeyLabel("Группа / подразделение", infoCard);
     m_groupValueLabel = new QLabel("-", infoCard);
     m_groupValueLabel->setObjectName("profileNameValueLabel");
 
-    auto *emailLabel = new QLabel("Почта", infoCard);
-    emailLabel->setObjectName("profileKeyLabel");
+    auto *emailLabel = formKeyLabel("Почта", infoCard);
     m_emailValueLabel = new QLabel("-", infoCard);
     m_emailValueLabel->setObjectName("profileNameValueLabel");
 
-    auto *phoneLabel = new QLabel("Телефон", infoCard);
-    phoneLabel->setObjectName("profileKeyLabel");
+    auto *phoneLabel = formKeyLabel("Телефон", infoCard);
     m_phoneValueLabel = new QLabel("-", infoCard);
     m_phoneValueLabel->setObjectName("profileNameValueLabel");
 
@@ -172,9 +174,9 @@ ProfilePage::ProfilePage(QWidget *parent)
     m_newPasswordEdit->setStyleSheet(inputStyle);
     m_repeatPasswordEdit->setStyleSheet(inputStyle);
 
-    passwordForm->addRow("Текущий пароль", m_oldPasswordEdit);
-    passwordForm->addRow("Новый пароль", m_newPasswordEdit);
-    passwordForm->addRow("Повтор", m_repeatPasswordEdit);
+    passwordForm->addRow(formKeyLabel("Текущий пароль", passwordCard), m_oldPasswordEdit);
+    passwordForm->addRow(formKeyLabel("Новый пароль", passwordCard), m_newPasswordEdit);
+    passwordForm->addRow(formKeyLabel("Повтор", passwordCard), m_repeatPasswordEdit);
 
     auto *passwordActions = new QHBoxLayout();
     passwordActions->setSpacing(10);

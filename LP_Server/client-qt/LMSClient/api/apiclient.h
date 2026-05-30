@@ -43,6 +43,18 @@ public:
         std::function<void(const SessionData &session)> onSuccess,
         std::function<void(const QString &error)> onError);
 
+    void registerStudent(
+        const QString &login,
+        const QString &password,
+        const QString &firstName,
+        const QString &lastName,
+        const QString &groupName,
+        const QString &email,
+        const QString &phone,
+        QObject *context,
+        std::function<void(const SessionData &session)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
     void getCurrentProfile(
         QObject *context,
         std::function<void(const SessionData &session)> onSuccess,
@@ -172,6 +184,10 @@ public:
     void createTest(
         int courseId,
         const QString &title,
+        const QString &status,
+        const QString &deadlineAt,
+        int maxAttempts,
+        int timeLimitMinutes,
         QObject *context,
         std::function<void(const TestData &test)> onSuccess,
         std::function<void(const QString &error)> onError);
@@ -179,6 +195,10 @@ public:
     void updateTest(
         int testId,
         const QString &title,
+        const QString &status,
+        const QString &deadlineAt,
+        int maxAttempts,
+        int timeLimitMinutes,
         QObject *context,
         std::function<void(const TestData &test)> onSuccess,
         std::function<void(const QString &error)> onError);
@@ -243,6 +263,30 @@ public:
         std::function<void(const QVector<AdminUserData> &users)> onSuccess,
         std::function<void(const QString &error)> onError);
 
+    void getAdminGroups(
+        QObject *context,
+        std::function<void(const QStringList &groups)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void createAdminGroup(
+        const QString &groupName,
+        QObject *context,
+        std::function<void(const QString &groupName)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void renameAdminGroup(
+        const QString &oldName,
+        const QString &newName,
+        QObject *context,
+        std::function<void(const QString &groupName)> onSuccess,
+        std::function<void(const QString &error)> onError);
+
+    void deleteAdminGroup(
+        const QString &groupName,
+        QObject *context,
+        std::function<void()> onSuccess,
+        std::function<void(const QString &error)> onError);
+
     void getAdminOverview(
         QObject *context,
         std::function<void(const AdminOverviewData &overview)> onSuccess,
@@ -257,6 +301,11 @@ public:
         const QString &login,
         const QString &password,
         const QString &role,
+        const QString &firstName,
+        const QString &lastName,
+        const QString &groupName,
+        const QString &email,
+        const QString &phone,
         QObject *context,
         std::function<void(const AdminUserData &user)> onSuccess,
         std::function<void(const QString &error)> onError);

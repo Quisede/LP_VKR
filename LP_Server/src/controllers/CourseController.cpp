@@ -24,6 +24,8 @@ json courseToJson(const Course& c)
         {"lessonsCount", c.lessonsCount},
         {"testsCount", c.testsCount},
         {"studentsCount", c.studentsCount},
+        {"enrolled", c.enrolled},
+        {"nearestDeadlineAt", c.nearestDeadlineAt},
     };
 }
 
@@ -56,7 +58,10 @@ void CourseController::registerRoutes(httplib::Server &server) {
             json response;
             response["courses"] = json::array();
             
-            for(const auto& c : courses) {
+            for(auto c : courses) {
+                if (auth.role == UserRole::Student) {
+                    c.enrolled = courseService.isStudentEnrolled(auth.userId, c.id);
+                }
                 response["courses"].push_back(courseToJson(c));
             }
 
@@ -75,14 +80,17 @@ void CourseController::registerRoutes(httplib::Server &server) {
 
     server.Get("/api/courses/all", [this](const httplib::Request& req, httplib::Response& res) {
         try {
-            controller_utils::requireAuth(req, jwtService);
+            auto auth = controller_utils::requireAuth(req, jwtService);
 
             auto courses = courseService.getAllCourses();
 
             json response;
             response["courses"] = json::array();
 
-            for (const auto& c : courses) {
+            for (auto c : courses) {
+                if (auth.role == UserRole::Student) {
+                    c.enrolled = courseService.isStudentEnrolled(auth.userId, c.id);
+                }
                 response["courses"].push_back(courseToJson(c));
             }
 
@@ -140,6 +148,7 @@ void CourseController::registerRoutes(httplib::Server &server) {
                 response["students"].push_back({
                     {"id", student.id},
                     {"login", student.login},
+                    {"groupName", student.groupName},
                     {"progress", student.progress},
                     {"lessonProgress", student.lessonProgress},
                     {"testProgress", student.testProgress}

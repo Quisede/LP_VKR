@@ -63,7 +63,27 @@ CourseData courseFromJson(const QJsonObject &obj)
     course.lessonsCount = obj.value("lessonsCount").toInt(0);
     course.testsCount = obj.value("testsCount").toInt(0);
     course.studentsCount = obj.value("studentsCount").toInt(0);
+    course.enrolled = obj.value("enrolled").toBool(false);
+    course.nearestDeadlineAt = obj.value("nearestDeadlineAt").toString();
     return course;
+}
+
+TestData testFromJson(const QJsonObject &obj, int fallbackCourseId = -1)
+{
+    TestData test;
+    test.id = obj.value("id").toInt(-1);
+    test.courseId = obj.value("courseId").toInt(fallbackCourseId);
+    test.title = obj.value("title").toString();
+    test.status = obj.value("status").toString("active");
+    test.deadlineAt = obj.value("deadlineAt").toString();
+    test.available = obj.value("available").toBool(test.status == "active");
+    test.maxAttempts = obj.value("maxAttempts").toInt(0);
+    test.timeLimitMinutes = obj.value("timeLimitMinutes").toInt(30);
+    test.attemptsUsed = obj.value("attemptsUsed").toInt(0);
+    test.passed = obj.value("passed").toBool(false);
+    test.bestPercentage = obj.value("bestPercentage").toDouble(0.0);
+    test.canAttempt = obj.value("canAttempt").toBool(test.available);
+    return test;
 }
 
 }
@@ -160,6 +180,65 @@ void ApiClient::login(
 
         SessionData session = sessionFromJson(obj, login);
 
+        m_token = token;
+        onSuccess(session);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::registerStudent(
+    const QString &login,
+    const QString &password,
+    const QString &firstName,
+    const QString &lastName,
+    const QString &groupName,
+    const QString &email,
+    const QString &phone,
+    QObject *context,
+    std::function<void(const SessionData &session)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QJsonObject body;
+    body["login"] = login;
+    body["password"] = password;
+    body["firstName"] = firstName;
+    body["lastName"] = lastName;
+    body["groupName"] = groupName;
+    body["email"] = email;
+    body["phone"] = phone;
+
+    QNetworkRequest request = createRequest("/api/auth/register", false);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply *reply = m_networkManager.post(
+        request,
+        QJsonDocument(body).toJson(QJsonDocument::Compact));
+
+    connect(reply, &QNetworkReply::finished, context, [this, reply, login, onSuccess = std::move(onSuccess), onError = std::move(onError)]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) {
+            onError("Некорректный ответ регистрации");
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonObject obj = doc.object();
+        const QString token = obj.value("token").toString();
+        if (token.isEmpty()) {
+            onError(extractErrorMessage(data, "Не удалось зарегистрировать студента"));
+            reply->deleteLater();
+            return;
+        }
+
+        SessionData session = sessionFromJson(obj, login);
         m_token = token;
         onSuccess(session);
         reply->deleteLater();
@@ -844,11 +923,7 @@ void ApiClient::getTests(
         QVector<TestData> tests;
         for (const auto &value : doc.object().value("tests").toArray()) {
             const QJsonObject obj = value.toObject();
-            TestData test;
-            test.id = obj.value("id").toInt(-1);
-            test.courseId = courseId;
-            test.title = obj.value("title").toString();
-            tests.push_back(test);
+            tests.push_back(testFromJson(obj, courseId));
         }
 
         onSuccess(tests);
@@ -859,12 +934,20 @@ void ApiClient::getTests(
 void ApiClient::createTest(
     int courseId,
     const QString &title,
+    const QString &status,
+    const QString &deadlineAt,
+    int maxAttempts,
+    int timeLimitMinutes,
     QObject *context,
     std::function<void(const TestData &test)> onSuccess,
     std::function<void(const QString &error)> onError)
 {
     QJsonObject body;
     body["title"] = title;
+    body["status"] = status;
+    body["deadlineAt"] = deadlineAt;
+    body["maxAttempts"] = maxAttempts;
+    body["timeLimitMinutes"] = timeLimitMinutes;
 
     QNetworkRequest request = createRequest(QString("/api/courses/%1/tests").arg(courseId));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -889,12 +972,7 @@ void ApiClient::createTest(
             return;
         }
 
-        const QJsonObject obj = doc.object();
-        TestData test;
-        test.id = obj.value("id").toInt(-1);
-        test.courseId = obj.value("courseId").toInt(-1);
-        test.title = obj.value("title").toString();
-        onSuccess(test);
+        onSuccess(testFromJson(doc.object()));
         reply->deleteLater();
     });
 }
@@ -902,12 +980,20 @@ void ApiClient::createTest(
 void ApiClient::updateTest(
     int testId,
     const QString &title,
+    const QString &status,
+    const QString &deadlineAt,
+    int maxAttempts,
+    int timeLimitMinutes,
     QObject *context,
     std::function<void(const TestData &test)> onSuccess,
     std::function<void(const QString &error)> onError)
 {
     QJsonObject body;
     body["title"] = title;
+    body["status"] = status;
+    body["deadlineAt"] = deadlineAt;
+    body["maxAttempts"] = maxAttempts;
+    body["timeLimitMinutes"] = timeLimitMinutes;
 
     QNetworkRequest request = createRequest(QString("/api/tests/%1").arg(testId));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -932,12 +1018,7 @@ void ApiClient::updateTest(
             return;
         }
 
-        const QJsonObject obj = doc.object();
-        TestData test;
-        test.id = obj.value("id").toInt(-1);
-        test.courseId = obj.value("courseId").toInt(-1);
-        test.title = obj.value("title").toString();
-        onSuccess(test);
+        onSuccess(testFromJson(doc.object()));
         reply->deleteLater();
     });
 }
@@ -972,7 +1053,7 @@ void ApiClient::getQuestions(
     std::function<void(const QString &error)> onError)
 {
     QNetworkReply *reply = m_networkManager.get(
-        createRequest(QString("/api/tests/%1/questions").arg(testId), false));
+        createRequest(QString("/api/tests/%1/questions").arg(testId)));
 
     connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
         const QByteArray data = reply->readAll();
@@ -1378,10 +1459,149 @@ void ApiClient::getAdminUsers(
             user.id = obj.value("id").toInt(-1);
             user.login = obj.value("login").toString();
             user.role = obj.value("role").toString();
+            user.firstName = obj.value("firstName").toString();
+            user.lastName = obj.value("lastName").toString();
+            user.groupName = obj.value("groupName").toString();
+            user.email = obj.value("email").toString();
+            user.phone = obj.value("phone").toString();
             users.push_back(user);
         }
 
         onSuccess(users);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::getAdminGroups(
+    QObject *context,
+    std::function<void(const QStringList &groups)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QNetworkReply *reply = m_networkManager.get(createRequest("/api/admin/groups"));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) {
+            onError("Некорректный ответ по группам");
+            reply->deleteLater();
+            return;
+        }
+
+        QStringList groups;
+        for (const auto &value : doc.object().value("groups").toArray()) {
+            groups.push_back(value.toString());
+        }
+
+        onSuccess(groups);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::createAdminGroup(
+    const QString &groupName,
+    QObject *context,
+    std::function<void(const QString &groupName)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QJsonObject body;
+    body["name"] = groupName;
+
+    QNetworkRequest request = createRequest("/api/admin/groups");
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply *reply = m_networkManager.post(
+        request,
+        QJsonDocument(body).toJson(QJsonDocument::Compact));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, groupName, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        const QString created = doc.isObject()
+            ? doc.object().value("name").toString(groupName)
+            : groupName;
+        onSuccess(created);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::renameAdminGroup(
+    const QString &oldName,
+    const QString &newName,
+    QObject *context,
+    std::function<void(const QString &groupName)> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QJsonObject body;
+    body["oldName"] = oldName;
+    body["newName"] = newName;
+
+    QNetworkRequest request = createRequest("/api/admin/groups");
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply *reply = m_networkManager.put(
+        request,
+        QJsonDocument(body).toJson(QJsonDocument::Compact));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, newName, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        const QJsonDocument doc = QJsonDocument::fromJson(data);
+        const QString renamed = doc.isObject()
+            ? doc.object().value("name").toString(newName)
+            : newName;
+        onSuccess(renamed);
+        reply->deleteLater();
+    });
+}
+
+void ApiClient::deleteAdminGroup(
+    const QString &groupName,
+    QObject *context,
+    std::function<void()> onSuccess,
+    std::function<void(const QString &error)> onError)
+{
+    QJsonObject body;
+    body["name"] = groupName;
+
+    QNetworkRequest request = createRequest("/api/admin/groups");
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+    QNetworkReply *reply = m_networkManager.sendCustomRequest(
+        request,
+        "DELETE",
+        QJsonDocument(body).toJson(QJsonDocument::Compact));
+
+    connect(reply, &QNetworkReply::finished, context, [reply, onSuccess = std::move(onSuccess), onError = std::move(onError), this]() {
+        const QByteArray data = reply->readAll();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onError(extractErrorMessage(data, reply->errorString()));
+            reply->deleteLater();
+            return;
+        }
+
+        onSuccess();
         reply->deleteLater();
     });
 }
@@ -1433,6 +1653,11 @@ void ApiClient::createAdminUser(
     const QString &login,
     const QString &password,
     const QString &role,
+    const QString &firstName,
+    const QString &lastName,
+    const QString &groupName,
+    const QString &email,
+    const QString &phone,
     QObject *context,
     std::function<void(const AdminUserData &user)> onSuccess,
     std::function<void(const QString &error)> onError)
@@ -1441,6 +1666,11 @@ void ApiClient::createAdminUser(
     body["login"] = login;
     body["password"] = password;
     body["role"] = role;
+    body["firstName"] = firstName;
+    body["lastName"] = lastName;
+    body["groupName"] = groupName;
+    body["email"] = email;
+    body["phone"] = phone;
 
     QNetworkRequest request = createRequest("/api/admin/users");
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -1470,6 +1700,11 @@ void ApiClient::createAdminUser(
         user.id = obj.value("userId").toInt(-1);
         user.login = obj.value("login").toString();
         user.role = obj.value("role").toString();
+        user.firstName = obj.value("firstName").toString();
+        user.lastName = obj.value("lastName").toString();
+        user.groupName = obj.value("groupName").toString();
+        user.email = obj.value("email").toString();
+        user.phone = obj.value("phone").toString();
         onSuccess(user);
         reply->deleteLater();
     });
@@ -1573,6 +1808,7 @@ void ApiClient::getCourseStudents(
             CourseStudentData student;
             student.id = obj.value("id").toInt(-1);
             student.login = obj.value("login").toString();
+            student.groupName = obj.value("groupName").toString();
             student.progress = obj.value("progress").toInt(0);
             student.lessonProgress = obj.value("lessonProgress").toInt(0);
             student.testProgress = obj.value("testProgress").toInt(0);

@@ -14,4 +14,6 @@ struct CourseData {
     int progressPercent = 0;
     int attemptedTestsCount = 0;
     int passedTestsCount = 0;
+    bool enrolled = false;
+    QString nearestDeadlineAt;
 };

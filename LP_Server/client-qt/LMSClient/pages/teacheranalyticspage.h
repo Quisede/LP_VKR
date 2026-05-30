@@ -9,6 +9,7 @@
 
 class QComboBox;
 class QLabel;
+class QPushButton;
 class QTableWidget;
 class QFrame;
 
@@ -28,6 +29,8 @@ public:
 
 signals:
     void courseSelected(int courseId);
+    void exportCsvRequested();
+    void exportPdfRequested();
 
 private:
     QString m_role = "Teacher";
@@ -41,4 +44,6 @@ private:
     QLabel *m_insightLabel;
     QLabel *m_emptyStateLabel;
     QTableWidget *m_resultsTable;
+    QPushButton *m_exportCsvButton;
+    QPushButton *m_exportPdfButton;
 };

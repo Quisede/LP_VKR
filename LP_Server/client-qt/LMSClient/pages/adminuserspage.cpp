@@ -5,6 +5,7 @@
 #include <QColor>
 #include <QComboBox>
 #include <QFrame>
+#include <QGridLayout>
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -73,7 +74,7 @@ AdminUsersPage::AdminUsersPage(QWidget *parent)
     hintLabel->setObjectName("sectionHintLabel");
     hintLabel->setWordWrap(true);
 
-    m_messageLabel = new QLabel("Загрузи список пользователей, чтобы увидеть общую картину по ролям.", pageCard);
+    m_messageLabel = new QLabel("Загрузите список пользователей, чтобы увидеть общую картину по ролям.", pageCard);
     m_messageLabel->setObjectName("sectionHintLabel");
     m_messageLabel->setWordWrap(true);
 
@@ -94,6 +95,11 @@ AdminUsersPage::AdminUsersPage(QWidget *parent)
         " font-size: 14px;"
         "}";
 
+    auto setControlHeight = [](QWidget *widget) {
+        widget->setMinimumHeight(44);
+        widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    };
+
     auto *formCard = new QFrame(pageCard);
     formCard->setObjectName("moduleCard");
     auto *formLayout = new QVBoxLayout(formCard);
@@ -112,24 +118,82 @@ AdminUsersPage::AdminUsersPage(QWidget *parent)
     m_loginEdit = new QLineEdit(formCard);
     m_loginEdit->setPlaceholderText("Логин");
     m_loginEdit->setStyleSheet(inputStyle);
+    setControlHeight(m_loginEdit);
 
     m_passwordEdit = new QLineEdit(formCard);
     m_passwordEdit->setPlaceholderText("Пароль");
     m_passwordEdit->setEchoMode(QLineEdit::Password);
     m_passwordEdit->setStyleSheet(inputStyle);
+    setControlHeight(m_passwordEdit);
+
+    m_firstNameEdit = new QLineEdit(formCard);
+    m_firstNameEdit->setPlaceholderText("Имя");
+    m_firstNameEdit->setStyleSheet(inputStyle);
+    setControlHeight(m_firstNameEdit);
+
+    m_lastNameEdit = new QLineEdit(formCard);
+    m_lastNameEdit->setPlaceholderText("Фамилия");
+    m_lastNameEdit->setStyleSheet(inputStyle);
+    setControlHeight(m_lastNameEdit);
+
+    m_emailEdit = new QLineEdit(formCard);
+    m_emailEdit->setPlaceholderText("Почта");
+    m_emailEdit->setStyleSheet(inputStyle);
+    setControlHeight(m_emailEdit);
+
+    m_phoneEdit = new QLineEdit(formCard);
+    m_phoneEdit->setPlaceholderText("Телефон");
+    m_phoneEdit->setStyleSheet(inputStyle);
+    setControlHeight(m_phoneEdit);
 
     m_roleCombo = ui_styles::createComboBox(formCard);
     m_roleCombo->addItems({"Student", "Teacher", "Admin"});
     ui_styles::applyComboBoxStyle(m_roleCombo);
+    setControlHeight(m_roleCombo);
+
+    m_groupCombo = ui_styles::createComboBox(formCard);
+    m_groupCombo->addItem("Без группы", "");
+    ui_styles::applyComboBoxStyle(m_groupCombo);
+    setControlHeight(m_groupCombo);
+
+    m_newGroupEdit = new QLineEdit(formCard);
+    m_newGroupEdit->setPlaceholderText("Новая группа, например ИВТ-403");
+    m_newGroupEdit->setStyleSheet(inputStyle);
+    setControlHeight(m_newGroupEdit);
+
+    m_createGroupButton = new QPushButton("Создать группу", formCard);
+    m_createGroupButton->setObjectName("cardGhostButton");
+    m_createGroupButton->setMinimumHeight(44);
+    m_createGroupButton->setMinimumWidth(150);
+
+    auto *groupCreateRow = new QHBoxLayout();
+    groupCreateRow->setSpacing(10);
+    groupCreateRow->addWidget(m_newGroupEdit, 1);
+    groupCreateRow->addWidget(m_createGroupButton);
 
     m_createButton = new QPushButton("Создать пользователя", formCard);
     m_createButton->setObjectName("cardAccentButton");
+    m_createButton->setMinimumHeight(44);
+
+    auto *fieldsGrid = new QGridLayout();
+    fieldsGrid->setContentsMargins(0, 0, 0, 0);
+    fieldsGrid->setHorizontalSpacing(12);
+    fieldsGrid->setVerticalSpacing(10);
+    fieldsGrid->addWidget(m_loginEdit, 0, 0);
+    fieldsGrid->addWidget(m_passwordEdit, 0, 1);
+    fieldsGrid->addWidget(m_firstNameEdit, 1, 0);
+    fieldsGrid->addWidget(m_lastNameEdit, 1, 1);
+    fieldsGrid->addWidget(m_emailEdit, 2, 0);
+    fieldsGrid->addWidget(m_phoneEdit, 2, 1);
+    fieldsGrid->addWidget(m_roleCombo, 3, 0);
+    fieldsGrid->addWidget(m_groupCombo, 3, 1);
+    fieldsGrid->setColumnStretch(0, 1);
+    fieldsGrid->setColumnStretch(1, 1);
 
     formLayout->addWidget(formTitle);
     formLayout->addWidget(formHint);
-    formLayout->addWidget(m_loginEdit);
-    formLayout->addWidget(m_passwordEdit);
-    formLayout->addWidget(m_roleCombo);
+    formLayout->addLayout(fieldsGrid);
+    formLayout->addLayout(groupCreateRow);
     formLayout->addWidget(m_createButton, 0, Qt::AlignLeft);
 
     m_focusLabel = new QLabel(pageCard);
@@ -161,12 +225,14 @@ AdminUsersPage::AdminUsersPage(QWidget *parent)
     m_emptyStateLabel->setWordWrap(true);
 
     m_usersTable = new QTableWidget(pageCard);
-    m_usersTable->setColumnCount(4);
-    m_usersTable->setHorizontalHeaderLabels({"ID", "Логин", "Роль", "Управление"});
+    m_usersTable->setColumnCount(6);
+    m_usersTable->setHorizontalHeaderLabels({"ID", "Логин", "ФИО", "Группа", "Роль", "Управление"});
     m_usersTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    m_usersTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
-    m_usersTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    m_usersTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    m_usersTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
     m_usersTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    m_usersTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
+    m_usersTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
     m_usersTable->verticalHeader()->setVisible(false);
     m_usersTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_usersTable->setSelectionMode(QAbstractItemView::NoSelection);
@@ -207,7 +273,20 @@ AdminUsersPage::AdminUsersPage(QWidget *parent)
         emit createUserRequested(
             m_loginEdit->text().trimmed(),
             m_passwordEdit->text(),
-            m_roleCombo->currentText());
+            m_roleCombo->currentText(),
+            m_firstNameEdit->text().trimmed(),
+            m_lastNameEdit->text().trimmed(),
+            m_roleCombo->currentText() == "Student" ? m_groupCombo->currentData().toString() : QString(),
+            m_emailEdit->text().trimmed(),
+            m_phoneEdit->text().trimmed());
+    });
+
+    connect(m_createGroupButton, &QPushButton::clicked, this, [this]() {
+        emit createGroupRequested(m_newGroupEdit->text().trimmed());
+    });
+
+    connect(m_roleCombo, &QComboBox::currentTextChanged, this, [this](const QString &role) {
+        m_groupCombo->setEnabled(role == "Student");
     });
 
     clearUsers();
@@ -217,6 +296,23 @@ void AdminUsersPage::setUsers(const QVector<AdminUserData> &users)
 {
     m_allUsers = users;
     applyUsersFilter(m_searchEdit->text());
+}
+
+void AdminUsersPage::setGroups(const QStringList &groups)
+{
+    const QString previousGroup = m_groupCombo->currentData().toString();
+    m_groupCombo->blockSignals(true);
+    m_groupCombo->clear();
+    m_groupCombo->addItem("Без группы", "");
+    for (const QString &group : groups) {
+        const QString trimmed = group.trimmed();
+        if (!trimmed.isEmpty()) {
+            m_groupCombo->addItem(trimmed, trimmed);
+        }
+    }
+    const int index = m_groupCombo->findData(previousGroup);
+    m_groupCombo->setCurrentIndex(index >= 0 ? index : 0);
+    m_groupCombo->blockSignals(false);
 }
 
 void AdminUsersPage::applyUsersFilter(const QString &query)
@@ -229,7 +325,7 @@ void AdminUsersPage::applyUsersFilter(const QString &query)
     QVector<AdminUserData> users;
 
     for (const auto &user : m_allUsers) {
-        const QString haystack = (user.login + " " + user.role).toLower();
+        const QString haystack = (user.login + " " + user.role + " " + user.firstName + " " + user.lastName + " " + user.groupName).toLower();
         const bool roleMatches = selectedRole == "Все роли" || user.role == selectedRole;
         if ((normalizedQuery.isEmpty() || haystack.contains(normalizedQuery)) && roleMatches) {
             users.push_back(user);
@@ -248,6 +344,9 @@ void AdminUsersPage::applyUsersFilter(const QString &query)
 
         auto *idItem = new QTableWidgetItem(QString::number(user.id));
         auto *loginItem = new QTableWidgetItem(user.login);
+        const QString fullName = QString("%1 %2").arg(user.lastName, user.firstName).trimmed();
+        auto *nameItem = new QTableWidgetItem(fullName.isEmpty() ? "—" : fullName);
+        auto *groupItem = new QTableWidgetItem(user.groupName.isEmpty() ? "—" : user.groupName);
         auto *roleItem = new QTableWidgetItem(roleCaption(user.role));
 
         idItem->setTextAlignment(Qt::AlignCenter);
@@ -298,8 +397,10 @@ void AdminUsersPage::applyUsersFilter(const QString &query)
 
         m_usersTable->setItem(row, 0, idItem);
         m_usersTable->setItem(row, 1, loginItem);
-        m_usersTable->setItem(row, 2, roleItem);
-        m_usersTable->setCellWidget(row, 3, actionsWidget);
+        m_usersTable->setItem(row, 2, nameItem);
+        m_usersTable->setItem(row, 3, groupItem);
+        m_usersTable->setItem(row, 4, roleItem);
+        m_usersTable->setCellWidget(row, 5, actionsWidget);
     }
 
     m_usersTable->resizeRowsToContents();
@@ -361,7 +462,14 @@ void AdminUsersPage::setBusy(bool busy)
 {
     m_loginEdit->setEnabled(!busy);
     m_passwordEdit->setEnabled(!busy);
+    m_firstNameEdit->setEnabled(!busy);
+    m_lastNameEdit->setEnabled(!busy);
+    m_emailEdit->setEnabled(!busy);
+    m_phoneEdit->setEnabled(!busy);
     m_roleCombo->setEnabled(!busy);
+    m_groupCombo->setEnabled(!busy && m_roleCombo->currentText() == "Student");
+    m_newGroupEdit->setEnabled(!busy);
+    m_createGroupButton->setEnabled(!busy);
     m_createButton->setEnabled(!busy);
 }
 
@@ -369,5 +477,11 @@ void AdminUsersPage::clearDraft()
 {
     m_loginEdit->clear();
     m_passwordEdit->clear();
+    m_firstNameEdit->clear();
+    m_lastNameEdit->clear();
+    m_emailEdit->clear();
+    m_phoneEdit->clear();
+    m_newGroupEdit->clear();
     m_roleCombo->setCurrentIndex(0);
+    m_groupCombo->setCurrentIndex(0);
 }

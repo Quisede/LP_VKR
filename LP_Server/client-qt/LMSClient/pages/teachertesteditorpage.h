@@ -13,6 +13,7 @@ class QLabel;
 class QListWidget;
 class QLineEdit;
 class QPushButton;
+class QSpinBox;
 class QTabWidget;
 class QTextEdit;
 
@@ -37,8 +38,8 @@ public:
 signals:
     void backRequested();
     void testSelectedForQuestions(int testId);
-    void createTestRequested(int courseId, const QString &title);
-    void updateTestRequested(int testId, const QString &title);
+    void createTestRequested(int courseId, const QString &title, const QString &status, const QString &deadlineAt, int maxAttempts, int timeLimitMinutes);
+    void updateTestRequested(int testId, const QString &title, const QString &status, const QString &deadlineAt, int maxAttempts, int timeLimitMinutes);
     void deleteTestRequested(int testId);
     void createQuestionRequested(int testId, const QString &text, const QStringList &options, int correctOptionIndex);
     void updateQuestionRequested(int questionId, const QString &text, const QStringList &options, int correctOptionIndex);
@@ -52,6 +53,7 @@ private:
     void refreshReview();
     QStringList questionOptionTexts() const;
     void setQuestionOptionTexts(const QStringList &options);
+    TestData currentEditingTest() const;
     void updateActionState();
     int selectedManagedTestId() const;
     int selectedQuestionId() const;
@@ -72,6 +74,8 @@ private:
     QListWidget *m_testsList;
     QListWidget *m_questionsList;
     QLineEdit *m_testTitleEdit;
+    QSpinBox *m_testMaxAttemptsSpin;
+    QSpinBox *m_testTimeLimitSpin;
     QPushButton *m_addTestButton;
     QPushButton *m_loadTestButton;
     QPushButton *m_updateTestButton;

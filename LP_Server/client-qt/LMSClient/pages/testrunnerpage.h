@@ -11,6 +11,7 @@
 
 class QLabel;
 class QPushButton;
+class QTimer;
 class QVBoxLayout;
 class QButtonGroup;
 class QFrame;
@@ -34,7 +35,11 @@ signals:
 private:
     void renderCurrentQuestion();
     void refreshActionState();
+    void startTimer();
+    void stopTimer();
+    void refreshTimerLabel();
     QVector<QPair<int, int>> selectedAnswers() const;
+    QString answerTextFor(const QuestionData &question, int answerId) const;
     bool allQuestionsAnswered() const;
 
     TestData m_test;
@@ -43,6 +48,7 @@ private:
     AttemptData m_lastResult;
     bool m_hasResult = false;
     int m_currentIndex = 0;
+    int m_remainingSeconds = 0;
     QString m_emptyTitle = "Тест не выбран";
     QString m_emptyMessage = "Выберите тест внутри курса, чтобы увидеть вопрос и варианты ответов.";
 
@@ -54,8 +60,10 @@ private:
     QLabel *m_questionNumberValueLabel;
     QLabel *m_totalQuestionsValueLabel;
     QLabel *m_answersCountValueLabel;
+    QLabel *m_timerValueLabel;
     QWidget *m_answersContainer;
     QVBoxLayout *m_answersLayout;
+    QTimer *m_timer;
     QPushButton *m_prevButton;
     QPushButton *m_nextButton;
     QPushButton *m_submitButton;

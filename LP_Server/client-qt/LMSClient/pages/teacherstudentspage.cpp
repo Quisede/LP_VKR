@@ -8,6 +8,8 @@
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMap>
+#include <QStringList>
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QVBoxLayout>
@@ -84,13 +86,14 @@ TeacherStudentsPage::TeacherStudentsPage(QWidget *parent)
     m_emptyStateLabel->setWordWrap(true);
 
     m_studentsTable = new QTableWidget(pageCard);
-    m_studentsTable->setColumnCount(5);
-    m_studentsTable->setHorizontalHeaderLabels({"ID", "Логин", "Общий", "Уроки", "Тесты"});
+    m_studentsTable->setColumnCount(6);
+    m_studentsTable->setHorizontalHeaderLabels({"ID", "Логин", "Группа", "Общий", "Уроки", "Тесты"});
     m_studentsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    m_studentsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
-    m_studentsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    m_studentsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    m_studentsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
     m_studentsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
     m_studentsTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
+    m_studentsTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
     m_studentsTable->verticalHeader()->setVisible(false);
     m_studentsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_studentsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -235,14 +238,17 @@ void TeacherStudentsPage::setCourses(const QVector<CourseData> &courses)
 void TeacherStudentsPage::setStudents(const QVector<CourseStudentData> &students)
 {
     int totalProgress = 0;
+    QMap<QString, int> groupCounts;
     m_studentsTable->setRowCount(students.size());
 
     for (int row = 0; row < students.size(); ++row) {
         const CourseStudentData &student = students[row];
         totalProgress += student.progress;
+        groupCounts[student.groupName.isEmpty() ? "Без группы" : student.groupName] += 1;
 
         auto *idItem = new QTableWidgetItem(QString::number(student.id));
         auto *loginItem = new QTableWidgetItem(student.login);
+        auto *groupItem = new QTableWidgetItem(student.groupName.isEmpty() ? "Не указана" : student.groupName);
         auto *progressItem = new QTableWidgetItem(QString("%1%").arg(student.progress));
         auto *lessonProgressItem = new QTableWidgetItem(QString("%1%").arg(student.lessonProgress));
         auto *testProgressItem = new QTableWidgetItem(QString("%1%").arg(student.testProgress));
@@ -257,9 +263,10 @@ void TeacherStudentsPage::setStudents(const QVector<CourseStudentData> &students
 
         m_studentsTable->setItem(row, 0, idItem);
         m_studentsTable->setItem(row, 1, loginItem);
-        m_studentsTable->setItem(row, 2, progressItem);
-        m_studentsTable->setItem(row, 3, lessonProgressItem);
-        m_studentsTable->setItem(row, 4, testProgressItem);
+        m_studentsTable->setItem(row, 2, groupItem);
+        m_studentsTable->setItem(row, 3, progressItem);
+        m_studentsTable->setItem(row, 4, lessonProgressItem);
+        m_studentsTable->setItem(row, 5, testProgressItem);
     }
 
     m_studentsCountLabel->setText(QString::number(students.size()));
@@ -277,9 +284,13 @@ void TeacherStudentsPage::setStudents(const QVector<CourseStudentData> &students
         clearStudentAttempts();
     } else {
         showMessage(QString("Найдено студентов: %1").arg(students.size()), false);
+        QStringList groupParts;
+        for (auto it = groupCounts.cbegin(); it != groupCounts.cend(); ++it) {
+            groupParts << QString("%1: %2").arg(it.key()).arg(it.value());
+        }
         m_focusLabel->setText(
-            QString("Средний прогресс группы сейчас %1%. Колонки \"Уроки\" и \"Тесты\" помогают понять, где именно проседает обучение.")
-                .arg(QString::number(averageProgress, 'f', 1)));
+            QString("Средний прогресс сейчас %1%. Распределение по группам: %2. Колонки \"Уроки\" и \"Тесты\" помогают понять, где именно проседает обучение.")
+                .arg(QString::number(averageProgress, 'f', 1), groupParts.join("; ")));
         m_emptyStateLabel->hide();
         m_studentsTable->show();
         m_studentsTable->selectRow(0);

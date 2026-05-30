@@ -27,6 +27,15 @@ QuestionService::QuestionService(QuestionRepository& qRepo,
       courseService(cService) {}
 
 std::vector<Question> QuestionService::getQuestionsForTest(int testId) {
+    auto test = testRepository.getTestById(testId);
+    if (!test.has_value()) {
+        throw std::invalid_argument("Test not found");
+    }
+
+    if (!test->available) {
+        throw std::invalid_argument("Test is closed or deadline has passed");
+    }
+
     return questionRepository.getQuestionsForTest(testId);
 }
 
@@ -170,6 +179,15 @@ TestResult QuestionService::checkAnswers(
     int testId,
     const std::vector<SubmittedAnswer>& answers) {
 
+    auto test = testRepository.getTestById(testId);
+    if (!test.has_value()) {
+        throw std::invalid_argument("Test not found");
+    }
+
+    if (!test->available) {
+        throw std::invalid_argument("Test is closed or deadline has passed");
+    }
+
     auto questions = questionRepository.getQuestionsForTest(testId);
 
     int score = 0;
@@ -196,6 +214,20 @@ TestResult QuestionService::submitTest(
     int testId,
     const std::vector<SubmittedAnswer>& answers) {
 
+    auto test = testRepository.getTestById(testId);
+    if (!test.has_value()) {
+        throw std::invalid_argument("Test not found");
+    }
+
+    if (!test->available) {
+        throw std::invalid_argument("Test is closed or deadline has passed");
+    }
+
+    if (test->maxAttempts > 0 &&
+        attemptRepository.countAttemptsForUserTest(userId, testId) >= test->maxAttempts) {
+        throw std::invalid_argument("The attempt limit for this test has been reached");
+    }
+
     auto questions = questionRepository.getQuestionsForTest(testId);
 
     int score = 0;
@@ -213,7 +245,6 @@ TestResult QuestionService::submitTest(
     double percentage = total == 0 ? 0.0 : (double)score / total * 100.0;
     bool passed = percentage >= 60.0;
 
-    auto test = testRepository.getTestById(testId);
     TestResult result {
         score,
         total,

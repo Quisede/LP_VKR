@@ -9,6 +9,7 @@ class InMemoryAttemptRepository : public AttemptRepository {
 
         void saveAttempt(const Attempt& attempt) override;
         std::vector<Attempt> getAttemptsForUser(int userId) override;
+        int countAttemptsForUserTest(int userId, int testId) override;
         CourseAnalytics getCourseAnalytics(int courseId) override;
         std::vector<StudentCourseAttempt> getStudentCourseAttempts(int courseId, int studentId) override;
     private:

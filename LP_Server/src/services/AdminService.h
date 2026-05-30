@@ -17,6 +17,10 @@ public:
         AdminAuditRepository& auditRepository);
 
     std::vector<User> getAllUsers(int currentUserId, UserRole role);
+    std::vector<std::string> getGroups(int currentUserId, UserRole role);
+    std::string createGroup(int currentUserId, UserRole role, const std::string& groupName);
+    std::string renameGroup(int currentUserId, UserRole role, const std::string& oldName, const std::string& newName);
+    void deleteGroup(int currentUserId, UserRole role, const std::string& groupName);
     AdminOverview getOverview(int currentUserId, UserRole role);
     std::vector<AdminAuditEvent> getAuditEvents(int currentUserId, UserRole role, int limit);
     void recordAuditEvent(

@@ -25,11 +25,13 @@ QT_END_NAMESPACE
 
 class ApiClient;
 class AdminAuditPage;
+class AdminGroupsPage;
 class AdminUsersPage;
 class AttemptsPage;
 class CourseDetailsPage;
 class CoursesPage;
 class DashboardPage;
+class DeadlinesPage;
 class ProfilePage;
 class TeacherCourseBuilderPage;
 class TeacherCreateCoursePage;
@@ -37,6 +39,7 @@ class TeacherAnalyticsPage;
 class TeacherStudentsPage;
 class TeacherTestEditorPage;
 class TestRunnerPage;
+class QLabel;
 class QTimer;
 
 class MainWindow : public QMainWindow
@@ -89,6 +92,7 @@ private:
     void loadAttempts();
     void loadAdminOverview();
     void loadAdminUsers();
+    void loadAdminGroups();
     void loadAdminAudit();
     void loadCourseContent(int courseId);
     void loadCourseLessonsAndMaterials(int courseId);
@@ -106,8 +110,10 @@ private:
     ApiClient *m_apiClient;
 
     AdminUsersPage *m_adminUsersPage;
+    AdminGroupsPage *m_adminGroupsPage;
     AdminAuditPage *m_adminAuditPage;
     DashboardPage *m_dashboardPage;
+    DeadlinesPage *m_deadlinesPage;
     CoursesPage *m_coursesPage;
     TeacherCreateCoursePage *m_teacherCreateCoursePage;
     CourseDetailsPage *m_courseDetailsPage;
@@ -121,6 +127,7 @@ private:
 
     QPushButton *m_createCourseButton = nullptr;
     QPushButton *m_studentsButton = nullptr;
+    QLabel *m_toastLabel = nullptr;
     QTimer *m_connectionTimer = nullptr;
 
     SessionData m_session;

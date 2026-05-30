@@ -7,8 +7,8 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Widgets Network)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Widgets Network)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Widgets Network PrintSupport)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Widgets Network PrintSupport)
 
 if (QT_VERSION_MAJOR EQUAL 6)
     qt_standard_project_setup()
@@ -28,8 +28,12 @@ set(LMSCLIENT_SOURCES
     widgets/coursecard.cpp
     pages/dashboardpage.h
     pages/dashboardpage.cpp
+    pages/deadlinespage.h
+    pages/deadlinespage.cpp
     pages/adminauditpage.h
     pages/adminauditpage.cpp
+    pages/admingroupspage.h
+    pages/admingroupspage.cpp
     pages/adminuserspage.h
     pages/adminuserspage.cpp
     pages/coursespage.h
@@ -68,6 +72,12 @@ set(LMSCLIENT_SOURCES
     models/teacherstudentattemptmodel.h
 )
 
+set(APP_ICON_MACOS "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/lms-app.icns")
+if (EXISTS "${APP_ICON_MACOS}")
+    set_source_files_properties("${APP_ICON_MACOS}" PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+    list(APPEND LMSCLIENT_SOURCES "${APP_ICON_MACOS}")
+endif()
+
 if (QT_VERSION_MAJOR EQUAL 6)
     qt_add_executable(LMSClient
         WIN32 MACOSX_BUNDLE
@@ -82,6 +92,16 @@ target_link_libraries(LMSClient
         Qt${QT_VERSION_MAJOR}::Core
         Qt${QT_VERSION_MAJOR}::Widgets
         Qt${QT_VERSION_MAJOR}::Network
+        Qt${QT_VERSION_MAJOR}::PrintSupport
+)
+
+set_target_properties(LMSClient PROPERTIES
+    MACOSX_BUNDLE_GUI_IDENTIFIER "local.lms.client"
+    MACOSX_BUNDLE_BUNDLE_NAME "LMS Client"
+    MACOSX_BUNDLE_DISPLAY_NAME "LMS Client"
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0.0"
+    MACOSX_BUNDLE_BUNDLE_VERSION "1.0.0"
+    MACOSX_BUNDLE_ICON_FILE "lms-app.icns"
 )
 
 install(TARGETS LMSClient
@@ -89,3 +109,14 @@ install(TARGETS LMSClient
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
+
+set(CPACK_PACKAGE_NAME "lms-client")
+set(CPACK_PACKAGE_VENDOR "LMS Platform")
+set(CPACK_PACKAGE_CONTACT "admin@lms.local")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Qt client for LMS Platform")
+set(CPACK_PACKAGE_VERSION "1.0.0")
+set(CPACK_DEBIAN_PACKAGE_SECTION "education")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "LMS Platform")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6")
+set(CPACK_GENERATOR "DEB")
+include(CPack)

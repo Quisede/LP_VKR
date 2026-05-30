@@ -3,11 +3,13 @@
 
 #include "api/apiclient.h"
 #include "pages/adminauditpage.h"
+#include "pages/admingroupspage.h"
 #include "pages/adminuserspage.h"
 #include "pages/attemptspage.h"
 #include "pages/coursedetailspage.h"
 #include "pages/coursespage.h"
 #include "pages/dashboardpage.h"
+#include "pages/deadlinespage.h"
 #include "pages/profilepage.h"
 #include "pages/teacheranalyticspage.h"
 #include "pages/teachercoursebuilderpage.h"
@@ -34,10 +36,15 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <memory>
+#include <QPair>
 #include <QPlainTextEdit>
+#include <QPrinter>
+#include <QPushButton>
+#include <QScrollBar>
 #include <QSet>
 #include <QStandardPaths>
 #include <QTableWidget>
+#include <QTextDocument>
 #include <QTextEdit>
 #include <QTabWidget>
 #include <QTimer>
@@ -60,6 +67,23 @@ bool confirmDangerAction(
                text,
                QMessageBox::Yes | QMessageBox::No,
                QMessageBox::No) == QMessageBox::Yes;
+}
+
+QString csvEscape(const QString &value)
+{
+    QString escaped = value;
+    escaped.replace("\"", "\"\"");
+    return "\"" + escaped + "\"";
+}
+
+QString htmlEscape(const QString &value)
+{
+    QString escaped = value;
+    escaped.replace("&", "&amp;");
+    escaped.replace("<", "&lt;");
+    escaped.replace(">", "&gt;");
+    escaped.replace("\"", "&quot;");
+    return escaped;
 }
 
 QString normalizedExternalUrl(const QString &rawUrl)
@@ -140,29 +164,52 @@ bool openDownloadedMaterial(QWidget *parent, const MaterialFileData &fileData)
     return true;
 }
 
-void showScrollableTextDialog(
+QString normalizedReaderText(QString text)
+{
+    text.replace("\\r\\n", "\n");
+    text.replace("\\n", "\n");
+    text.replace("\\t", "    ");
+    return text.trimmed();
+}
+
+void showPagedReaderDialog(
     QWidget *parent,
     const QString &windowTitle,
-    const QString &title,
-    const QString &content)
+    const QVector<QPair<QString, QString>> &items,
+    int startIndex)
 {
+    if (items.isEmpty()) {
+        return;
+    }
+
     QDialog dialog(parent);
     dialog.setWindowTitle(windowTitle);
-    dialog.resize(760, 620);
+    dialog.resize(820, 660);
+    dialog.setStyleSheet(
+        "QDialog { background: #f8fbff; }"
+        "QPushButton#cardGhostButton { background: #e2e8f0; color: #0f172a; border: none; border-radius: 12px; padding: 10px 16px; font-weight: 700; }"
+        "QPushButton#cardGhostButton:hover { background: #cbd5e1; }"
+        "QPushButton#cardAccentButton { background: #2563eb; color: #ffffff; border: none; border-radius: 12px; padding: 10px 16px; font-weight: 700; }"
+        "QPushButton#cardAccentButton:hover { background: #1d4ed8; }"
+        "QPushButton#cardActionButton { background: #0f172a; color: #ffffff; border: none; border-radius: 12px; padding: 10px 16px; font-weight: 700; }");
 
     auto *layout = new QVBoxLayout(&dialog);
     layout->setContentsMargins(22, 22, 22, 18);
     layout->setSpacing(14);
 
-    auto *titleLabel = new QLabel(title.isEmpty() ? windowTitle : title, &dialog);
+    int currentIndex = qBound(0, startIndex, items.size() - 1);
+
+    auto *titleLabel = new QLabel(&dialog);
     titleLabel->setStyleSheet("color: #0f172a; font-size: 22px; font-weight: 800;");
     titleLabel->setWordWrap(true);
 
+    auto *counterLabel = new QLabel(&dialog);
+    counterLabel->setStyleSheet("color: #64748b; font-size: 13px; font-weight: 700;");
+
     auto *reader = new QTextEdit(&dialog);
     reader->setReadOnly(true);
-    reader->setPlainText(content.trimmed().isEmpty()
-        ? "Содержимое пока не добавлено."
-        : content);
+    reader->setTextInteractionFlags(Qt::NoTextInteraction);
+    reader->setLineWrapMode(QTextEdit::WidgetWidth);
     reader->setStyleSheet(
         "QTextEdit {"
         " background: #ffffff;"
@@ -175,13 +222,51 @@ void showScrollableTextDialog(
         "QScrollBar:vertical { background: #f1f5f9; width: 10px; border-radius: 5px; }"
         "QScrollBar::handle:vertical { background: #94a3b8; border-radius: 5px; }");
 
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
-    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    auto *actionsLayout = new QHBoxLayout();
+    actionsLayout->setSpacing(10);
+    auto *previousButton = new QPushButton("Предыдущий", &dialog);
+    previousButton->setObjectName("cardGhostButton");
+    auto *nextButton = new QPushButton("Следующий", &dialog);
+    nextButton->setObjectName("cardAccentButton");
+    auto *closeButton = new QPushButton("Закрыть", &dialog);
+    closeButton->setObjectName("cardActionButton");
+
+    auto refreshReader = [&]() {
+        const auto &item = items[currentIndex];
+        titleLabel->setText(item.first.isEmpty() ? windowTitle : item.first);
+        counterLabel->setText(QString("%1 из %2").arg(currentIndex + 1).arg(items.size()));
+        const QString text = normalizedReaderText(item.second);
+        reader->setPlainText(text.isEmpty() ? "Содержимое пока не добавлено." : text);
+        previousButton->setEnabled(currentIndex > 0);
+        nextButton->setEnabled(currentIndex + 1 < items.size());
+        reader->verticalScrollBar()->setValue(0);
+    };
+
+    QObject::connect(previousButton, &QPushButton::clicked, &dialog, [&]() {
+        if (currentIndex > 0) {
+            --currentIndex;
+            refreshReader();
+        }
+    });
+    QObject::connect(nextButton, &QPushButton::clicked, &dialog, [&]() {
+        if (currentIndex + 1 < items.size()) {
+            ++currentIndex;
+            refreshReader();
+        }
+    });
+    QObject::connect(closeButton, &QPushButton::clicked, &dialog, &QDialog::accept);
+
+    actionsLayout->addWidget(previousButton);
+    actionsLayout->addWidget(nextButton);
+    actionsLayout->addStretch();
+    actionsLayout->addWidget(closeButton);
 
     layout->addWidget(titleLabel);
+    layout->addWidget(counterLabel);
     layout->addWidget(reader, 1);
-    layout->addWidget(buttons);
+    layout->addLayout(actionsLayout);
 
+    refreshReader();
     dialog.exec();
 }
 
@@ -217,8 +302,10 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
     , ui(new Ui::MainWindow)
     , m_apiClient(apiClient)
     , m_adminUsersPage(new AdminUsersPage(this))
+    , m_adminGroupsPage(new AdminGroupsPage(this))
     , m_adminAuditPage(new AdminAuditPage(this))
     , m_dashboardPage(new DashboardPage(this))
+    , m_deadlinesPage(new DeadlinesPage(this))
     , m_coursesPage(new CoursesPage(this))
     , m_teacherCreateCoursePage(new TeacherCreateCoursePage(this))
     , m_courseDetailsPage(new CourseDetailsPage(this))
@@ -235,7 +322,24 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
     setWindowTitle("LMS Client");
     ui->appVersionLabel->setText(QString("LMS Client v%1").arg(kAppVersion));
     ui->apiEndpointLabel->setText(QString("API: %1").arg(qEnvironmentVariable("LMS_API_BASE_URL", "http://localhost:8080")));
+    ui->statusLabel->hide();
     updateFooterStatus("Подключение: ожидание авторизации", false);
+
+    m_toastLabel = new QLabel(this);
+    m_toastLabel->setObjectName("toastLabel");
+    m_toastLabel->setWordWrap(true);
+    m_toastLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    m_toastLabel->setStyleSheet(
+        "QLabel#toastLabel {"
+        " background: rgba(15, 23, 42, 0.94);"
+        " color: #f8fafc;"
+        " border: 1px solid rgba(148, 163, 184, 0.32);"
+        " border-radius: 16px;"
+        " padding: 12px 16px;"
+        " font-size: 13px;"
+        " font-weight: 700;"
+        "}");
+    m_toastLabel->hide();
 
     m_createCourseButton = createSidebarButton("Создать курс", ui->sidebarFrame);
     m_studentsButton = createSidebarButton("Студенты", ui->sidebarFrame);
@@ -246,7 +350,9 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
     ui->sidebarLayout->insertWidget(7, m_studentsButton);
 
     ui->stackedWidget->addWidget(m_dashboardPage);
+    ui->stackedWidget->addWidget(m_deadlinesPage);
     ui->stackedWidget->addWidget(m_adminUsersPage);
+    ui->stackedWidget->addWidget(m_adminGroupsPage);
     ui->stackedWidget->addWidget(m_adminAuditPage);
     ui->stackedWidget->addWidget(m_coursesPage);
     ui->stackedWidget->addWidget(m_teacherCreateCoursePage);
@@ -325,6 +431,7 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
         setActiveSection(ui->homeButton);
         setHeader("Пользователи", "Управление ролями, поиском и жизненным циклом пользователей платформы.");
         showStatus("Раздел пользователей открыт");
+        loadAdminGroups();
         loadAdminUsers();
     });
 
@@ -432,10 +539,35 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
         showStatus("Ссылка материала открыта");
     });
     connect(m_courseDetailsPage, &CourseDetailsPage::materialTextPreviewRequested, this, [this](const QString &title, const QString &content) {
-        showScrollableTextDialog(this, "Материал", title.isEmpty() ? "Текстовый материал" : title, content);
+        showPagedReaderDialog(this, "Материал", {{title.isEmpty() ? "Текстовый материал" : title, content}}, 0);
     });
     connect(m_courseDetailsPage, &CourseDetailsPage::lessonPreviewRequested, this, [this](const QString &title, const QString &content) {
-        showScrollableTextDialog(this, "Урок", title.isEmpty() ? "Урок" : title, content);
+        showPagedReaderDialog(this, "Урок", {{title.isEmpty() ? "Урок" : title, content}}, 0);
+    });
+    connect(m_courseDetailsPage, &CourseDetailsPage::lessonReaderRequested, this, [this](int lessonId) {
+        QVector<QPair<QString, QString>> items;
+        int startIndex = 0;
+        for (const LessonData &lesson : std::as_const(m_selectedLessons)) {
+            if (lesson.id == lessonId) {
+                startIndex = items.size();
+            }
+            items.push_back(qMakePair(lesson.title, lesson.content));
+        }
+        showPagedReaderDialog(this, "Уроки курса", items, startIndex);
+    });
+    connect(m_courseDetailsPage, &CourseDetailsPage::materialReaderRequested, this, [this](int materialId) {
+        QVector<QPair<QString, QString>> items;
+        int startIndex = 0;
+        for (const MaterialData &material : std::as_const(m_selectedMaterials)) {
+            if (material.type != "text") {
+                continue;
+            }
+            if (material.id == materialId) {
+                startIndex = items.size();
+            }
+            items.push_back(qMakePair(material.title, material.content));
+        }
+        showPagedReaderDialog(this, "Материалы курса", items, startIndex);
     });
     connect(m_courseDetailsPage, &CourseDetailsPage::lessonCompletedRequested, this, [this](int lessonId) {
         showStatus("Отмечаем урок как изученный...");
@@ -717,20 +849,19 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
         showStatus("Ссылка материала открыта");
     });
     connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::materialTextPreviewRequested, this, [this](const QString &title, const QString &content) {
-        QMessageBox preview(this);
-        preview.setWindowTitle(title.isEmpty() ? "Материал" : title);
-        preview.setText(title.isEmpty() ? "Текстовый материал" : title);
-        preview.setInformativeText(content);
-        preview.setStandardButtons(QMessageBox::Ok);
-        preview.exec();
+        showPagedReaderDialog(this, "Материал", {{title.isEmpty() ? "Текстовый материал" : title, content}}, 0);
     });
     connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::createTestRequested, this,
-        [this](int courseId, const QString &title) {
+        [this](int courseId, const QString &title, const QString &status, const QString &deadlineAt, int maxAttempts, int timeLimitMinutes) {
             showStatus("Создаём тест...");
             m_teacherCourseBuilderPage->showMessage("Создаём тест...", false);
             m_apiClient->createTest(
                 courseId,
                 title,
+                status,
+                deadlineAt,
+                maxAttempts,
+                timeLimitMinutes,
                 this,
                 [this](const TestData &test) {
                     m_teacherCourseBuilderPage->clearTestDraft();
@@ -745,12 +876,16 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
                 });
         });
     connect(m_teacherCourseBuilderPage, &TeacherCourseBuilderPage::updateTestRequested, this,
-        [this](int testId, const QString &title) {
+        [this](int testId, const QString &title, const QString &status, const QString &deadlineAt, int maxAttempts, int timeLimitMinutes) {
             showStatus("Обновляем тест...");
             m_teacherCourseBuilderPage->showMessage("Сохраняем изменения теста...", false);
             m_apiClient->updateTest(
                 testId,
                 title,
+                status,
+                deadlineAt,
+                maxAttempts,
+                timeLimitMinutes,
                 this,
                 [this, testId](const TestData &) {
                     m_teacherCourseBuilderPage->clearTestDraft();
@@ -874,12 +1009,16 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
         }
     });
     connect(m_teacherTestEditorPage, &TeacherTestEditorPage::createTestRequested, this,
-        [this](int courseId, const QString &title) {
+        [this](int courseId, const QString &title, const QString &status, const QString &deadlineAt, int maxAttempts, int timeLimitMinutes) {
             showStatus("Создаём тест...");
             m_teacherTestEditorPage->showMessage("Создаём тест...", false);
             m_apiClient->createTest(
                 courseId,
                 title,
+                status,
+                deadlineAt,
+                maxAttempts,
+                timeLimitMinutes,
                 this,
                 [this](const TestData &test) {
                     m_teacherTestEditorPage->clearTestDraft();
@@ -894,12 +1033,16 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
                 });
         });
     connect(m_teacherTestEditorPage, &TeacherTestEditorPage::updateTestRequested, this,
-        [this](int testId, const QString &title) {
+        [this](int testId, const QString &title, const QString &status, const QString &deadlineAt, int maxAttempts, int timeLimitMinutes) {
             showStatus("Обновляем тест...");
             m_teacherTestEditorPage->showMessage("Сохраняем изменения теста...", false);
             m_apiClient->updateTest(
                 testId,
                 title,
+                status,
+                deadlineAt,
+                maxAttempts,
+                timeLimitMinutes,
                 this,
                 [this, testId](const TestData &) {
                     m_teacherTestEditorPage->clearTestDraft();
@@ -1023,7 +1166,82 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
             loadTeacherAnalytics(courseId);
         }
     });
-    connect(m_adminUsersPage, &AdminUsersPage::createUserRequested, this, [this](const QString &login, const QString &password, const QString &role) {
+    connect(m_teacherAnalyticsPage, &TeacherAnalyticsPage::exportCsvRequested, this, [this]() {
+        const QString path = QFileDialog::getSaveFileName(
+            this,
+            "Экспорт результатов в CSV",
+            QDir::homePath() + "/lms-results.csv",
+            "CSV (*.csv)");
+        if (path.isEmpty()) {
+            return;
+        }
+
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QMessageBox::warning(this, "Экспорт", "Не удалось сохранить CSV-файл.");
+            return;
+        }
+
+        auto *table = m_teacherAnalyticsPage->findChild<QTableWidget *>();
+        if (table == nullptr) {
+            QMessageBox::warning(this, "Экспорт", "Таблица результатов пока недоступна.");
+            return;
+        }
+
+        file.write("\xEF\xBB\xBF");
+        file.write("Студент;Тест;Результат;Процент;Статус\n");
+        for (int row = 0; row < table->rowCount(); ++row) {
+            QStringList cells;
+            for (int col = 0; col < 5; ++col) {
+                auto *item = table->item(row, col);
+                cells << csvEscape(item ? item->text() : QString());
+            }
+            file.write(cells.join(";").toUtf8());
+            file.write("\n");
+        }
+        showStatus("CSV экспортирован");
+    });
+    connect(m_teacherAnalyticsPage, &TeacherAnalyticsPage::exportPdfRequested, this, [this]() {
+        const QString path = QFileDialog::getSaveFileName(
+            this,
+            "Экспорт результатов в PDF",
+            QDir::homePath() + "/lms-results.pdf",
+            "PDF (*.pdf)");
+        if (path.isEmpty()) {
+            return;
+        }
+
+        auto *table = m_teacherAnalyticsPage->findChild<QTableWidget *>();
+        QString html = "<h2>Результаты курса</h2><table border='1' cellspacing='0' cellpadding='6' width='100%'>";
+        html += "<tr><th>Студент</th><th>Тест</th><th>Результат</th><th>Процент</th><th>Статус</th></tr>";
+        for (int row = 0; table != nullptr && row < table->rowCount(); ++row) {
+            html += "<tr>";
+            for (int col = 0; col < 5; ++col) {
+                auto *item = table->item(row, col);
+                html += "<td>" + htmlEscape(item ? item->text() : QString()) + "</td>";
+            }
+            html += "</tr>";
+        }
+        html += "</table>";
+
+        QTextDocument document;
+        document.setHtml(html);
+        QPrinter printer(QPrinter::HighResolution);
+        printer.setOutputFormat(QPrinter::PdfFormat);
+        printer.setOutputFileName(path);
+        document.print(&printer);
+        showStatus("PDF экспортирован");
+    });
+    connect(m_adminUsersPage, &AdminUsersPage::createUserRequested, this,
+        [this](
+            const QString &login,
+            const QString &password,
+            const QString &role,
+            const QString &firstName,
+            const QString &lastName,
+            const QString &groupName,
+            const QString &email,
+            const QString &phone) {
         if (!isAdminMode()) {
             return;
         }
@@ -1042,6 +1260,11 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
             login,
             password,
             role,
+            firstName,
+            lastName,
+            groupName,
+            email,
+            phone,
             this,
             [this](const AdminUserData &user) {
                 m_adminUsersPage->setBusy(false);
@@ -1053,6 +1276,35 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
                 loadAdminUsers();
                 loadAdminAudit();
                 loadCourses();
+            },
+            [this](const QString &error) {
+                m_adminUsersPage->setBusy(false);
+                m_adminUsersPage->showMessage(error, true);
+                showStatus(error);
+            });
+    });
+    connect(m_adminUsersPage, &AdminUsersPage::createGroupRequested, this, [this](const QString &groupName) {
+        if (!isAdminMode()) {
+            return;
+        }
+
+        if (groupName.trimmed().isEmpty()) {
+            m_adminUsersPage->showMessage("Введите название учебной группы.", true);
+            showStatus("Введите название группы");
+            return;
+        }
+
+        m_adminUsersPage->setBusy(true);
+        m_adminUsersPage->showMessage("Создаём учебную группу...", false);
+        m_apiClient->createAdminGroup(
+            groupName.trimmed(),
+            this,
+            [this](const QString &createdGroup) {
+                m_adminUsersPage->setBusy(false);
+                m_adminUsersPage->showMessage(QString("Группа %1 создана.").arg(createdGroup), false);
+                showStatus(QString("Создана группа %1").arg(createdGroup));
+                loadAdminGroups();
+                loadAdminAudit();
             },
             [this](const QString &error) {
                 m_adminUsersPage->setBusy(false);
@@ -1110,6 +1362,93 @@ MainWindow::MainWindow(ApiClient *apiClient, QWidget *parent)
             [this](const QString &error) {
                 m_adminUsersPage->setBusy(false);
                 m_adminUsersPage->showMessage(error, true);
+                showStatus(error);
+            });
+    });
+    connect(m_adminGroupsPage, &AdminGroupsPage::createGroupRequested, this, [this](const QString &groupName) {
+        if (!isAdminMode()) {
+            return;
+        }
+        if (groupName.trimmed().isEmpty()) {
+            m_adminGroupsPage->showMessage("Введите название учебной группы.", true);
+            return;
+        }
+
+        m_adminGroupsPage->setBusy(true);
+        m_adminGroupsPage->showMessage("Создаём учебную группу...", false);
+        m_apiClient->createAdminGroup(
+            groupName.trimmed(),
+            this,
+            [this](const QString &createdGroup) {
+                m_adminGroupsPage->setBusy(false);
+                m_adminGroupsPage->showMessage(QString("Группа %1 создана.").arg(createdGroup), false);
+                showStatus(QString("Создана группа %1").arg(createdGroup));
+                loadAdminGroups();
+                loadAdminAudit();
+            },
+            [this](const QString &error) {
+                m_adminGroupsPage->setBusy(false);
+                m_adminGroupsPage->showMessage(error, true);
+                showStatus(error);
+            });
+    });
+    connect(m_adminGroupsPage, &AdminGroupsPage::renameGroupRequested, this, [this](const QString &oldName, const QString &newName) {
+        if (!isAdminMode()) {
+            return;
+        }
+        if (oldName.trimmed().isEmpty() || newName.trimmed().isEmpty()) {
+            m_adminGroupsPage->showMessage("Выберите группу и введите новое название.", true);
+            return;
+        }
+
+        m_adminGroupsPage->setBusy(true);
+        m_adminGroupsPage->showMessage("Переименовываем группу...", false);
+        m_apiClient->renameAdminGroup(
+            oldName.trimmed(),
+            newName.trimmed(),
+            this,
+            [this](const QString &renamedGroup) {
+                m_adminGroupsPage->setBusy(false);
+                m_adminGroupsPage->showMessage(QString("Группа переименована в %1.").arg(renamedGroup), false);
+                showStatus("Группа переименована");
+                loadAdminGroups();
+                loadAdminUsers();
+                loadAdminAudit();
+            },
+            [this](const QString &error) {
+                m_adminGroupsPage->setBusy(false);
+                m_adminGroupsPage->showMessage(error, true);
+                showStatus(error);
+            });
+    });
+    connect(m_adminGroupsPage, &AdminGroupsPage::deleteGroupRequested, this, [this](const QString &groupName) {
+        if (!isAdminMode() || groupName.trimmed().isEmpty()) {
+            return;
+        }
+        if (!confirmDangerAction(
+                this,
+                "Удаление группы",
+                QString("Удалить группу \"%1\"? Студенты останутся в системе, но будут отвязаны от группы.")
+                    .arg(groupName))) {
+            return;
+        }
+
+        m_adminGroupsPage->setBusy(true);
+        m_adminGroupsPage->showMessage("Удаляем группу...", false);
+        m_apiClient->deleteAdminGroup(
+            groupName.trimmed(),
+            this,
+            [this]() {
+                m_adminGroupsPage->setBusy(false);
+                m_adminGroupsPage->showMessage("Группа удалена.", false);
+                showStatus("Группа удалена");
+                loadAdminGroups();
+                loadAdminUsers();
+                loadAdminAudit();
+            },
+            [this](const QString &error) {
+                m_adminGroupsPage->setBusy(false);
+                m_adminGroupsPage->showMessage(error, true);
                 showStatus(error);
             });
     });
@@ -1245,7 +1584,22 @@ void MainWindow::automationOpenPage(const QString &pageKey, const QString &cours
             ui->stackedWidget->setCurrentWidget(m_adminUsersPage);
             setActiveSection(ui->testButton);
             setHeader("Пользователи", "Автоматический просмотр реестра пользователей платформы.");
+            loadAdminGroups();
             loadAdminUsers();
+        }
+        return;
+    }
+
+    if (key == "groups" || key == "admin-groups") {
+        if (isAdminMode()) {
+            showCreateCoursePage();
+        }
+        return;
+    }
+
+    if (key == "deadlines") {
+        if (!isTeacherMode() && !isAdminMode()) {
+            showCreateCoursePage();
         }
         return;
     }
@@ -1321,7 +1675,22 @@ void MainWindow::showCoursesPage()
 void MainWindow::showCreateCoursePage()
 {
     if (!isTeacherMode() && !isAdminMode()) {
-        showStatus("Эта страница доступна только преподавателю и администратору");
+        ui->stackedWidget->setCurrentWidget(m_deadlinesPage);
+        setActiveSection(m_createCourseButton);
+        setHeader("Дедлайны", "Ближайшие сроки по активным тестам из доступных курсов.");
+        m_deadlinesPage->setCourses(m_courses);
+        showStatus("Открыта страница дедлайнов");
+        return;
+    }
+
+    if (isAdminMode()) {
+        ui->stackedWidget->setCurrentWidget(m_adminGroupsPage);
+        setActiveSection(m_createCourseButton);
+        setHeader("Учебные группы", "Создание, переименование, удаление групп и просмотр студентов по группе.");
+        m_adminGroupsPage->showMessage("Раздел управления учебными группами открыт.", false);
+        loadAdminGroups();
+        loadAdminUsers();
+        showStatus("Открыт раздел учебных групп");
         return;
     }
 
@@ -1341,6 +1710,7 @@ void MainWindow::showTestPage()
         ui->stackedWidget->setCurrentWidget(m_adminUsersPage);
         setActiveSection(ui->testButton);
         setHeader("Пользователи", "Реестр пользователей системы: роли, состав платформы и база для дальнейших admin-инструментов.");
+        loadAdminGroups();
         loadAdminUsers();
         showStatus("Открыт admin-раздел пользователей");
         return;
@@ -1552,10 +1922,21 @@ void MainWindow::onTestSelected(int testId, const QString &title)
         return;
     }
 
-    m_selectedTest = TestData{};
-    m_selectedTest.id = testId;
-    m_selectedTest.courseId = m_selectedCourse.id;
-    m_selectedTest.title = title;
+    const auto it = std::find_if(m_selectedTests.cbegin(), m_selectedTests.cend(), [testId](const TestData &test) {
+        return test.id == testId;
+    });
+
+    if (it != m_selectedTests.cend() && !it->available && !isTeacherMode() && !isAdminMode()) {
+        showStatus("Тест закрыт или дедлайн уже истёк");
+        return;
+    }
+
+    m_selectedTest = it == m_selectedTests.cend() ? TestData{} : *it;
+    if (m_selectedTest.id < 0) {
+        m_selectedTest.id = testId;
+        m_selectedTest.courseId = m_selectedCourse.id;
+        m_selectedTest.title = title;
+    }
 
     qDebug() << "Opening test:" << testId << title;
     m_testRunnerPage->setTest(m_selectedTest);
@@ -1674,6 +2055,28 @@ void MainWindow::setHeader(const QString &title, const QString &subtitle)
 void MainWindow::showStatus(const QString &status)
 {
     ui->statusLabel->setText(status);
+    ui->statusLabel->hide();
+    if (status.trimmed().isEmpty() || m_toastLabel == nullptr) {
+        return;
+    }
+
+    m_toastLabel->setText(status);
+    m_toastLabel->setFixedWidth(qMin(520, qMax(280, status.size() * 8 + 42)));
+    m_toastLabel->adjustSize();
+
+    const QPoint contentTopLeft = ui->contentFrame->mapTo(this, QPoint(0, 0));
+    const int x = contentTopLeft.x() + ui->contentFrame->width() - m_toastLabel->width() - 24;
+    const int y = contentTopLeft.y() + 14;
+    m_toastLabel->move(qMax(contentTopLeft.x() + 16, x), y);
+    m_toastLabel->raise();
+    m_toastLabel->show();
+
+    const QString shownStatus = status;
+    QTimer::singleShot(2600, this, [this, shownStatus]() {
+        if (m_toastLabel != nullptr && m_toastLabel->text() == shownStatus) {
+            m_toastLabel->hide();
+        }
+    });
 }
 
 void MainWindow::updateFooterStatus(const QString &status, bool connected)
@@ -1762,6 +2165,7 @@ void MainWindow::loadCourses()
             m_courses = visibleCoursesForCurrentRole(courses);
             applyStudentProgressToCourses();
             m_dashboardPage->setCourses(m_courses);
+            m_deadlinesPage->setCourses(m_courses);
             m_profilePage->setCourses(m_courses);
 
             if (m_courses.isEmpty()) {
@@ -1890,6 +2294,7 @@ void MainWindow::loadAdminUsers()
             }
 
             m_adminUsersPage->setUsers(visibleUsers);
+            m_adminGroupsPage->setUsers(visibleUsers);
             loadAdminOverview();
             loadAdminAudit();
             m_adminUsersPage->showMessage(QString("Найдено пользователей: %1").arg(visibleUsers.size()), false);
@@ -1900,6 +2305,24 @@ void MainWindow::loadAdminUsers()
             m_adminUsersPage->showMessage(error, true);
             showStatus(error);
             qDebug() << "Load admin users error:" << error;
+        });
+}
+
+void MainWindow::loadAdminGroups()
+{
+    if (!isAdminMode()) {
+        return;
+    }
+
+    m_apiClient->getAdminGroups(
+        this,
+        [this](const QStringList &groups) {
+            m_adminUsersPage->setGroups(groups);
+            m_adminGroupsPage->setGroups(groups);
+        },
+        [this](const QString &error) {
+            m_adminUsersPage->showMessage(error, true);
+            showStatus(error);
         });
 }
 
@@ -1946,6 +2369,26 @@ void MainWindow::loadCourseContent(int courseId)
 
     loadCourseLessonsAndMaterials(courseId);
     loadCourseTests(courseId);
+    if (isTeacherMode() || isAdminMode()) {
+        m_apiClient->getCourseStudents(
+            courseId,
+            this,
+            [this, courseId](const QVector<CourseStudentData> &students) {
+                if (m_selectedCourse.id != courseId) {
+                    return;
+                }
+                m_courseDetailsPage->setStudents(students);
+            },
+            [this, courseId](const QString &error) {
+                if (m_selectedCourse.id != courseId) {
+                    return;
+                }
+                m_courseDetailsPage->setStudents({});
+                qDebug() << "Load course detail students error:" << error;
+            });
+    } else {
+        m_courseDetailsPage->setStudents({});
+    }
 }
 
 void MainWindow::loadManagedQuestions(int testId)
@@ -2247,7 +2690,8 @@ void MainWindow::applyRoleMode()
         ui->brandCaptionLabel->setText("Системное пространство");
         ui->homeButton->setText("Панель");
         ui->coursesButton->setText("Курсы");
-        m_createCourseButton->hide();
+        m_createCourseButton->setText("Группы");
+        m_createCourseButton->show();
         ui->testButton->setText("Пользователи");
         ui->resultsButton->setText("Аналитика");
         m_studentsButton->setText("Журнал");
@@ -2258,7 +2702,8 @@ void MainWindow::applyRoleMode()
         ui->brandCaptionLabel->setText("Рабочее пространство студента");
         ui->homeButton->setText("Главная");
         ui->coursesButton->setText("Курсы");
-        m_createCourseButton->hide();
+        m_createCourseButton->setText("Дедлайны");
+        m_createCourseButton->show();
         ui->testButton->setText("Тесты");
         ui->resultsButton->setText("Результаты");
         m_studentsButton->hide();

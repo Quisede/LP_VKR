@@ -15,6 +15,7 @@ class PostgresAttemptRepository : public AttemptRepository {
 
         // реализация метода для получения всех попыток, связанных с определенным пользователем, из базы данных
         std::vector<Attempt> getAttemptsForUser(int userId) override;
+        int countAttemptsForUserTest(int userId, int testId) override;
         CourseAnalytics getCourseAnalytics(int courseId) override;
         std::vector<StudentCourseAttempt> getStudentCourseAttempts(int courseId, int studentId) override;
     private:

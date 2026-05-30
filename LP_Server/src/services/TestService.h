@@ -14,8 +14,8 @@ public:
             EnrollmentRepository& enrollRepo);
 
     std::vector<Test> getTestsForCourse(int userId, UserRole role, int courseId);
-    Test createTest(int courseId, const std::string& title);
-    Test updateTest(int testId, const std::string& title);
+    Test createTest(int courseId, const std::string& title, const std::string& status, const std::string& deadlineAt, int maxAttempts, int timeLimitMinutes);
+    Test updateTest(int testId, const std::string& title, const std::string& status, const std::string& deadlineAt, int maxAttempts, int timeLimitMinutes);
     void deleteTest(int testId);
     std::optional<Test> getTestById(int testId);
 

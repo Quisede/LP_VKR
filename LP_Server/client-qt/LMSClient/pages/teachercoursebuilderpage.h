@@ -52,8 +52,8 @@ signals:
     void materialOpenExternalRequested(int materialId);
     void materialLinkOpenRequested(const QString &url);
     void materialTextPreviewRequested(const QString &title, const QString &content);
-    void createTestRequested(int courseId, const QString &title);
-    void updateTestRequested(int testId, const QString &title);
+    void createTestRequested(int courseId, const QString &title, const QString &status, const QString &deadlineAt, int maxAttempts, int timeLimitMinutes);
+    void updateTestRequested(int testId, const QString &title, const QString &status, const QString &deadlineAt, int maxAttempts, int timeLimitMinutes);
     void deleteTestRequested(int testId);
     void openDedicatedTestEditorRequested();
     void testSelectedForQuestions(int testId);

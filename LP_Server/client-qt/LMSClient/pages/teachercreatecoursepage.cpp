@@ -36,6 +36,12 @@ TeacherCreateCoursePage::TeacherCreateCoursePage(QWidget *parent)
     auto *formCard = new QFrame(pageCard);
     formCard->setObjectName("moduleCard");
     formCard->setMaximumWidth(760);
+    formCard->setStyleSheet(
+        "QFrame#moduleCard {"
+        " background: #ffffff;"
+        " border: 1px solid #dbe4f0;"
+        " border-radius: 20px;"
+        "}");
     auto *formLayout = new QVBoxLayout(formCard);
     formLayout->setContentsMargins(24, 24, 24, 24);
     formLayout->setSpacing(16);
@@ -62,8 +68,10 @@ TeacherCreateCoursePage::TeacherCreateCoursePage(QWidget *parent)
 
     m_submitButton = new QPushButton("Создать курс", formCard);
     m_submitButton->setObjectName("cardAccentButton");
+    m_submitButton->setMinimumHeight(44);
     m_deleteButton = new QPushButton("Удалить курс", formCard);
     m_deleteButton->setObjectName("cardDangerButton");
+    m_deleteButton->setMinimumHeight(44);
 
     m_statusLabel = new QLabel("После создания курс сразу появится в разделе \"Мои курсы\".", pageCard);
     m_statusLabel->setObjectName("sectionHintLabel");
@@ -85,11 +93,11 @@ TeacherCreateCoursePage::TeacherCreateCoursePage(QWidget *parent)
     formLayout->addWidget(m_titleEdit);
     formLayout->addWidget(descriptionFieldLabel);
     formLayout->addWidget(m_descriptionEdit);
+    formLayout->addLayout(buttonsRow);
 
     layout->addWidget(m_titleLabel);
     layout->addWidget(m_hintLabel);
-    layout->addWidget(formCard);
-    layout->addLayout(buttonsRow);
+    layout->addWidget(formCard, 0, Qt::AlignLeft);
     layout->addWidget(m_statusLabel);
     rootLayout->addWidget(pageCard);
 
@@ -162,7 +170,7 @@ void TeacherCreateCoursePage::setEditMode(const CourseData &course)
     m_editMode = true;
     m_editingCourseId = course.id;
     m_titleLabel->setText("Редактирование курса");
-    m_hintLabel->setText("Обнови название и описание курса. При необходимости курс можно удалить вместе с его структурой.");
+    m_hintLabel->setText("Обновите название и описание курса. При необходимости курс можно удалить вместе с его структурой.");
     m_submitButton->setText("Сохранить изменения");
     m_deleteButton->show();
     m_titleEdit->setText(course.title);

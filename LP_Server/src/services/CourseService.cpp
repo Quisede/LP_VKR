@@ -49,6 +49,10 @@ std::optional<Course> CourseService::getCourseById(int courseId) {
     return courseRepository.getCourseById(courseId);
 }
 
+bool CourseService::isStudentEnrolled(int userId, int courseId) {
+    return enrollmentRepository.isEnrolled(userId, courseId);
+}
+
 bool CourseService::canManageCourse(int userId, UserRole role, int courseId) {
     auto course = getCourseById(courseId);
     if (!course.has_value()) {

@@ -112,6 +112,20 @@ const CourseData *teacherPriorityCourse(const QVector<CourseData> &courses)
     return fallback;
 }
 
+const CourseData *nearestDeadlineCourse(const QVector<CourseData> &courses)
+{
+    const CourseData *nearest = nullptr;
+    for (const CourseData &course : courses) {
+        if (course.nearestDeadlineAt.trimmed().isEmpty()) {
+            continue;
+        }
+        if (nearest == nullptr || course.nearestDeadlineAt < nearest->nearestDeadlineAt) {
+            nearest = &course;
+        }
+    }
+    return nearest;
+}
+
 void appendInfoCard(QListWidget *list, const QString &title, const QString &subtitle, int courseId = -1)
 {
     auto *item = new QListWidgetItem();
@@ -431,9 +445,13 @@ void DashboardPage::setRoleMode(const QString &role)
 
 void DashboardPage::setSession(const SessionData &session)
 {
-    const QString displayName = session.login.isEmpty()
-        ? QString("Пользователь #%1").arg(session.userId)
-        : session.login;
+    const QString displayName = !session.fullName.trimmed().isEmpty()
+        ? session.fullName.trimmed()
+        : !session.firstName.trimmed().isEmpty()
+            ? session.firstName.trimmed()
+            : session.login.isEmpty()
+                ? QString("Пользователь")
+                : session.login;
     m_welcomeLabel->setText(QString("Добро пожаловать, %1").arg(displayName));
 }
 
@@ -715,6 +733,16 @@ void DashboardPage::refreshFocus()
     if (m_courses.isEmpty()) {
         appendInfoCard(m_focusList, "Выбор курса", "Каталог открывает доступные материалы и тесты.");
         return;
+    }
+
+    if (const CourseData *deadlineCourse = nearestDeadlineCourse(m_courses)) {
+        appendInfoCard(
+            m_focusList,
+            "Ближайший дедлайн",
+            QString("%1: тест нужно пройти до %2.")
+                .arg(deadlineCourse->title)
+                .arg(deadlineCourse->nearestDeadlineAt),
+            deadlineCourse->id);
     }
 
     if (m_attempts.isEmpty()) {

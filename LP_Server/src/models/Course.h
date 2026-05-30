@@ -18,4 +18,6 @@ struct Course {
     int lessonsCount = 0;
     int testsCount = 0;
     int studentsCount = 0;
+    bool enrolled = false;
+    std::string nearestDeadlineAt;
 };

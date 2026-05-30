@@ -31,6 +31,75 @@ std::vector<User> AdminService::getAllUsers(int, UserRole role)
     return userRepository.getAllUsers();
 }
 
+std::vector<std::string> AdminService::getGroups(int, UserRole role)
+{
+    if (role != UserRole::Admin) {
+        throw std::invalid_argument("Only admins can view groups");
+    }
+
+    return userRepository.getGroups();
+}
+
+std::string AdminService::createGroup(int currentUserId, UserRole role, const std::string& groupName)
+{
+    if (role != UserRole::Admin) {
+        throw std::invalid_argument("Only admins can create groups");
+    }
+    if (groupName.empty()) {
+        throw std::invalid_argument("Group name must not be empty");
+    }
+
+    const std::string created = userRepository.createGroup(groupName);
+    auditRepository.recordEvent(
+        currentUserId,
+        "group.created",
+        "group",
+        0,
+        "Created group " + created);
+    return created;
+}
+
+std::string AdminService::renameGroup(
+    int currentUserId,
+    UserRole role,
+    const std::string& oldName,
+    const std::string& newName)
+{
+    if (role != UserRole::Admin) {
+        throw std::invalid_argument("Only admins can rename groups");
+    }
+    if (oldName.empty() || newName.empty()) {
+        throw std::invalid_argument("Group names must not be empty");
+    }
+
+    const std::string renamed = userRepository.renameGroup(oldName, newName);
+    auditRepository.recordEvent(
+        currentUserId,
+        "group.renamed",
+        "group",
+        0,
+        "Renamed group " + oldName + " to " + renamed);
+    return renamed;
+}
+
+void AdminService::deleteGroup(int currentUserId, UserRole role, const std::string& groupName)
+{
+    if (role != UserRole::Admin) {
+        throw std::invalid_argument("Only admins can delete groups");
+    }
+    if (groupName.empty()) {
+        throw std::invalid_argument("Group name must not be empty");
+    }
+
+    userRepository.deleteGroup(groupName);
+    auditRepository.recordEvent(
+        currentUserId,
+        "group.deleted",
+        "group",
+        0,
+        "Deleted group " + groupName);
+}
+
 AdminOverview AdminService::getOverview(int, UserRole role)
 {
     if (role != UserRole::Admin) {

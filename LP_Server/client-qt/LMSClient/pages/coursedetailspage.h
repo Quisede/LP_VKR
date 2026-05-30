@@ -4,6 +4,7 @@
 #include <QVector>
 
 #include "../models/coursemodel.h"
+#include "../models/coursestudentmodel.h"
 #include "../models/lessonmodel.h"
 #include "../models/materialmodel.h"
 #include "../models/testmodel.h"
@@ -25,6 +26,7 @@ public:
     void setLessons(const QVector<LessonData> &lessons);
     void setMaterials(const QVector<MaterialData> &materials, const QVector<MaterialData> &videos);
     void setTests(const QVector<TestData> &tests);
+    void setStudents(const QVector<CourseStudentData> &students);
     void showLoadingState();
 
 signals:
@@ -35,8 +37,10 @@ signals:
     void materialOpenExternalRequested(int materialId);
     void materialLinkOpenRequested(const QString &url);
     void materialTextPreviewRequested(const QString &title, const QString &content);
+    void materialReaderRequested(int materialId);
     void lessonCompletedRequested(int lessonId);
     void lessonPreviewRequested(const QString &title, const QString &content);
+    void lessonReaderRequested(int lessonId);
 
 private:
     QString m_role = "Student";
@@ -46,6 +50,7 @@ private:
     QVector<MaterialData> m_materials;
     QVector<MaterialData> m_videos;
     QVector<TestData> m_tests;
+    QVector<CourseStudentData> m_students;
 
     CourseData m_course;
     QLabel *m_titleLabel;
@@ -62,4 +67,6 @@ private:
     QListWidget *m_materialsList;
     QListWidget *m_videosList;
     QListWidget *m_testsList;
+    QListWidget *m_studentsList;
+    QWidget *m_studentsTab;
 };

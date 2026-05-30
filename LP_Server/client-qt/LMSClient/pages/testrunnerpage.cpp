@@ -6,12 +6,17 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QRandomGenerator>
 #include <QRadioButton>
 #include <QSizePolicy>
+#include <QTimer>
 #include <QVBoxLayout>
+#include <algorithm>
+#include <random>
 
 TestRunnerPage::TestRunnerPage(QWidget *parent)
     : QWidget(parent)
+    , m_timer(new QTimer(this))
 {
     auto *rootLayout = new QVBoxLayout(this);
     rootLayout->setContentsMargins(0, 0, 0, 0);
@@ -62,6 +67,7 @@ TestRunnerPage::TestRunnerPage(QWidget *parent)
     statsLayout->addWidget(createStatCard("Текущий вопрос", &m_questionNumberValueLabel));
     statsLayout->addWidget(createStatCard("Всего вопросов", &m_totalQuestionsValueLabel));
     statsLayout->addWidget(createStatCard("Варианты ответа", &m_answersCountValueLabel));
+    statsLayout->addWidget(createStatCard("Осталось", &m_timerValueLabel));
 
     m_hintLabel = new QLabel(pageCard);
     m_hintLabel->setObjectName("sectionHintLabel");
@@ -119,7 +125,26 @@ TestRunnerPage::TestRunnerPage(QWidget *parent)
 
     rootLayout->addWidget(pageCard);
 
-    connect(backButton, &QPushButton::clicked, this, &TestRunnerPage::backRequested);
+    m_timer->setInterval(1000);
+    connect(m_timer, &QTimer::timeout, this, [this]() {
+        if (m_remainingSeconds > 0) {
+            --m_remainingSeconds;
+            refreshTimerLabel();
+            return;
+        }
+
+        stopTimer();
+        QMessageBox::information(
+            this,
+            "Время вышло",
+            "Время прохождения теста истекло. Текущие ответы будут отправлены на проверку.");
+        emit submitRequested(m_test.id, selectedAnswers());
+    });
+
+    connect(backButton, &QPushButton::clicked, this, [this]() {
+        stopTimer();
+        emit backRequested();
+    });
     connect(m_prevButton, &QPushButton::clicked, this, [this]() {
         if (m_currentIndex > 0) {
             m_currentIndex -= 1;
@@ -170,10 +195,16 @@ void TestRunnerPage::setTest(const TestData &test)
 void TestRunnerPage::setQuestions(const QVector<QuestionData> &questions)
 {
     m_questions = questions;
+    std::mt19937 generator(QRandomGenerator::global()->generate());
+    std::shuffle(m_questions.begin(), m_questions.end(), generator);
+    for (auto &question : m_questions) {
+        std::shuffle(question.options.begin(), question.options.end(), generator);
+    }
     m_selectedAnswers.clear();
     m_hasResult = false;
     m_lastResult = AttemptData{};
     m_currentIndex = 0;
+    startTimer();
     renderCurrentQuestion();
 }
 
@@ -181,6 +212,7 @@ void TestRunnerPage::showResult(const AttemptData &result)
 {
     m_lastResult = result;
     m_hasResult = true;
+    stopTimer();
     renderCurrentQuestion();
 }
 
@@ -191,6 +223,7 @@ void TestRunnerPage::showPlaceholder(const QString &title, const QString &messag
     m_hasResult = false;
     m_lastResult = AttemptData{};
     m_currentIndex = 0;
+    stopTimer();
     m_emptyTitle = title;
     m_emptyMessage = message;
     m_resultLabel->hide();
@@ -213,6 +246,7 @@ void TestRunnerPage::renderCurrentQuestion()
         m_questionNumberValueLabel->setText("—");
         m_totalQuestionsValueLabel->setText("—");
         m_answersCountValueLabel->setText("—");
+        m_timerValueLabel->setText("—");
 
         auto *resultHint = new QLabel(
             QString("%1\nБаллы: %2/%3\nПроцент: %4%\nСтатус: %5\nВремя: %6")
@@ -226,6 +260,25 @@ void TestRunnerPage::renderCurrentQuestion()
         resultHint->setWordWrap(true);
         resultHint->setStyleSheet("color: #2563eb; font-size: 18px; font-weight: 700; line-height: 1.5;");
         m_answersLayout->addWidget(resultHint);
+
+        auto *reviewTitle = new QLabel("Просмотр отправленных ответов", m_answersContainer);
+        reviewTitle->setStyleSheet("color: #0f172a; font-size: 16px; font-weight: 700; margin-top: 10px;");
+        m_answersLayout->addWidget(reviewTitle);
+
+        for (int index = 0; index < m_questions.size(); ++index) {
+            const auto &question = m_questions[index];
+            const int answerId = m_selectedAnswers.value(question.id, -1);
+            auto *answerLabel = new QLabel(
+                QString("%1. %2\nВаш ответ: %3")
+                    .arg(index + 1)
+                    .arg(question.text)
+                    .arg(answerTextFor(question, answerId)),
+                m_answersContainer);
+            answerLabel->setWordWrap(true);
+            answerLabel->setStyleSheet(
+                "color: #334155; background: #f8fbff; border: 1px solid #dbe4f0; border-radius: 14px; padding: 12px; font-size: 14px;");
+            m_answersLayout->addWidget(answerLabel);
+        }
 
         m_resultLabel->hide();
         m_prevButton->setEnabled(false);
@@ -242,6 +295,7 @@ void TestRunnerPage::renderCurrentQuestion()
         m_questionNumberValueLabel->setText("—");
         m_totalQuestionsValueLabel->setText("—");
         m_answersCountValueLabel->setText("—");
+        m_timerValueLabel->setText("—");
         m_prevButton->setEnabled(false);
         m_nextButton->setEnabled(false);
         m_submitButton->setEnabled(false);
@@ -256,6 +310,7 @@ void TestRunnerPage::renderCurrentQuestion()
     m_questionNumberValueLabel->setText(QString::number(m_currentIndex + 1));
     m_totalQuestionsValueLabel->setText(QString::number(m_questions.size()));
     m_answersCountValueLabel->setText(QString::number(question.options.size()));
+    refreshTimerLabel();
     m_hintLabel->setText(
         question.options.isEmpty()
             ? "У этого вопроса нет вариантов ответа, поэтому тест нельзя корректно отправить."
@@ -319,6 +374,39 @@ void TestRunnerPage::refreshActionState()
                   .arg(m_questions.size()));
 }
 
+void TestRunnerPage::startTimer()
+{
+    stopTimer();
+    if (m_questions.isEmpty()) {
+        return;
+    }
+
+    m_remainingSeconds = qMax(1, m_test.timeLimitMinutes) * 60;
+    refreshTimerLabel();
+    m_timer->start();
+}
+
+void TestRunnerPage::stopTimer()
+{
+    if (m_timer->isActive()) {
+        m_timer->stop();
+    }
+}
+
+void TestRunnerPage::refreshTimerLabel()
+{
+    if (m_remainingSeconds <= 0) {
+        m_timerValueLabel->setText("00:00");
+        return;
+    }
+
+    const int minutes = m_remainingSeconds / 60;
+    const int seconds = m_remainingSeconds % 60;
+    m_timerValueLabel->setText(QString("%1:%2")
+        .arg(minutes, 2, 10, QChar('0'))
+        .arg(seconds, 2, 10, QChar('0')));
+}
+
 QVector<QPair<int, int>> TestRunnerPage::selectedAnswers() const
 {
     QVector<QPair<int, int>> answers;
@@ -326,6 +414,16 @@ QVector<QPair<int, int>> TestRunnerPage::selectedAnswers() const
         answers.push_back(qMakePair(it.key(), it.value()));
     }
     return answers;
+}
+
+QString TestRunnerPage::answerTextFor(const QuestionData &question, int answerId) const
+{
+    for (const auto &option : question.options) {
+        if (option.id == answerId) {
+            return option.text;
+        }
+    }
+    return "ответ не выбран";
 }
 
 bool TestRunnerPage::allQuestionsAnswered() const

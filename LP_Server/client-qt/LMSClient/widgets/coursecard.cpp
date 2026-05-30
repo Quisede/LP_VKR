@@ -34,7 +34,7 @@ CourseCard::CourseCard(
     auto *badgeRow = new QHBoxLayout();
     badgeRow->setSpacing(8);
 
-    auto *modeBadge = new QLabel(isStudent ? "Student view" : isAdmin ? "Admin view" : "Teacher view", card);
+    auto *modeBadge = new QLabel(isStudent ? "Режим студента" : isAdmin ? "Режим администратора" : "Режим преподавателя", card);
     modeBadge->setStyleSheet(
         "QLabel {"
         " background: #eef5ff;"
@@ -136,10 +136,11 @@ CourseCard::CourseCard(
 
     actionsLayout->addWidget(openButton);
     if (isStudent) {
-        enrollButton = new QPushButton("Записаться", card);
-        enrollButton->setObjectName("cardAccentButton");
+        enrollButton = new QPushButton(course.enrolled ? "Вы уже записаны" : "Записаться", card);
+        enrollButton->setObjectName(course.enrolled ? "cardGhostButton" : "cardAccentButton");
         enrollButton->setMinimumWidth(140);
         enrollButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        enrollButton->setEnabled(!course.enrolled);
         actionsLayout->addWidget(enrollButton);
     } else {
         manageButton = new QPushButton("Конструктор", card);

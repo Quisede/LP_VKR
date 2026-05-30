@@ -39,13 +39,21 @@ AuthService::AuthService(UserRepository& userRepo,
     : userRepository(userRepo),
       passwordHasher(hasher) {}
 
-AuthResult AuthService::registerUser(const std::string &login, const std::string &password, UserRole role) {
+AuthResult AuthService::registerUser(
+    const std::string &login,
+    const std::string &password,
+    UserRole role,
+    const std::string& firstName,
+    const std::string& lastName,
+    const std::string& groupName,
+    const std::string& email,
+    const std::string& phone) {
     if(userRepository.exists(login)) {
         return failedResult(role, "User already exists");
     }
     
     std::string hash = passwordHasher.hash(password);
-    User user = userRepository.createUser(login, hash, role);
+    User user = userRepository.createUser(login, hash, role, firstName, lastName, groupName, email, phone);
     
     return successResultFromUser(user);
 }

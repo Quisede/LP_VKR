@@ -4,6 +4,49 @@
 
 using json = nlohmann::json;
 
+namespace {
+json testToJson(const Test& test) {
+    return {
+        {"id", test.id},
+        {"courseId", test.courseId},
+        {"title", test.title},
+        {"status", test.status},
+        {"deadlineAt", test.deadlineAt},
+        {"available", test.available},
+        {"maxAttempts", test.maxAttempts},
+        {"timeLimitMinutes", test.timeLimitMinutes},
+        {"attemptsUsed", test.attemptsUsed},
+        {"passed", test.passed},
+        {"bestPercentage", test.bestPercentage},
+        {"canAttempt", test.canAttempt}
+    };
+}
+
+std::string optionalString(const json& body, const std::string& key, const std::string& fallback = "") {
+    if (!body.contains(key) || body.at(key).is_null()) {
+        return fallback;
+    }
+
+    if (!body.at(key).is_string()) {
+        throw std::invalid_argument(key + " must be a string");
+    }
+
+    return body.at(key).get<std::string>();
+}
+
+int optionalInt(const json& body, const std::string& key, int fallback = 0) {
+    if (!body.contains(key) || body.at(key).is_null()) {
+        return fallback;
+    }
+
+    if (!body.at(key).is_number_integer()) {
+        throw std::invalid_argument(key + " must be an integer");
+    }
+
+    return body.at(key).get<int>();
+}
+}
+
 TestController::TestController(
     TestService& service,
     CourseService& courseService,
@@ -25,10 +68,7 @@ void TestController::registerRoutes(httplib::Server& server) {
                 response["tests"] = json::array();
 
                 for (const auto& test : tests) {
-                    response["tests"].push_back({
-                        {"id", test.id},
-                        {"title", test.title}
-                    });
+                    response["tests"].push_back(testToJson(test));
                 }
 
                 res.set_content(response.dump(), "application/json");
@@ -56,14 +96,14 @@ void TestController::registerRoutes(httplib::Server& server) {
 
                 json body = json::parse(req.body);
                 std::string title = controller_utils::requiredJsonString(body, "title");
+                std::string status = optionalString(body, "status", "active");
+                std::string deadlineAt = optionalString(body, "deadlineAt");
+                int maxAttempts = optionalInt(body, "maxAttempts", 0);
+                int timeLimitMinutes = optionalInt(body, "timeLimitMinutes", 30);
 
-                Test test = testService.createTest(courseId, title);
+                Test test = testService.createTest(courseId, title, status, deadlineAt, maxAttempts, timeLimitMinutes);
 
-                json response{
-                    {"id", test.id},
-                    {"courseId", test.courseId},
-                    {"title", test.title}
-                };
+                json response = testToJson(test);
 
                 res.status = 201;
                 res.set_content(response.dump(), "application/json");
@@ -92,14 +132,14 @@ void TestController::registerRoutes(httplib::Server& server) {
 
                 json body = json::parse(req.body);
                 std::string title = controller_utils::requiredJsonString(body, "title");
+                std::string status = optionalString(body, "status", test->status);
+                std::string deadlineAt = optionalString(body, "deadlineAt", test->deadlineAt);
+                int maxAttempts = optionalInt(body, "maxAttempts", test->maxAttempts);
+                int timeLimitMinutes = optionalInt(body, "timeLimitMinutes", test->timeLimitMinutes);
 
-                Test updated = testService.updateTest(testId, title);
+                Test updated = testService.updateTest(testId, title, status, deadlineAt, maxAttempts, timeLimitMinutes);
 
-                json response{
-                    {"id", updated.id},
-                    {"courseId", updated.courseId},
-                    {"title", updated.title}
-                };
+                json response = testToJson(updated);
 
                 res.set_content(response.dump(), "application/json");
             } catch (const std::exception& ex) {

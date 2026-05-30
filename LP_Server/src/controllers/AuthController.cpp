@@ -48,6 +48,19 @@ void fillAuthProfile(json& response, const AuthResult& result, const std::string
     response["role"] = role;
 }
 
+std::string optionalProfileString(const json& body, const std::string& key)
+{
+    if (!body.contains(key) || body.at(key).is_null()) {
+        return "";
+    }
+
+    if (!body.at(key).is_string()) {
+        throw std::invalid_argument(key + " must be a string");
+    }
+
+    return body.at(key).get<std::string>();
+}
+
 }
 
 AuthController::AuthController(AuthService& authService, JwtService& jwtService):
@@ -105,9 +118,22 @@ void AuthController::registerRoutes(httplib::Server &server) {
             
             std::string login = controller_utils::requiredJsonString(body, "login");
             std::string password = controller_utils::requiredJsonString(body, "password");
+            std::string firstName = optionalProfileString(body, "firstName");
+            std::string lastName = optionalProfileString(body, "lastName");
+            std::string groupName = optionalProfileString(body, "groupName");
+            std::string email = optionalProfileString(body, "email");
+            std::string phone = optionalProfileString(body, "phone");
             
             /* возвращаем структуру с результатом аутентификации */
-            AuthResult result = authService.registerUser(login, password, UserRole::Student);
+            AuthResult result = authService.registerUser(
+                login,
+                password,
+                UserRole::Student,
+                firstName,
+                lastName,
+                groupName,
+                email,
+                phone);
             
             /* создаем json-объект для ответа */
             json responce;

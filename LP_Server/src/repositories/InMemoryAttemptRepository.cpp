@@ -24,6 +24,16 @@ std::vector<Attempt> InMemoryAttemptRepository::getAttemptsForUser(int userId) {
     return result;
 }
 
+int InMemoryAttemptRepository::countAttemptsForUserTest(int userId, int testId) {
+    int count = 0;
+    for (const auto& attempt : attempts) {
+        if (attempt.userId == userId && attempt.testId == testId) {
+            ++count;
+        }
+    }
+    return count;
+}
+
 CourseAnalytics InMemoryAttemptRepository::getCourseAnalytics(int courseId) {
     CourseAnalytics analytics;
 

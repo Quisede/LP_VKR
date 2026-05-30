@@ -36,17 +36,25 @@ public:
         return findByLogin(login).has_value();
     }
     
-    User createUser(const std::string& login, const std::string& passwordHash, UserRole role) override {
+    User createUser(
+        const std::string& login,
+        const std::string& passwordHash,
+        UserRole role,
+        const std::string& firstName = "",
+        const std::string& lastName = "",
+        const std::string& groupName = "",
+        const std::string& email = "",
+        const std::string& phone = "") override {
         User user {
             ++currentId,
             login,
             passwordHash,
             role,
-            login,
-            "",
-            "",
-            "",
-            ""
+            firstName.empty() ? login : firstName,
+            lastName,
+            groupName,
+            email,
+            phone
         };
         
         users.push_back(user);
@@ -91,8 +99,48 @@ public:
     std::vector<CourseStudent> getStudentsForCourse(int) override {
         return {};
     }
+
+    std::vector<std::string> getGroups() override {
+        return groups;
+    }
+
+    std::string createGroup(const std::string& groupName) override {
+        if (std::find(groups.begin(), groups.end(), groupName) == groups.end()) {
+            groups.push_back(groupName);
+        }
+        return groupName;
+    }
+
+    std::string renameGroup(const std::string& oldName, const std::string& newName) override {
+        for (auto& group : groups) {
+            if (group == oldName) {
+                group = newName;
+            }
+        }
+        for (auto& user : users) {
+            if (user.groupName == oldName) {
+                user.groupName = newName;
+            }
+        }
+        if (std::find(groups.begin(), groups.end(), newName) == groups.end()) {
+            groups.push_back(newName);
+        }
+        return newName;
+    }
+
+    void deleteGroup(const std::string& groupName) override {
+        groups.erase(
+            std::remove(groups.begin(), groups.end(), groupName),
+            groups.end());
+        for (auto& user : users) {
+            if (user.groupName == groupName) {
+                user.groupName.clear();
+            }
+        }
+    }
     
 private:
     std::vector<User> users;
+    std::vector<std::string> groups;
     int currentId = 0;
 };

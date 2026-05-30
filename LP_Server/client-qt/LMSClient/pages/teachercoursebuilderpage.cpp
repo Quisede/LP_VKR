@@ -2,6 +2,9 @@
 #include "../ui/uistyles.h"
 
 #include <QComboBox>
+#include <QCheckBox>
+#include <QDateTime>
+#include <QDateTimeEdit>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -16,11 +19,14 @@
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QPushButton>
+#include <QSpinBox>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTextEdit>
 #include <QVBoxLayout>
 #include <QAbstractItemView>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <utility>
 
 namespace {
@@ -89,6 +95,25 @@ QString materialMimeFromType(const QString &type)
     return "application/octet-stream";
 }
 
+QString normalizedBuilderText(QString text)
+{
+    text.replace("\\r\\n", "\n");
+    text.replace("\\n", "\n");
+    text.replace("\\t", "    ");
+    return text.trimmed();
+}
+
+QString compactBuilderPreview(const QString &rawText, int limit = 180)
+{
+    QString text = normalizedBuilderText(rawText);
+    text.replace('\n', " ");
+    text = text.simplified();
+    if (text.size() <= limit) {
+        return text;
+    }
+    return text.left(limit).trimmed() + "...";
+}
+
 bool parseEmbeddedFileMaterial(const QString &content, QJsonObject *payload)
 {
     const QJsonDocument doc = QJsonDocument::fromJson(content.toUtf8());
@@ -123,7 +148,7 @@ QString materialPreviewText(const MaterialData &material)
 
     return QString("Тип: %1\n\n%2")
         .arg(material.type.isEmpty() ? "text" : material.type)
-        .arg(material.content.isEmpty() ? "Материал пока пуст." : material.content);
+        .arg(material.content.isEmpty() ? "Материал пока пуст." : normalizedBuilderText(material.content));
 }
 
 QFrame *createSectionCard(const QString &title, QWidget *parent, QVBoxLayout **contentLayout)
@@ -150,9 +175,401 @@ QLabel *createFieldLabel(const QString &text, QWidget *parent)
     return label;
 }
 
+void applyLightDialogStyle(QDialog *dialog)
+{
+    dialog->setStyleSheet(
+        "QDialog {"
+        " background: #f8fbff;"
+        " color: #0f172a;"
+        "}"
+        "QLabel { color: #334155; }"
+        "QLabel#moduleTitleLabel {"
+        " color: #334155;"
+        " font-size: 13px;"
+        " font-weight: 700;"
+        "}"
+        "QLabel#sectionHintLabel {"
+        " color: #475569;"
+        " font-size: 13px;"
+        " font-weight: 600;"
+        "}"
+        "QLineEdit, QTextEdit, QDateTimeEdit, QSpinBox {"
+        " background: #ffffff;"
+        " color: #0f172a;"
+        " border: 1px solid #dbe4f0;"
+        " border-radius: 14px;"
+        " padding: 10px 12px;"
+        " selection-background-color: #bfdbfe;"
+        "}"
+        "QLineEdit:focus, QTextEdit:focus, QDateTimeEdit:focus, QSpinBox:focus {"
+        " border-color: #2563eb;"
+        "}"
+        "QCheckBox {"
+        " color: #0f172a;"
+        " font-weight: 600;"
+        " spacing: 8px;"
+        "}"
+        "QDialogButtonBox QPushButton, QPushButton#cardGhostButton {"
+        " background: #eaf2ff;"
+        " color: #2563eb;"
+        " border: 1px solid #bfdbfe;"
+        " border-radius: 14px;"
+        " padding: 11px 18px;"
+        " font-weight: 700;"
+        " min-height: 20px;"
+        "}"
+        "QDialogButtonBox QPushButton:hover, QPushButton#cardGhostButton:hover {"
+        " background: #dbeafe;"
+        "}"
+        "QDialogButtonBox QPushButton:default {"
+        " background: #2563eb;"
+        " color: #ffffff;"
+        " border-color: #2563eb;"
+        "}"
+        "QDialogButtonBox QPushButton:disabled, QPushButton#cardGhostButton:disabled {"
+        " background: #e2e8f0;"
+        " color: #94a3b8;"
+        " border-color: #e2e8f0;"
+        "}");
+}
+
+void applyTransparentListStyle(QListWidget *list)
+{
+    list->setFrameShape(QFrame::NoFrame);
+    list->setAttribute(Qt::WA_StyledBackground, true);
+    list->viewport()->setAttribute(Qt::WA_StyledBackground, true);
+    list->setStyleSheet(
+        "QListWidget { background: transparent; border: none; outline: none; }"
+        "QListWidget::item { background: transparent; border: none; margin: 0; padding: 0; }"
+        "QListWidget::item:hover, QListWidget::item:selected { background: transparent; }");
+    list->viewport()->setStyleSheet("background: transparent;");
+}
+
 QString statusWord(bool ready)
 {
     return ready ? "готово" : "ожидает";
+}
+
+bool editLessonDialog(
+    QWidget *parent,
+    const QString &windowTitle,
+    const QString &initialTitle,
+    const QString &initialContent,
+    QString *titleOut,
+    QString *contentOut)
+{
+    QDialog dialog(parent);
+    dialog.setWindowTitle(windowTitle);
+    dialog.resize(720, 560);
+    applyLightDialogStyle(&dialog);
+
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->setContentsMargins(22, 22, 22, 18);
+    layout->setSpacing(14);
+
+    auto *hintLabel = new QLabel("Заполните название и основной текст урока. Так урок будет читаться студентом в отдельном reader-окне.", &dialog);
+    hintLabel->setObjectName("sectionHintLabel");
+    hintLabel->setWordWrap(true);
+
+    auto *titleEdit = new QLineEdit(&dialog);
+    titleEdit->setPlaceholderText("Например: Урок 1. Переменные и типы данных");
+    titleEdit->setText(initialTitle);
+
+    auto *contentEdit = new QTextEdit(&dialog);
+    contentEdit->setPlaceholderText("Основной учебный текст урока");
+    contentEdit->setPlainText(initialContent);
+    contentEdit->setMinimumHeight(320);
+
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, &dialog);
+    buttons->button(QDialogButtonBox::Save)->setText("Сохранить");
+    buttons->button(QDialogButtonBox::Cancel)->setText("Отмена");
+
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, [&]() {
+        if (titleEdit->text().trimmed().isEmpty() || contentEdit->toPlainText().trimmed().isEmpty()) {
+            return;
+        }
+        dialog.accept();
+    });
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    layout->addWidget(hintLabel);
+    layout->addWidget(createFieldLabel("Название урока", &dialog));
+    layout->addWidget(titleEdit);
+    layout->addWidget(createFieldLabel("Текст урока", &dialog));
+    layout->addWidget(contentEdit, 1);
+    layout->addWidget(buttons);
+
+    if (dialog.exec() != QDialog::Accepted) {
+        return false;
+    }
+
+    *titleOut = titleEdit->text().trimmed();
+    *contentOut = contentEdit->toPlainText().trimmed();
+    return true;
+}
+
+bool editMaterialDialog(
+    QWidget *parent,
+    const QString &windowTitle,
+    const QVector<LessonData> &lessons,
+    int initialLessonId,
+    const QString &initialTitle,
+    const QString &initialType,
+    const QString &initialContent,
+    int *lessonIdOut,
+    QString *titleOut,
+    QString *typeOut,
+    QString *contentOut)
+{
+    if (lessons.isEmpty()) {
+        return false;
+    }
+
+    QDialog dialog(parent);
+    dialog.setWindowTitle(windowTitle);
+    dialog.resize(760, 640);
+    applyLightDialogStyle(&dialog);
+
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->setContentsMargins(22, 22, 22, 18);
+    layout->setSpacing(14);
+
+    auto *hintLabel = new QLabel("Материал привязывается к конкретному уроку. Можно добавить текст, ссылку, видео или прикрепить PDF/DOC/DOCX/TXT файл.", &dialog);
+    hintLabel->setObjectName("sectionHintLabel");
+    hintLabel->setWordWrap(true);
+
+    auto *lessonCombo = ui_styles::createComboBox(&dialog);
+    ui_styles::applyComboBoxStyle(lessonCombo);
+    for (const LessonData &lesson : lessons) {
+        lessonCombo->addItem(lesson.title, lesson.id);
+    }
+    for (int i = 0; i < lessonCombo->count(); ++i) {
+        if (lessonCombo->itemData(i).toInt() == initialLessonId) {
+            lessonCombo->setCurrentIndex(i);
+            break;
+        }
+    }
+
+    auto *titleEdit = new QLineEdit(&dialog);
+    titleEdit->setPlaceholderText("Название материала");
+    titleEdit->setText(initialTitle);
+
+    auto *typeCombo = ui_styles::createComboBox(&dialog);
+    typeCombo->addItems({"text", "video", "link", "pdf", "doc", "docx", "file"});
+    ui_styles::applyComboBoxStyle(typeCombo);
+    const int typeIndex = typeCombo->findText(initialType);
+    typeCombo->setCurrentIndex(typeIndex >= 0 ? typeIndex : 0);
+
+    auto *contentEdit = new QTextEdit(&dialog);
+    contentEdit->setPlaceholderText("Текст материала или ссылка");
+    contentEdit->setPlainText(initialContent);
+    contentEdit->setMinimumHeight(240);
+
+    QString embeddedPayload;
+    QJsonObject payload;
+    if (parseEmbeddedFileMaterial(initialContent, &payload)) {
+        embeddedPayload = initialContent;
+        contentEdit->setPlainText(QString("Встроенный файл: %1\nРазмер: %2 КБ")
+            .arg(payload.value("fileName").toString(initialTitle))
+            .arg((payload.value("size").toInt(0) + 1023) / 1024));
+    }
+
+    auto *pickFileButton = new QPushButton("Выбрать файл с компьютера", &dialog);
+    pickFileButton->setObjectName("cardGhostButton");
+
+    QObject::connect(contentEdit, &QTextEdit::textChanged, &dialog, [&]() {
+        if (!contentEdit->toPlainText().startsWith("Встроенный файл:")) {
+            embeddedPayload.clear();
+        }
+    });
+
+    QObject::connect(pickFileButton, &QPushButton::clicked, &dialog, [&]() {
+        const QString path = QFileDialog::getOpenFileName(
+            &dialog,
+            "Выбрать материал",
+            QString(),
+            "Учебные материалы (*.pdf *.doc *.docx *.txt *.md);;PDF (*.pdf);;Word (*.doc *.docx);;Текст (*.txt *.md);;Все файлы (*)");
+        if (path.isEmpty()) {
+            return;
+        }
+
+        QFileInfo fileInfo(path);
+        if (!fileInfo.exists() || fileInfo.size() > kMaxEmbeddedMaterialBytes) {
+            return;
+        }
+
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly)) {
+            return;
+        }
+
+        const QByteArray bytes = file.readAll();
+        const QString type = materialTypeFromSuffix(fileInfo.suffix());
+        const QJsonObject filePayload{
+            {"kind", "embedded-file"},
+            {"fileName", fileInfo.fileName()},
+            {"mimeType", materialMimeFromType(type)},
+            {"size", static_cast<int>(bytes.size())},
+            {"data", QString::fromLatin1(bytes.toBase64())}
+        };
+
+        const int newTypeIndex = typeCombo->findText(type);
+        typeCombo->setCurrentIndex(newTypeIndex >= 0 ? newTypeIndex : typeCombo->findText("file"));
+        if (titleEdit->text().trimmed().isEmpty()) {
+            titleEdit->setText(fileInfo.completeBaseName());
+        }
+        embeddedPayload = QString::fromUtf8(QJsonDocument(filePayload).toJson(QJsonDocument::Compact));
+        contentEdit->setPlainText(QString("Встроенный файл: %1\nРазмер: %2 КБ")
+            .arg(fileInfo.fileName())
+            .arg((bytes.size() + 1023) / 1024));
+    });
+
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, &dialog);
+    buttons->button(QDialogButtonBox::Save)->setText("Сохранить");
+    buttons->button(QDialogButtonBox::Cancel)->setText("Отмена");
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, [&]() {
+        const QString submittedContent = embeddedPayload.isEmpty()
+            ? contentEdit->toPlainText().trimmed()
+            : embeddedPayload;
+        if (titleEdit->text().trimmed().isEmpty() || submittedContent.isEmpty()) {
+            return;
+        }
+        dialog.accept();
+    });
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    layout->addWidget(hintLabel);
+    layout->addWidget(createFieldLabel("Урок", &dialog));
+    layout->addWidget(lessonCombo);
+    layout->addWidget(createFieldLabel("Название", &dialog));
+    layout->addWidget(titleEdit);
+    layout->addWidget(createFieldLabel("Тип", &dialog));
+    layout->addWidget(typeCombo);
+    layout->addWidget(createFieldLabel("Содержимое", &dialog));
+    layout->addWidget(contentEdit, 1);
+    layout->addWidget(pickFileButton, 0, Qt::AlignLeft);
+    layout->addWidget(buttons);
+
+    if (dialog.exec() != QDialog::Accepted) {
+        return false;
+    }
+
+    *lessonIdOut = lessonCombo->currentData().toInt();
+    *titleOut = titleEdit->text().trimmed();
+    *typeOut = typeCombo->currentText();
+    *contentOut = embeddedPayload.isEmpty() ? contentEdit->toPlainText().trimmed() : embeddedPayload;
+    return true;
+}
+
+bool editTestDialog(
+    QWidget *parent,
+    const QString &windowTitle,
+    const QString &initialTitle,
+    const QString &initialStatus,
+    const QString &initialDeadlineAt,
+    int initialMaxAttempts,
+    int initialTimeLimitMinutes,
+    QString *titleOut,
+    QString *statusOut,
+    QString *deadlineAtOut,
+    int *maxAttemptsOut,
+    int *timeLimitMinutesOut)
+{
+    QDialog dialog(parent);
+    dialog.setWindowTitle(windowTitle);
+    dialog.resize(640, 560);
+    applyLightDialogStyle(&dialog);
+
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->setContentsMargins(22, 22, 22, 18);
+    layout->setSpacing(14);
+
+    auto *hintLabel = new QLabel("Укажите понятное название теста. Вопросы и варианты ответа редактируются в отдельном пошаговом редакторе.", &dialog);
+    hintLabel->setObjectName("sectionHintLabel");
+    hintLabel->setWordWrap(true);
+
+    auto *titleEdit = new QLineEdit(&dialog);
+    titleEdit->setPlaceholderText("Например: Итоговая проверка по теме");
+    titleEdit->setText(initialTitle);
+    titleEdit->setMinimumHeight(46);
+
+    auto *statusCombo = ui_styles::createComboBox(&dialog);
+    statusCombo->addItems({"active", "closed"});
+    ui_styles::applyComboBoxStyle(statusCombo);
+    const int statusIndex = statusCombo->findText(initialStatus.isEmpty() ? "active" : initialStatus);
+    statusCombo->setCurrentIndex(statusIndex >= 0 ? statusIndex : 0);
+
+    auto *deadlineEnabledCheck = new QCheckBox("Установить дедлайн", &dialog);
+    auto *deadlineEdit = new QDateTimeEdit(&dialog);
+    deadlineEdit->setCalendarPopup(true);
+    deadlineEdit->setDisplayFormat("yyyy-MM-dd HH:mm");
+    deadlineEdit->setMinimumDateTime(QDateTime::currentDateTime().addSecs(-86400));
+    deadlineEdit->setDateTime(QDateTime::currentDateTime().addDays(7));
+
+    if (!initialDeadlineAt.trimmed().isEmpty()) {
+        QDateTime deadline = QDateTime::fromString(initialDeadlineAt, Qt::ISODate);
+        if (!deadline.isValid()) {
+            deadline = QDateTime::fromString(initialDeadlineAt, "yyyy-MM-dd HH:mm:ss");
+        }
+        if (deadline.isValid()) {
+            deadlineEnabledCheck->setChecked(true);
+            deadlineEdit->setDateTime(deadline);
+        }
+    }
+    deadlineEdit->setEnabled(deadlineEnabledCheck->isChecked());
+    QObject::connect(deadlineEnabledCheck, &QCheckBox::toggled, deadlineEdit, &QDateTimeEdit::setEnabled);
+
+    auto *maxAttemptsSpin = new QSpinBox(&dialog);
+    maxAttemptsSpin->setRange(0, 20);
+    maxAttemptsSpin->setValue(initialMaxAttempts);
+    maxAttemptsSpin->setSpecialValueText("Без ограничения");
+    maxAttemptsSpin->setMinimumHeight(46);
+
+    auto *timeLimitSpin = new QSpinBox(&dialog);
+    timeLimitSpin->setRange(1, 300);
+    timeLimitSpin->setValue(qBound(1, initialTimeLimitMinutes, 300));
+    timeLimitSpin->setSuffix(" мин.");
+    timeLimitSpin->setMinimumHeight(46);
+
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, &dialog);
+    buttons->button(QDialogButtonBox::Save)->setText("Сохранить");
+    buttons->button(QDialogButtonBox::Cancel)->setText("Отмена");
+
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, [&]() {
+        if (titleEdit->text().trimmed().isEmpty()) {
+            titleEdit->setFocus();
+            return;
+        }
+        dialog.accept();
+    });
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    layout->addWidget(hintLabel);
+    layout->addWidget(createFieldLabel("Название теста", &dialog));
+    layout->addWidget(titleEdit);
+    layout->addWidget(createFieldLabel("Статус", &dialog));
+    layout->addWidget(statusCombo);
+    layout->addWidget(deadlineEnabledCheck);
+    layout->addWidget(deadlineEdit);
+    layout->addWidget(createFieldLabel("Количество попыток", &dialog));
+    layout->addWidget(maxAttemptsSpin);
+    layout->addWidget(createFieldLabel("Время на прохождение", &dialog));
+    layout->addWidget(timeLimitSpin);
+    layout->addStretch();
+    layout->addWidget(buttons);
+
+    if (dialog.exec() != QDialog::Accepted) {
+        return false;
+    }
+
+    *titleOut = titleEdit->text().trimmed();
+    *statusOut = statusCombo->currentText();
+    *deadlineAtOut = deadlineEnabledCheck->isChecked()
+        ? deadlineEdit->dateTime().toString(Qt::ISODate)
+        : QString();
+    *maxAttemptsOut = maxAttemptsSpin->value();
+    *timeLimitMinutesOut = timeLimitSpin->value();
+    return true;
 }
 
 }
@@ -298,56 +715,43 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     m_lessonsList = new QListWidget(lessonsCard);
     m_lessonsList->setSpacing(10);
     m_lessonsList->setMinimumWidth(360);
+    applyTransparentListStyle(m_lessonsList);
     lessonsCardLayout->addWidget(m_lessonsList);
 
     QVBoxLayout *lessonFormLayout = nullptr;
-    auto *lessonFormCard = createSectionCard("Добавить урок", lessonsTab, &lessonFormLayout);
+    auto *lessonFormCard = createSectionCard("Действия с уроками", lessonsTab, &lessonFormLayout);
     auto *lessonFormHint = new QLabel(
-        "Сначала нужно задать понятное название урока, затем добавить краткое содержание или основной учебный текст.",
+        "Выберите урок слева, чтобы редактировать или удалить его. Создание и редактирование открываются в отдельном окне.",
         lessonFormCard);
     lessonFormHint->setObjectName("sectionHintLabel");
     lessonFormHint->setWordWrap(true);
-    auto *lessonForm = new QFormLayout();
-    lessonForm->setHorizontalSpacing(12);
-    lessonForm->setVerticalSpacing(12);
 
     m_lessonTitleEdit = new QLineEdit(lessonFormCard);
     m_lessonTitleEdit->setPlaceholderText("Название урока");
     m_lessonTitleEdit->setStyleSheet(inputStyle);
     m_lessonTitleEdit->setMinimumHeight(48);
+    m_lessonTitleEdit->hide();
 
     m_lessonContentEdit = new QTextEdit(lessonFormCard);
     m_lessonContentEdit->setPlaceholderText("Текст, краткое описание или основное содержание урока");
     m_lessonContentEdit->setMinimumHeight(180);
     m_lessonContentEdit->setStyleSheet(inputStyle);
+    m_lessonContentEdit->hide();
 
-    m_addLessonButton = new QPushButton("Добавить урок", lessonFormCard);
+    m_addLessonButton = new QPushButton("Добавить новый урок", lessonFormCard);
     m_addLessonButton->setObjectName("cardAccentButton");
-    m_loadLessonButton = new QPushButton("Загрузить урок в форму", lessonFormCard);
+    m_loadLessonButton = new QPushButton("Редактировать выбранный", lessonFormCard);
     m_loadLessonButton->setObjectName("cardGhostButton");
     m_updateLessonButton = new QPushButton("Сохранить изменения урока", lessonFormCard);
     m_updateLessonButton->setObjectName("cardAccentButton");
+    m_updateLessonButton->hide();
     m_deleteLessonButton = new QPushButton("Удалить урок", lessonFormCard);
     m_deleteLessonButton->setObjectName("cardDangerButton");
 
-    auto *lessonPrimaryRow = new QHBoxLayout();
-    lessonPrimaryRow->setSpacing(10);
-    lessonPrimaryRow->addWidget(m_addLessonButton);
-    lessonPrimaryRow->addWidget(m_loadLessonButton);
-    lessonPrimaryRow->addStretch();
-
-    auto *lessonDangerRow = new QHBoxLayout();
-    lessonDangerRow->setSpacing(10);
-    lessonDangerRow->addWidget(m_updateLessonButton);
-    lessonDangerRow->addWidget(m_deleteLessonButton);
-    lessonDangerRow->addStretch();
-
     lessonFormLayout->addWidget(lessonFormHint);
-    lessonForm->addRow("Название", m_lessonTitleEdit);
-    lessonForm->addRow("Контент", m_lessonContentEdit);
-    lessonFormLayout->addLayout(lessonForm);
-    lessonFormLayout->addLayout(lessonPrimaryRow);
-    lessonFormLayout->addLayout(lessonDangerRow);
+    lessonFormLayout->addWidget(m_addLessonButton);
+    lessonFormLayout->addWidget(m_loadLessonButton);
+    lessonFormLayout->addWidget(m_deleteLessonButton);
     lessonFormLayout->addStretch();
 
     lessonsLayout->addWidget(lessonsCard, 3);
@@ -365,13 +769,14 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     m_materialsList = new QListWidget(materialsCard);
     m_materialsList->setSpacing(10);
     m_materialsList->setMinimumWidth(360);
+    applyTransparentListStyle(m_materialsList);
     materialsCardLayout->addWidget(m_materialLessonCombo);
     materialsCardLayout->addWidget(m_materialsList);
 
     QVBoxLayout *materialFormLayout = nullptr;
-    auto *materialFormCard = createSectionCard("Добавить материал", materialsTab, &materialFormLayout);
+    auto *materialFormCard = createSectionCard("Действия с материалами", materialsTab, &materialFormLayout);
     auto *materialFormHint = new QLabel(
-        "Материал всегда привязан к уроку. Можно добавить текст, ссылку, видео или прикрепить PDF/DOC/DOCX/TXT файл с компьютера.",
+        "Выберите урок и материал слева. Создание и редактирование открываются в отдельном окне; файлы можно прикреплять прямо там.",
         materialFormCard);
     materialFormHint->setObjectName("sectionHintLabel");
     materialFormHint->setWordWrap(true);
@@ -386,35 +791,36 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
         " border-radius: 14px;"
         " padding: 10px 12px;"
         "}");
-    auto *materialForm = new QFormLayout();
-    materialForm->setHorizontalSpacing(12);
-    materialForm->setVerticalSpacing(12);
-
     m_materialTitleEdit = new QLineEdit(materialFormCard);
     m_materialTitleEdit->setPlaceholderText("Например: Теория по указателям");
     m_materialTitleEdit->setStyleSheet(inputStyle);
     m_materialTitleEdit->setMinimumHeight(48);
+    m_materialTitleEdit->hide();
 
     m_materialTypeCombo = ui_styles::createComboBox(materialFormCard);
     m_materialTypeCombo->addItems({"text", "video", "link", "pdf", "doc", "docx", "file"});
     ui_styles::applyComboBoxStyle(m_materialTypeCombo);
+    m_materialTypeCombo->hide();
 
     m_materialContentEdit = new QTextEdit(materialFormCard);
     m_materialContentEdit->setPlaceholderText("Текст материала, ссылка на видео или полезный ресурс");
     m_materialContentEdit->setMinimumHeight(180);
     m_materialContentEdit->setStyleSheet(inputStyle);
+    m_materialContentEdit->hide();
 
     m_materialPreviewEdit = new QTextEdit(materialFormCard);
     m_materialPreviewEdit->setReadOnly(true);
     m_materialPreviewEdit->setMinimumHeight(120);
     m_materialPreviewEdit->setPlaceholderText("Здесь появится предпросмотр выбранного материала.");
     m_materialPreviewEdit->setStyleSheet(inputStyle + "QTextEdit { background-color: #f8fbff; }");
+    m_materialPreviewEdit->hide();
 
-    m_addMaterialButton = new QPushButton("Добавить материал", materialFormCard);
+    m_addMaterialButton = new QPushButton("Добавить новый материал", materialFormCard);
     m_addMaterialButton->setObjectName("cardAccentButton");
     m_pickMaterialFileButton = new QPushButton("Выбрать файл", materialFormCard);
     m_pickMaterialFileButton->setObjectName("cardGhostButton");
-    m_loadMaterialButton = new QPushButton("Загрузить материал в форму", materialFormCard);
+    m_pickMaterialFileButton->hide();
+    m_loadMaterialButton = new QPushButton("Редактировать выбранный", materialFormCard);
     m_loadMaterialButton->setObjectName("cardGhostButton");
     m_previewMaterialButton = new QPushButton("Предпросмотр", materialFormCard);
     m_previewMaterialButton->setObjectName("cardGhostButton");
@@ -424,40 +830,18 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     m_downloadMaterialButton->setObjectName("cardGhostButton");
     m_updateMaterialButton = new QPushButton("Сохранить изменения материала", materialFormCard);
     m_updateMaterialButton->setObjectName("cardAccentButton");
+    m_updateMaterialButton->hide();
     m_deleteMaterialButton = new QPushButton("Удалить материал", materialFormCard);
     m_deleteMaterialButton->setObjectName("cardDangerButton");
 
-    auto *materialPrimaryRow = new QHBoxLayout();
-    materialPrimaryRow->setSpacing(10);
-    materialPrimaryRow->addWidget(m_addMaterialButton);
-    materialPrimaryRow->addWidget(m_pickMaterialFileButton);
-    materialPrimaryRow->addWidget(m_loadMaterialButton);
-    materialPrimaryRow->addStretch();
-
-    auto *materialPreviewActionsRow = new QHBoxLayout();
-    materialPreviewActionsRow->setSpacing(10);
-    materialPreviewActionsRow->addWidget(m_previewMaterialButton);
-    materialPreviewActionsRow->addWidget(m_openMaterialButton);
-    materialPreviewActionsRow->addWidget(m_downloadMaterialButton);
-    materialPreviewActionsRow->addStretch();
-
-    auto *materialDangerRow = new QHBoxLayout();
-    materialDangerRow->setSpacing(10);
-    materialDangerRow->addWidget(m_updateMaterialButton);
-    materialDangerRow->addWidget(m_deleteMaterialButton);
-    materialDangerRow->addStretch();
-
     materialFormLayout->addWidget(materialFormHint);
     materialFormLayout->addWidget(m_materialsGuardLabel);
-    materialForm->addRow("Урок", m_materialLessonCombo);
-    materialForm->addRow("Название", m_materialTitleEdit);
-    materialForm->addRow("Тип", m_materialTypeCombo);
-    materialForm->addRow("Содержимое", m_materialContentEdit);
-    materialForm->addRow("Предпросмотр", m_materialPreviewEdit);
-    materialFormLayout->addLayout(materialForm);
-    materialFormLayout->addLayout(materialPrimaryRow);
-    materialFormLayout->addLayout(materialPreviewActionsRow);
-    materialFormLayout->addLayout(materialDangerRow);
+    materialFormLayout->addWidget(m_addMaterialButton);
+    materialFormLayout->addWidget(m_loadMaterialButton);
+    materialFormLayout->addWidget(m_previewMaterialButton);
+    materialFormLayout->addWidget(m_openMaterialButton);
+    materialFormLayout->addWidget(m_downloadMaterialButton);
+    materialFormLayout->addWidget(m_deleteMaterialButton);
     materialFormLayout->addStretch();
 
     materialsLayout->addWidget(materialsCard, 3);
@@ -477,6 +861,7 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     m_testsList->setSpacing(10);
     m_testsList->setSelectionMode(QAbstractItemView::SingleSelection);
     m_testsList->setMinimumWidth(340);
+    applyTransparentListStyle(m_testsList);
     testsCardLayout->addWidget(m_testsList);
     testsColumnLayout->addWidget(testsCard);
 
@@ -486,6 +871,7 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     m_questionsList->setSpacing(10);
     m_questionsList->setSelectionMode(QAbstractItemView::SingleSelection);
     m_questionsList->setMinimumWidth(340);
+    applyTransparentListStyle(m_questionsList);
     questionsCardLayout->addWidget(m_questionsList);
     testsColumnLayout->addWidget(questionsCard);
 
@@ -493,51 +879,37 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
     rightColumnLayout->setSpacing(14);
 
     QVBoxLayout *testFormLayout = nullptr;
-    auto *testFormCard = createSectionCard("1. Настрой тест", testsTab, &testFormLayout);
+    auto *testFormCard = createSectionCard("Действия с тестами", testsTab, &testFormLayout);
     auto *testFormHint = new QLabel(
-        "Для быстрых правок можно работать здесь. Если вопросов уже много, удобнее открыть отдельный пошаговый редактор тестов.",
+        "Выберите тест слева, чтобы редактировать или удалить его. Вопросы удобнее вести в отдельном пошаговом редакторе.",
         testFormCard);
     testFormHint->setObjectName("sectionHintLabel");
     testFormHint->setWordWrap(true);
     auto *openEditorButton = new QPushButton("Перейти в пошаговый редактор тестов", testFormCard);
     openEditorButton->setObjectName("cardGhostButton");
 
-    auto *testForm = new QFormLayout();
-    testForm->setHorizontalSpacing(12);
-    testForm->setVerticalSpacing(12);
-
     m_testTitleEdit = new QLineEdit(testFormCard);
     m_testTitleEdit->setPlaceholderText("Например: Финальный тест по теме");
     m_testTitleEdit->setStyleSheet(inputStyle);
     m_testTitleEdit->setMinimumHeight(48);
+    m_testTitleEdit->hide();
 
-    m_addTestButton = new QPushButton("Создать тест", testFormCard);
+    m_addTestButton = new QPushButton("Добавить новый тест", testFormCard);
     m_addTestButton->setObjectName("cardAccentButton");
-    m_loadTestButton = new QPushButton("Загрузить тест в форму", testFormCard);
+    m_loadTestButton = new QPushButton("Редактировать выбранный", testFormCard);
     m_loadTestButton->setObjectName("cardGhostButton");
     m_updateTestButton = new QPushButton("Сохранить изменения теста", testFormCard);
     m_updateTestButton->setObjectName("cardAccentButton");
+    m_updateTestButton->hide();
     m_deleteTestButton = new QPushButton("Удалить тест", testFormCard);
     m_deleteTestButton->setObjectName("cardDangerButton");
 
-    auto *testButtonsRow = new QHBoxLayout();
-    testButtonsRow->setSpacing(10);
-    testButtonsRow->addWidget(m_addTestButton);
-    testButtonsRow->addWidget(m_loadTestButton);
-    testButtonsRow->addStretch();
-
-    auto *testDangerRow = new QHBoxLayout();
-    testDangerRow->setSpacing(10);
-    testDangerRow->addWidget(m_updateTestButton);
-    testDangerRow->addWidget(m_deleteTestButton);
-    testDangerRow->addStretch();
-
     testFormLayout->addWidget(testFormHint);
-    testFormLayout->addWidget(openEditorButton, 0, Qt::AlignLeft);
-    testForm->addRow("Название теста", m_testTitleEdit);
-    testFormLayout->addLayout(testForm);
-    testFormLayout->addLayout(testButtonsRow);
-    testFormLayout->addLayout(testDangerRow);
+    testFormLayout->addWidget(m_addTestButton);
+    testFormLayout->addWidget(m_loadTestButton);
+    testFormLayout->addWidget(openEditorButton);
+    testFormLayout->addWidget(m_deleteTestButton);
+    testFormLayout->addStretch();
     rightColumnLayout->addWidget(testFormCard);
 
     QVBoxLayout *questionSummaryLayout = nullptr;
@@ -616,7 +988,7 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
 
     m_addQuestionButton = new QPushButton("Сохранить вопрос", questionFormCard);
     m_addQuestionButton->setObjectName("cardAccentButton");
-    m_loadQuestionButton = new QPushButton("Загрузить вопрос в форму", questionFormCard);
+    m_loadQuestionButton = new QPushButton("Редактировать выбранный вопрос", questionFormCard);
     m_loadQuestionButton->setObjectName("cardGhostButton");
     m_updateQuestionButton = new QPushButton("Сохранить изменения вопроса", questionFormCard);
     m_updateQuestionButton->setObjectName("cardAccentButton");
@@ -782,7 +1154,7 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
         }
 
         m_optionOrderCombo->setCurrentIndex(index - 1);
-        showMessage("Порядок вариантов обновлён. Не забудь сохранить вопрос.", false);
+        showMessage("Порядок вариантов обновлён. Сохраните вопрос, чтобы зафиксировать изменения.", false);
     });
     connect(m_moveOptionDownButton, &QPushButton::clicked, this, [this]() {
         const int index = m_optionOrderCombo->currentIndex();
@@ -802,21 +1174,28 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
         }
 
         m_optionOrderCombo->setCurrentIndex(index + 1);
-        showMessage("Порядок вариантов обновлён. Не забудь сохранить вопрос.", false);
+        showMessage("Порядок вариантов обновлён. Сохраните вопрос, чтобы зафиксировать изменения.", false);
     });
 
     connect(m_addLessonButton, &QPushButton::clicked, this, [this]() {
-        emit createLessonRequested(
-            m_course.id,
-            m_lessonTitleEdit->text().trimmed(),
-            m_lessonContentEdit->toPlainText().trimmed());
+        QString title;
+        QString content;
+        if (!editLessonDialog(this, "Создать урок", {}, {}, &title, &content)) {
+            return;
+        }
+
+        emit createLessonRequested(m_course.id, title, content);
     });
     connect(m_loadLessonButton, &QPushButton::clicked, this, [this]() {
         const int lessonId = selectedLessonListId();
         for (const auto& lesson : std::as_const(m_lessons)) {
             if (lesson.id == lessonId) {
-                populateLessonDraft(lesson);
-                showMessage("Урок загружен в форму для редактирования.", false);
+                QString title;
+                QString content;
+                if (!editLessonDialog(this, "Редактировать урок", lesson.title, lesson.content, &title, &content)) {
+                    return;
+                }
+                emit updateLessonRequested(lesson.id, title, content);
                 return;
             }
         }
@@ -828,14 +1207,21 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
             m_lessonContentEdit->toPlainText().trimmed());
     });
     connect(m_deleteLessonButton, &QPushButton::clicked, this, [this]() {
-        emit deleteLessonRequested(m_editingLessonId);
+        const int lessonId = selectedLessonListId();
+        if (lessonId >= 0) {
+            emit deleteLessonRequested(lessonId);
+        }
     });
     connect(m_addMaterialButton, &QPushButton::clicked, this, [this]() {
-        emit createMaterialRequested(
-            selectedLessonId(),
-            m_materialTitleEdit->text().trimmed(),
-            m_materialTypeCombo->currentText(),
-            materialContentForSubmit());
+        int lessonId = -1;
+        QString title;
+        QString type;
+        QString content;
+        if (!editMaterialDialog(this, "Создать материал", m_lessons, selectedLessonId(), {}, "text", {}, &lessonId, &title, &type, &content)) {
+            return;
+        }
+
+        emit createMaterialRequested(lessonId, title, type, content);
     });
     connect(m_pickMaterialFileButton, &QPushButton::clicked, this, [this]() {
         attachLocalMaterialFile();
@@ -844,8 +1230,14 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
         const int materialId = selectedMaterialId();
         for (const auto& material : std::as_const(m_materials)) {
             if (material.id == materialId) {
-                populateMaterialDraft(material);
-                showMessage("Материал загружен в форму для редактирования.", false);
+                int lessonId = material.lessonId;
+                QString title;
+                QString type;
+                QString content;
+                if (!editMaterialDialog(this, "Редактировать материал", m_lessons, material.lessonId, material.title, material.type, material.content, &lessonId, &title, &type, &content)) {
+                    return;
+                }
+                emit updateMaterialRequested(material.id, title, type, content);
                 return;
             }
         }
@@ -898,26 +1290,48 @@ TeacherCourseBuilderPage::TeacherCourseBuilderPage(QWidget *parent)
             materialContentForSubmit());
     });
     connect(m_deleteMaterialButton, &QPushButton::clicked, this, [this]() {
-        emit deleteMaterialRequested(m_editingMaterialId);
+        const int materialId = selectedMaterialId();
+        if (materialId >= 0) {
+            emit deleteMaterialRequested(materialId);
+        }
     });
     connect(m_addTestButton, &QPushButton::clicked, this, [this]() {
-        emit createTestRequested(m_course.id, m_testTitleEdit->text().trimmed());
+        QString title;
+        QString status;
+        QString deadlineAt;
+        int maxAttempts = 0;
+        int timeLimitMinutes = 30;
+        if (!editTestDialog(this, "Создать тест", {}, "active", {}, 0, 30, &title, &status, &deadlineAt, &maxAttempts, &timeLimitMinutes)) {
+            return;
+        }
+
+        emit createTestRequested(m_course.id, title, status, deadlineAt, maxAttempts, timeLimitMinutes);
     });
     connect(m_loadTestButton, &QPushButton::clicked, this, [this]() {
         const int testId = selectedManagedTestId();
         for (const auto& test : std::as_const(m_tests)) {
             if (test.id == testId) {
-                populateTestDraft(test);
-                showMessage("Тест загружен в форму для редактирования.", false);
+                QString title;
+                QString status;
+                QString deadlineAt;
+                int maxAttempts = test.maxAttempts;
+                int timeLimitMinutes = test.timeLimitMinutes;
+                if (!editTestDialog(this, "Редактировать тест", test.title, test.status, test.deadlineAt, test.maxAttempts, test.timeLimitMinutes, &title, &status, &deadlineAt, &maxAttempts, &timeLimitMinutes)) {
+                    return;
+                }
+                emit updateTestRequested(test.id, title, status, deadlineAt, maxAttempts, timeLimitMinutes);
                 return;
             }
         }
     });
     connect(m_updateTestButton, &QPushButton::clicked, this, [this]() {
-        emit updateTestRequested(m_editingTestId, m_testTitleEdit->text().trimmed());
+        emit updateTestRequested(m_editingTestId, m_testTitleEdit->text().trimmed(), "active", {}, 0, 30);
     });
     connect(m_deleteTestButton, &QPushButton::clicked, this, [this]() {
-        emit deleteTestRequested(m_editingTestId);
+        const int testId = selectedManagedTestId();
+        if (testId >= 0) {
+            emit deleteTestRequested(testId);
+        }
     });
     connect(openEditorButton, &QPushButton::clicked, this, &TeacherCourseBuilderPage::openDedicatedTestEditorRequested);
     connect(openQuestionEditorButton, &QPushButton::clicked, this, &TeacherCourseBuilderPage::openDedicatedTestEditorRequested);
@@ -1185,9 +1599,9 @@ void TeacherCourseBuilderPage::refreshOverview()
         .arg(statusWord(lessonsReady))
         .arg(lessonsReady ? QString("создано %1").arg(m_lessons.size()) : QString("сначала нужен первый урок"))
         .arg(statusWord(materialsReady))
-        .arg(materialsReady ? QString("добавлено %1").arg(m_materials.size()) : QString("привяжи материалы к урокам"))
+        .arg(materialsReady ? QString("добавлено %1").arg(m_materials.size()) : QString("нужно привязать материалы к урокам"))
         .arg(statusWord(testsReady))
-        .arg(testsReady ? QString("создано %1").arg(m_tests.size()) : QString("настрой хотя бы один тест"))
+        .arg(testsReady ? QString("создано %1").arg(m_tests.size()) : QString("нужно настроить хотя бы один тест"))
         .arg(builderReady
             ? "структура курса уже выглядит полной, можно идти в студентов и аналитику."
             : "конструктор ещё не завершён: нужны недостающие блоки, чтобы курс стал рабочим."));
@@ -1209,7 +1623,7 @@ void TeacherCourseBuilderPage::refreshLessonsList()
         appendBuilderCard(
             m_lessonsList,
             lesson.title,
-            lesson.content.isEmpty() ? "Контент урока пока пуст" : lesson.content);
+            lesson.content.isEmpty() ? "Контент урока пока пуст" : compactBuilderPreview(lesson.content));
         m_lessonsList->item(m_lessonsList->count() - 1)->setData(Qt::UserRole, lesson.id);
     }
 }
@@ -1259,10 +1673,19 @@ void TeacherCourseBuilderPage::refreshMaterialsList()
         }
 
         hasItems = true;
+
+        QJsonObject filePayload;
+        const QString subtitle = parseEmbeddedFileMaterial(material.content, &filePayload)
+            ? QString("Файл: %1  •  Тип: %2  •  Размер: %3 КБ")
+                .arg(filePayload.value("fileName").toString(material.title))
+                .arg(material.type)
+                .arg((filePayload.value("size").toInt(0) + 1023) / 1024)
+            : compactBuilderPreview(material.content);
+
         appendBuilderCard(
             m_materialsList,
             QString("%1 (%2)").arg(material.title, material.type),
-            material.content);
+            subtitle);
         m_materialsList->item(m_materialsList->count() - 1)->setData(Qt::UserRole, material.id);
     }
 
@@ -1289,10 +1712,22 @@ void TeacherCourseBuilderPage::refreshTestsList()
     }
 
     for (const TestData &test : std::as_const(m_tests)) {
+        const QString statusText = test.status == "closed"
+            ? "закрыт"
+            : test.available ? "активен" : "дедлайн истёк";
+        const QString deadlineText = test.deadlineAt.isEmpty()
+            ? "без дедлайна"
+            : QString("дедлайн: %1").arg(test.deadlineAt);
+        const QString attemptsText = test.maxAttempts == 0
+            ? "попытки: без ограничения"
+            : QString("попытки: %1").arg(test.maxAttempts);
+        const QString timeText = QString("время: %1 мин.").arg(test.timeLimitMinutes);
         appendBuilderCard(
             m_testsList,
             test.title,
-            QString("ID теста: %1").arg(test.id));
+            QString("ID теста: %1  •  %2  •  %3  •  %4  •  %5")
+                .arg(test.id)
+                .arg(statusText, deadlineText, attemptsText, timeText));
         m_testsList->item(m_testsList->count() - 1)->setData(Qt::UserRole, test.id);
     }
 }
@@ -1549,6 +1984,7 @@ void TeacherCourseBuilderPage::updateActionState()
     const bool hasTests = !m_tests.isEmpty();
     const bool hasSelectedLesson = selectedLessonId() >= 0;
     const bool hasSelectedTest = selectedManagedTestId() >= 0;
+    const int currentLessonId = selectedLessonListId();
     const int currentMaterialId = selectedMaterialId();
     bool selectedMaterialIsFile = false;
     bool selectedMaterialIsLink = false;
@@ -1565,24 +2001,16 @@ void TeacherCourseBuilderPage::updateActionState()
     const bool materialFormEnabled = hasCourse && hasLessons;
     const bool questionFormEnabled = hasCourse && hasTests && hasSelectedTest;
 
-    m_addLessonButton->setEnabled(
-        hasCourse
-        && !m_lessonTitleEdit->text().trimmed().isEmpty()
-        && !m_lessonContentEdit->toPlainText().trimmed().isEmpty());
-    m_loadLessonButton->setEnabled(selectedLessonListId() >= 0);
+    m_addLessonButton->setEnabled(hasCourse);
+    m_loadLessonButton->setEnabled(currentLessonId >= 0);
     m_updateLessonButton->setEnabled(
         hasCourse
         && m_editingLessonId >= 0
         && !m_lessonTitleEdit->text().trimmed().isEmpty()
         && !m_lessonContentEdit->toPlainText().trimmed().isEmpty());
-    m_deleteLessonButton->setEnabled(m_editingLessonId >= 0);
+    m_deleteLessonButton->setEnabled(currentLessonId >= 0);
 
-    m_addMaterialButton->setEnabled(
-        hasCourse
-        && hasLessons
-        && hasSelectedLesson
-        && !m_materialTitleEdit->text().trimmed().isEmpty()
-        && !materialContentForSubmit().trimmed().isEmpty());
+    m_addMaterialButton->setEnabled(hasCourse && hasLessons && hasSelectedLesson);
     m_loadMaterialButton->setEnabled(currentMaterialId >= 0);
     m_pickMaterialFileButton->setEnabled(materialFormEnabled && hasSelectedLesson);
     m_previewMaterialButton->setEnabled(currentMaterialId >= 0);
@@ -1609,17 +2037,15 @@ void TeacherCourseBuilderPage::updateActionState()
         && hasSelectedLesson
         && !m_materialTitleEdit->text().trimmed().isEmpty()
         && !materialContentForSubmit().trimmed().isEmpty());
-    m_deleteMaterialButton->setEnabled(m_editingMaterialId >= 0);
+    m_deleteMaterialButton->setEnabled(currentMaterialId >= 0);
 
-    m_addTestButton->setEnabled(
-        hasCourse
-        && !m_testTitleEdit->text().trimmed().isEmpty());
+    m_addTestButton->setEnabled(hasCourse);
     m_loadTestButton->setEnabled(hasTests && selectedManagedTestId() >= 0);
     m_updateTestButton->setEnabled(
         hasCourse
         && m_editingTestId >= 0
         && !m_testTitleEdit->text().trimmed().isEmpty());
-    m_deleteTestButton->setEnabled(m_editingTestId >= 0);
+    m_deleteTestButton->setEnabled(hasTests && selectedManagedTestId() >= 0);
 
     m_addQuestionButton->setEnabled(
         hasCourse

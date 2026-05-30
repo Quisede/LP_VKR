@@ -12,6 +12,7 @@
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QPushButton>
+#include <QSpinBox>
 #include <QTabWidget>
 #include <QTextEdit>
 #include <QVBoxLayout>
@@ -67,6 +68,18 @@ QLabel *createFieldLabel(const QString &text, QWidget *parent)
     auto *label = new QLabel(text, parent);
     label->setObjectName("moduleTitleLabel");
     return label;
+}
+
+void applyTransparentListStyle(QListWidget *list)
+{
+    list->setFrameShape(QFrame::NoFrame);
+    list->setAttribute(Qt::WA_StyledBackground, true);
+    list->viewport()->setAttribute(Qt::WA_StyledBackground, true);
+    list->setStyleSheet(
+        "QListWidget { background: transparent; border: none; outline: none; }"
+        "QListWidget::item { background: transparent; border: none; margin: 0; padding: 0; }"
+        "QListWidget::item:hover, QListWidget::item:selected { background: transparent; }");
+    list->viewport()->setStyleSheet("background: transparent;");
 }
 
 }
@@ -147,6 +160,7 @@ TeacherTestEditorPage::TeacherTestEditorPage(QWidget *parent)
     m_testsList = new QListWidget(testsCard);
     m_testsList->setSpacing(10);
     m_testsList->setSelectionMode(QAbstractItemView::SingleSelection);
+    applyTransparentListStyle(m_testsList);
     testsCardLayout->addWidget(m_testsList);
 
     QVBoxLayout *questionsCardLayout = nullptr;
@@ -154,6 +168,7 @@ TeacherTestEditorPage::TeacherTestEditorPage(QWidget *parent)
     m_questionsList = new QListWidget(questionsCard);
     m_questionsList->setSpacing(10);
     m_questionsList->setSelectionMode(QAbstractItemView::SingleSelection);
+    applyTransparentListStyle(m_questionsList);
     questionsCardLayout->addWidget(m_questionsList);
 
     auto *leftColumn = new QVBoxLayout();
@@ -202,9 +217,26 @@ TeacherTestEditorPage::TeacherTestEditorPage(QWidget *parent)
     m_testTitleEdit->setMinimumHeight(48);
     m_testTitleEdit->setStyleSheet(inputStyle);
 
+    m_testMaxAttemptsSpin = new QSpinBox(testFormCard);
+    m_testMaxAttemptsSpin->setRange(0, 20);
+    m_testMaxAttemptsSpin->setSpecialValueText("Без ограничения");
+    m_testMaxAttemptsSpin->setMinimumHeight(46);
+    m_testMaxAttemptsSpin->setStyleSheet(
+        "QSpinBox { background: #ffffff; color: #0f172a; border: 1px solid #dbe4f0; border-radius: 14px; padding: 8px 12px; }"
+        "QSpinBox:focus { border-color: #2563eb; }");
+
+    m_testTimeLimitSpin = new QSpinBox(testFormCard);
+    m_testTimeLimitSpin->setRange(1, 300);
+    m_testTimeLimitSpin->setSuffix(" мин.");
+    m_testTimeLimitSpin->setValue(30);
+    m_testTimeLimitSpin->setMinimumHeight(46);
+    m_testTimeLimitSpin->setStyleSheet(
+        "QSpinBox { background: #ffffff; color: #0f172a; border: 1px solid #dbe4f0; border-radius: 14px; padding: 8px 12px; }"
+        "QSpinBox:focus { border-color: #2563eb; }");
+
     m_addTestButton = new QPushButton("Создать тест", testFormCard);
     m_addTestButton->setObjectName("cardAccentButton");
-    m_loadTestButton = new QPushButton("Загрузить тест в форму", testFormCard);
+    m_loadTestButton = new QPushButton("Редактировать выбранный тест", testFormCard);
     m_loadTestButton->setObjectName("cardGhostButton");
     m_updateTestButton = new QPushButton("Сохранить изменения теста", testFormCard);
     m_updateTestButton->setObjectName("cardAccentButton");
@@ -226,6 +258,10 @@ TeacherTestEditorPage::TeacherTestEditorPage(QWidget *parent)
     testFormLayout->addWidget(testHint);
     testFormLayout->addWidget(createFieldLabel("Название теста", testFormCard));
     testFormLayout->addWidget(m_testTitleEdit);
+    testFormLayout->addWidget(createFieldLabel("Количество попыток", testFormCard));
+    testFormLayout->addWidget(m_testMaxAttemptsSpin);
+    testFormLayout->addWidget(createFieldLabel("Время на прохождение", testFormCard));
+    testFormLayout->addWidget(m_testTimeLimitSpin);
     testFormLayout->addLayout(testPrimaryRow);
     testFormLayout->addLayout(testDangerRow);
 
@@ -326,7 +362,7 @@ TeacherTestEditorPage::TeacherTestEditorPage(QWidget *parent)
 
     m_addQuestionButton = new QPushButton("Сохранить новый вопрос", reviewFormCard);
     m_addQuestionButton->setObjectName("cardAccentButton");
-    m_loadQuestionButton = new QPushButton("Загрузить выбранный вопрос", reviewFormCard);
+    m_loadQuestionButton = new QPushButton("Редактировать выбранный вопрос", reviewFormCard);
     m_loadQuestionButton->setObjectName("cardGhostButton");
     m_updateQuestionButton = new QPushButton("Сохранить изменения вопроса", reviewFormCard);
     m_updateQuestionButton->setObjectName("cardAccentButton");
@@ -451,6 +487,8 @@ TeacherTestEditorPage::TeacherTestEditorPage(QWidget *parent)
 
     connect(backButton, &QPushButton::clicked, this, &TeacherTestEditorPage::backRequested);
     connect(m_testTitleEdit, &QLineEdit::textChanged, this, [this]() { updateActionState(); });
+    connect(m_testMaxAttemptsSpin, qOverload<int>(&QSpinBox::valueChanged), this, [this]() { updateActionState(); });
+    connect(m_testTimeLimitSpin, qOverload<int>(&QSpinBox::valueChanged), this, [this]() { updateActionState(); });
     connect(m_testsList, &QListWidget::itemSelectionChanged, this, [this]() {
         updateActionState();
 
@@ -518,7 +556,7 @@ TeacherTestEditorPage::TeacherTestEditorPage(QWidget *parent)
     connect(m_optionOrderCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this]() { updateActionState(); });
 
     connect(m_addTestButton, &QPushButton::clicked, this, [this]() {
-        emit createTestRequested(m_course.id, m_testTitleEdit->text().trimmed());
+        emit createTestRequested(m_course.id, m_testTitleEdit->text().trimmed(), "active", {}, m_testMaxAttemptsSpin->value(), m_testTimeLimitSpin->value());
     });
     connect(m_loadTestButton, &QPushButton::clicked, this, [this]() {
         const int testId = selectedManagedTestId();
@@ -531,7 +569,14 @@ TeacherTestEditorPage::TeacherTestEditorPage(QWidget *parent)
         }
     });
     connect(m_updateTestButton, &QPushButton::clicked, this, [this]() {
-        emit updateTestRequested(m_editingTestId, m_testTitleEdit->text().trimmed());
+        const TestData currentTest = currentEditingTest();
+        emit updateTestRequested(
+            m_editingTestId,
+            m_testTitleEdit->text().trimmed(),
+            currentTest.status.isEmpty() ? "active" : currentTest.status,
+            currentTest.deadlineAt,
+            m_testMaxAttemptsSpin->value(),
+            m_testTimeLimitSpin->value());
     });
     connect(m_deleteTestButton, &QPushButton::clicked, this, [this]() {
         emit deleteTestRequested(m_editingTestId);
@@ -580,7 +625,7 @@ TeacherTestEditorPage::TeacherTestEditorPage(QWidget *parent)
             m_correctOptionCombo->setCurrentIndex(index);
         }
         m_optionOrderCombo->setCurrentIndex(index - 1);
-        showMessage("Порядок вариантов обновлён. Сохрани вопрос, чтобы зафиксировать порядок.", false);
+        showMessage("Порядок вариантов обновлён. Сохраните вопрос, чтобы зафиксировать порядок.", false);
     });
     connect(m_moveOptionDownButton, &QPushButton::clicked, this, [this]() {
         const int index = m_optionOrderCombo->currentIndex();
@@ -597,7 +642,7 @@ TeacherTestEditorPage::TeacherTestEditorPage(QWidget *parent)
             m_correctOptionCombo->setCurrentIndex(index);
         }
         m_optionOrderCombo->setCurrentIndex(index + 1);
-        showMessage("Порядок вариантов обновлён. Сохрани вопрос, чтобы зафиксировать порядок.", false);
+        showMessage("Порядок вариантов обновлён. Сохраните вопрос, чтобы зафиксировать порядок.", false);
     });
 
     clearEditor();
@@ -633,7 +678,7 @@ void TeacherTestEditorPage::setCourse(const CourseData &course)
         course.description.isEmpty()
             ? "У курса пока нет описания. Редактор ниже помогает управлять тестами и вопросами."
             : course.description);
-    showMessage("Сначала кликни по тесту слева, потом по вопросу. Форма справа будет заполняться автоматически.", false);
+    showMessage("Сначала выберите тест слева, затем вопрос. Форма справа заполнится автоматически.", false);
     refreshSummary();
     updateActionState();
 }
@@ -668,6 +713,8 @@ void TeacherTestEditorPage::clearTestDraft()
 {
     m_editingTestId = -1;
     m_testTitleEdit->clear();
+    m_testMaxAttemptsSpin->setValue(0);
+    m_testTimeLimitSpin->setValue(30);
     updateActionState();
 }
 
@@ -693,6 +740,8 @@ void TeacherTestEditorPage::populateTestDraft(const TestData &test)
 {
     m_editingTestId = test.id;
     m_testTitleEdit->setText(test.title);
+    m_testMaxAttemptsSpin->setValue(test.maxAttempts);
+    m_testTimeLimitSpin->setValue(test.timeLimitMinutes);
     refreshReview();
     updateActionState();
 }
@@ -735,7 +784,22 @@ void TeacherTestEditorPage::refreshTestsList()
     }
 
     for (const TestData &test : std::as_const(m_tests)) {
-        appendEditorCard(m_testsList, test.title, QString("ID теста: %1").arg(test.id));
+        const QString statusText = test.status == "closed"
+            ? "закрыт"
+            : test.available ? "активен" : "дедлайн истёк";
+        const QString deadlineText = test.deadlineAt.isEmpty()
+            ? "без дедлайна"
+            : QString("дедлайн: %1").arg(test.deadlineAt);
+        const QString attemptsText = test.maxAttempts == 0
+            ? "попытки: без ограничения"
+            : QString("попытки: %1").arg(test.maxAttempts);
+        const QString timeText = QString("время: %1 мин.").arg(test.timeLimitMinutes);
+        appendEditorCard(
+            m_testsList,
+            test.title,
+            QString("ID теста: %1  •  %2  •  %3  •  %4  •  %5")
+                .arg(test.id)
+                .arg(statusText, deadlineText, attemptsText, timeText));
         m_testsList->item(m_testsList->count() - 1)->setData(Qt::UserRole, test.id);
     }
 }
@@ -810,6 +874,20 @@ void TeacherTestEditorPage::setQuestionOptionTexts(const QStringList &options)
     m_optionTwoEdit->setText(options.value(1));
     m_optionThreeEdit->setText(options.value(2));
     m_optionFourEdit->setText(options.value(3));
+}
+
+TestData TeacherTestEditorPage::currentEditingTest() const
+{
+    for (const TestData &test : std::as_const(m_tests)) {
+        if (test.id == m_editingTestId) {
+            return test;
+        }
+    }
+
+    TestData fallback;
+    fallback.id = m_editingTestId;
+    fallback.status = "active";
+    return fallback;
 }
 
 void TeacherTestEditorPage::refreshReview()

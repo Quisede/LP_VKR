@@ -9,12 +9,32 @@
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QPushButton>
+#include <QSizePolicy>
 #include <QTabWidget>
 #include <QVBoxLayout>
 #include <algorithm>
 #include <functional>
 
 namespace {
+QString normalizedReaderText(QString text)
+{
+    text.replace("\\r\\n", "\n");
+    text.replace("\\n", "\n");
+    text.replace("\\t", "    ");
+    return text.trimmed();
+}
+
+QString compactPreview(const QString &rawText, int limit = 180)
+{
+    QString text = normalizedReaderText(rawText);
+    text.replace('\n', " ");
+    text = text.simplified();
+    if (text.size() <= limit) {
+        return text;
+    }
+    return text.left(limit).trimmed() + "...";
+}
+
 bool parseEmbeddedFileMaterial(const QString &content, QJsonObject *payload)
 {
     const QJsonDocument doc = QJsonDocument::fromJson(content.toUtf8());
@@ -47,7 +67,7 @@ QString materialSubtitle(const MaterialData &material)
             .arg((size + 1023) / 1024);
     }
 
-    return material.content;
+    return compactPreview(material.content);
 }
 
 bool isLinkLikeMaterial(const MaterialData &material)
@@ -128,12 +148,12 @@ void appendMaterialCard(QListWidget *list, const MaterialData &material, CourseD
         actionsLayout->setSpacing(10);
 
         if (isTextLike) {
-            auto *previewButton = new QPushButton("Открыть предпросмотр", card);
+            auto *previewButton = new QPushButton("Открыть материал", card);
             previewButton->setObjectName("cardGhostButton");
             actionsLayout->addWidget(previewButton);
 
             QObject::connect(previewButton, &QPushButton::clicked, context, [context, material]() {
-                emit context->materialTextPreviewRequested(material.title, material.content);
+                emit context->materialReaderRequested(material.id);
             });
         }
 
@@ -175,7 +195,7 @@ void appendMaterialCard(QListWidget *list, const MaterialData &material, CourseD
 void appendLessonCard(QListWidget *list, const LessonData &lesson, CourseDetailsPage *context, bool studentMode)
 {
     auto *item = new QListWidgetItem();
-    item->setSizeHint(QSize(0, studentMode ? 142 : 96));
+    item->setSizeHint(QSize(0, studentMode ? 142 : 132));
     item->setData(Qt::UserRole, lesson.id);
 
     auto *card = new QFrame(list);
@@ -189,35 +209,36 @@ void appendLessonCard(QListWidget *list, const LessonData &lesson, CourseDetails
     titleLabel->setObjectName("courseCardTitleLabel");
     titleLabel->setWordWrap(true);
 
-    auto *subtitleLabel = new QLabel(lesson.content, card);
+    auto *subtitleLabel = new QLabel(compactPreview(lesson.content), card);
     subtitleLabel->setObjectName("courseCardDescriptionLabel");
     subtitleLabel->setWordWrap(true);
 
     layout->addWidget(titleLabel);
     layout->addWidget(subtitleLabel);
 
+    auto *actionsLayout = new QHBoxLayout();
+    actionsLayout->setSpacing(10);
+
+    auto *previewButton = new QPushButton("Открыть урок", card);
+    previewButton->setObjectName("cardGhostButton");
+    actionsLayout->addWidget(previewButton);
+
+    QObject::connect(previewButton, &QPushButton::clicked, context, [context, lesson]() {
+        emit context->lessonReaderRequested(lesson.id);
+    });
+
     if (studentMode) {
-        auto *actionsLayout = new QHBoxLayout();
-        actionsLayout->setSpacing(10);
-
-        auto *previewButton = new QPushButton("Открыть урок", card);
-        previewButton->setObjectName("cardGhostButton");
-        actionsLayout->addWidget(previewButton);
-
         auto *completeButton = new QPushButton(lesson.completed ? "Изучено" : "Отметить изученным", card);
         completeButton->setObjectName(lesson.completed ? "cardGhostButton" : "cardAccentButton");
         completeButton->setEnabled(!lesson.completed);
         actionsLayout->addWidget(completeButton);
-        actionsLayout->addStretch();
-        layout->addLayout(actionsLayout);
 
-        QObject::connect(previewButton, &QPushButton::clicked, context, [context, lesson]() {
-            emit context->lessonPreviewRequested(lesson.title, lesson.content);
-        });
         QObject::connect(completeButton, &QPushButton::clicked, context, [context, lesson]() {
             emit context->lessonCompletedRequested(lesson.id);
         });
     }
+    actionsLayout->addStretch();
+    layout->addLayout(actionsLayout);
 
     list->addItem(item);
     list->setItemWidget(item, card);
@@ -229,19 +250,21 @@ void appendTestCard(
     const QString &title,
     const QString &subtitle,
     QObject *context,
-    const std::function<void()> &onStart)
+    const std::function<void()> &onStart,
+    bool enabled = true)
 {
     auto *item = new QListWidgetItem();
-    item->setSizeHint(QSize(0, 132));
+    item->setSizeHint(QSize(0, 150));
     item->setData(Qt::UserRole, testId);
     item->setData(Qt::UserRole + 1, title);
 
     auto *card = new QFrame(list);
     card->setObjectName("courseCard");
+    card->setMinimumHeight(136);
 
     auto *layout = new QVBoxLayout(card);
     layout->setContentsMargins(16, 14, 16, 14);
-    layout->setSpacing(10);
+    layout->setSpacing(9);
 
     auto *titleLabel = new QLabel(title, card);
     titleLabel->setObjectName("courseCardTitleLabel");
@@ -251,14 +274,48 @@ void appendTestCard(
     subtitleLabel->setObjectName("courseCardDescriptionLabel");
     subtitleLabel->setWordWrap(true);
 
-    auto *startButton = new QPushButton("Начать тест", card);
-    startButton->setObjectName("cardAccentButton");
+    auto *startButton = new QPushButton("Перейти к тесту", card);
+    startButton->setObjectName("testOpenButton");
+    startButton->setEnabled(enabled);
+    startButton->setMinimumHeight(44);
+    startButton->setMinimumWidth(178);
+    startButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    startButton->setCursor(enabled ? Qt::PointingHandCursor : Qt::ArrowCursor);
+    startButton->setStyleSheet(
+        enabled
+            ? "QPushButton#testOpenButton {"
+              " background-color: #2563eb;"
+              " color: #ffffff;"
+              " border: 1px solid #1d4ed8;"
+              " border-radius: 14px;"
+              " padding: 0 18px;"
+              " font-size: 14px;"
+              " font-weight: 700;"
+              "}"
+              "QPushButton#testOpenButton:hover { background-color: #1d4ed8; }"
+            : "QPushButton#testOpenButton {"
+              " background-color: #e2e8f0;"
+              " color: #64748b;"
+              " border: 1px solid #cbd5e1;"
+              " border-radius: 14px;"
+              " padding: 0 18px;"
+              " font-size: 14px;"
+              " font-weight: 700;"
+              "}");
+
+    auto *actionsLayout = new QHBoxLayout();
+    actionsLayout->setContentsMargins(0, 0, 0, 0);
+    actionsLayout->setSpacing(10);
+    actionsLayout->addWidget(startButton, 0, Qt::AlignLeft);
+    actionsLayout->addStretch();
 
     layout->addWidget(titleLabel);
+    layout->addLayout(actionsLayout);
     layout->addWidget(subtitleLabel);
-    layout->addWidget(startButton, 0, Qt::AlignLeft);
 
-    QObject::connect(startButton, &QPushButton::clicked, context, onStart);
+    if (enabled) {
+        QObject::connect(startButton, &QPushButton::clicked, context, onStart);
+    }
 
     list->addItem(item);
     list->setItemWidget(item, card);
@@ -390,6 +447,14 @@ CourseDetailsPage::CourseDetailsPage(QWidget *parent)
         *listRef = new QListWidget(card);
         (*listRef)->setSpacing(10);
         (*listRef)->setSelectionMode(QAbstractItemView::NoSelection);
+        (*listRef)->setFrameShape(QFrame::NoFrame);
+        (*listRef)->setAttribute(Qt::WA_StyledBackground, true);
+        (*listRef)->viewport()->setAttribute(Qt::WA_StyledBackground, true);
+        (*listRef)->setStyleSheet(
+            "QListWidget { background: transparent; border: none; outline: none; }"
+            "QListWidget::item { background: transparent; border: none; margin: 0; padding: 0; }"
+            "QListWidget::item:hover, QListWidget::item:selected { background: transparent; }");
+        (*listRef)->viewport()->setStyleSheet("background: transparent;");
 
         cardLayout->addWidget(titleLabel);
         cardLayout->addWidget(*listRef);
@@ -410,12 +475,14 @@ CourseDetailsPage::CourseDetailsPage(QWidget *parent)
     auto *materialsTab = createListTab("Материалы курса", &m_materialsList);
     auto *videosTab = createListTab("Видео и ссылки", &m_videosList);
     auto *testsTab = createListTab("Тесты курса", &m_testsList);
+    m_studentsTab = createListTab("Ученики курса", &m_studentsList);
 
     m_sectionsTabs->addTab(overviewTab, "Обзор");
     m_sectionsTabs->addTab(lessonsTab, "Уроки");
     m_sectionsTabs->addTab(materialsTab, "Материалы");
     m_sectionsTabs->addTab(videosTab, "Видео");
     m_sectionsTabs->addTab(testsTab, "Тесты");
+    m_sectionsTabs->addTab(m_studentsTab, "Ученики");
 
     pageLayout->addLayout(topLayout);
     pageLayout->addWidget(m_titleLabel);
@@ -436,9 +503,15 @@ void CourseDetailsPage::setRoleMode(const QString &role)
 
     if (role == "Teacher" || role == "Admin") {
         m_primaryActionButton->hide();
+        if (m_sectionsTabs->indexOf(m_studentsTab) < 0) {
+            m_sectionsTabs->addTab(m_studentsTab, "Ученики");
+        }
     } else {
         m_primaryActionButton->show();
-        m_primaryActionButton->setText("Записаться на курс");
+        const int studentsIndex = m_sectionsTabs->indexOf(m_studentsTab);
+        if (studentsIndex >= 0) {
+            m_sectionsTabs->removeTab(studentsIndex);
+        }
     }
 }
 
@@ -460,6 +533,11 @@ void CourseDetailsPage::setCourse(const CourseData &course)
         course.description.isEmpty()
             ? "Для этого курса пока нет подробного описания."
             : course.description);
+    if (m_role == "Student") {
+        m_primaryActionButton->setText(course.enrolled ? "Вы уже записаны" : "Записаться на курс");
+        m_primaryActionButton->setEnabled(!course.enrolled);
+        m_primaryActionButton->setObjectName(course.enrolled ? "cardGhostButton" : "enrollButton");
+    }
     refreshOverview();
 }
 
@@ -518,21 +596,75 @@ void CourseDetailsPage::setTests(const QVector<TestData> &tests)
     }
 
     for (const auto &test : tests) {
+        const QString statusText = test.status == "closed"
+            ? "закрыт"
+            : test.available ? "активен" : "дедлайн истёк";
+        const QString deadlineText = test.deadlineAt.isEmpty()
+            ? "без дедлайна"
+            : QString("дедлайн: %1").arg(test.deadlineAt);
+        const QString attemptsText = test.maxAttempts == 0
+            ? QString("попытки: %1 / без ограничения").arg(test.attemptsUsed)
+            : QString("попытки: %1 из %2").arg(test.attemptsUsed).arg(test.maxAttempts);
+        const QString passedText = test.passed
+            ? QString("пройдено, лучший результат %1%").arg(QString::number(test.bestPercentage, 'f', 1))
+            : "ещё не пройдено";
+        const bool canOpen = (m_role == "Teacher" || m_role == "Admin") || (test.available && test.canAttempt);
         appendTestCard(
             m_testsList,
             test.id,
             test.title,
-            QString("ID теста: %1").arg(test.id),
+            m_role == "Student"
+                ? QString("ID теста: %1  •  %2  •  %3  •  %4  •  %5")
+                    .arg(test.id)
+                    .arg(statusText, deadlineText, attemptsText, passedText)
+                : QString("ID теста: %1  •  %2  •  %3  •  лимит попыток: %4")
+                    .arg(test.id)
+                    .arg(statusText, deadlineText)
+                    .arg(test.maxAttempts == 0 ? "без ограничения" : QString::number(test.maxAttempts)),
             this,
             [this, test]() {
                 emit testSelected(test.id, test.title);
-            });
+            },
+            canOpen);
         auto *cardWidget = m_testsList->itemWidget(m_testsList->item(m_testsList->count() - 1));
         if (auto *button = cardWidget ? cardWidget->findChild<QPushButton *>() : nullptr) {
-            button->setText((m_role == "Teacher" || m_role == "Admin") ? "Открыть тест" : "Начать тест");
+            if (m_role == "Teacher" || m_role == "Admin") {
+                button->setText("Открыть тест");
+            } else if (!test.canAttempt) {
+                button->setText("Попытки закончились");
+            } else if (test.passed) {
+                button->setText("Повторить тест");
+            } else {
+                button->setText("Перейти к тесту");
+            }
         }
     }
     m_testsSummaryLabel->setText(QString::number(tests.size()));
+    refreshOverview();
+}
+
+void CourseDetailsPage::setStudents(const QVector<CourseStudentData> &students)
+{
+    m_students = students;
+    if (m_studentsList == nullptr) {
+        return;
+    }
+
+    m_studentsList->clear();
+    if (students.isEmpty()) {
+        appendCard(m_studentsList, "Учеников пока нет", "На этот курс ещё никто не записался.");
+    } else {
+        for (const CourseStudentData &student : students) {
+            appendCard(
+                m_studentsList,
+                student.login,
+                QString("Группа: %1  •  общий прогресс: %2%  •  уроки: %3%  •  тесты: %4%")
+                    .arg(student.groupName.isEmpty() ? "не указана" : student.groupName)
+                    .arg(student.progress)
+                    .arg(student.lessonProgress)
+                    .arg(student.testProgress));
+        }
+    }
     refreshOverview();
 }
 
@@ -546,11 +678,17 @@ void CourseDetailsPage::showLoadingState()
     m_materialsList->clear();
     m_videosList->clear();
     m_testsList->clear();
+    if (m_studentsList != nullptr) {
+        m_studentsList->clear();
+    }
 
     appendCard(m_lessonsList, "Загружаем уроки...", "Получаем содержимое курса.");
     appendCard(m_materialsList, "Загружаем материалы...", "Подбираем дополнительные ресурсы.");
     appendCard(m_videosList, "Загружаем видео...", "Проверяем, есть ли видеоматериалы.");
     appendCard(m_testsList, "Загружаем тесты...", "Получаем тесты курса.");
+    if (m_studentsList != nullptr) {
+        appendCard(m_studentsList, "Загружаем учеников...", "Получаем список участников курса.");
+    }
     m_lessonsSummaryLabel->setText("—");
     m_materialsSummaryLabel->setText("—");
     m_videosSummaryLabel->setText("—");
@@ -584,7 +722,7 @@ void CourseDetailsPage::refreshOverview()
 
     if (m_role == "Teacher") {
         m_overviewHintLabel->setText(
-            QString("Этот экран показывает учебную структуру %1 в student-view: уроки, материалы, видео и тесты.")
+            QString("Этот экран показывает учебную структуру %1 в режиме студента: уроки, материалы, видео и тесты.")
                 .arg(courseTitle));
     } else if (m_role == "Admin") {
         m_overviewHintLabel->setText(
@@ -633,7 +771,7 @@ void CourseDetailsPage::refreshOverview()
 
     if (m_role == "Teacher") {
         m_progressHintLabel->setText(
-            QString("Student-view этого курса уже показывает: %1 уроков, %2 материалов/видео и %3 тестов. Это помогает быстро понять, как курс выглядит глазами ученика.")
+            QString("Режим студента этого курса уже показывает: %1 уроков, %2 материалов/видео и %3 тестов. Это помогает быстро понять, как курс выглядит глазами ученика.")
                 .arg(m_lessons.size())
                 .arg(m_materials.size() + m_videos.size())
                 .arg(m_tests.size()));

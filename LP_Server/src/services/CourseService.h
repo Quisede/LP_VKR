@@ -40,6 +40,7 @@ public:
     std::vector<Course> getAllCourses();
     std::vector<Course> getCoursesForUser(int userId, UserRole role);
     std::optional<Course> getCourseById(int courseId);
+    bool isStudentEnrolled(int userId, int courseId);
     bool canManageCourse(int userId, UserRole role, int courseId);
     Course createCourse(int teacherId, const std::string& title, const std::string& description);
     Course updateCourse(int courseId, const std::string& title, const std::string& description);

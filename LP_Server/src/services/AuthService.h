@@ -18,7 +18,15 @@ public:
     
     AuthResult login(const std::string& login, const std::string& password); /* проверка логина и пароля (вход) */
     
-    AuthResult registerUser(const std::string& login, const std::string& password, UserRole role); /* регистрация нового пользователя */
+    AuthResult registerUser(
+        const std::string& login,
+        const std::string& password,
+        UserRole role,
+        const std::string& firstName = "",
+        const std::string& lastName = "",
+        const std::string& groupName = "",
+        const std::string& email = "",
+        const std::string& phone = ""); /* регистрация нового пользователя */
 
     std::optional<User> getProfile(int userId);
 
